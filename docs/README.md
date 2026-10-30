@@ -22,13 +22,3 @@ controls all of them.
 | [decisions/](decisions/README.md)  | Architecture Decision Records (ADRs)      |
 | [features/](features/README.md)    | Features, their status and behavior       |
 | [use-cases/](use-cases/README.md)  | What users want to achieve with crannog   |
-
-## Open questions
-
-- Command names for building and destroying a crannog (the user will define
-  these).
-- Sandbox technology: containers (Docker/Podman), gVisor, microVMs, ...?
-- Which coding agents are supported first?
-- Git connection: how do changes get from the sandbox to the host, and how does
-  the human review and accept them?
-- Network proxy: default deny with allowlist?

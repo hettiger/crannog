@@ -63,4 +63,5 @@ to repeat context across sessions. Start at `docs/README.md`.
 - Update the knowledge base in the same change as the related code.
 - Briefly tell the user which knowledge base files were added or changed.
 - Keep docs concise. Prefer updating an existing doc over creating a new one.
-- Open questions go to `docs/README.md` under "Open questions" until resolved.
+- Only document what has been decided or implemented. Do not record open
+  questions, options under evaluation, or speculative plans.
