@@ -5,6 +5,7 @@ someone wants to achieve with crannog, independent of how it is implemented.
 
 | Use case | Actor | Features |
 | -------- | ----- | -------- |
+| [Let a coding agent work autonomously](autonomous-agent.md) | User | – |
 
 <!--
 Use case file format:

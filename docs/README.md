@@ -5,9 +5,14 @@ made, and the features and use cases it covers.
 
 ## Overview
 
-crannog is a command line application written in Go, built with Cobra.
+crannog is a Go CLI that lets coding agents work autonomously inside sandboxes.
 
-<!-- TODO: describe purpose and target audience once defined. -->
+The name refers to the [crannog](https://en.wikipedia.org/wiki/Crannog), an
+artificial island dwelling built in lakes, reachable only via a narrow
+causeway. crannog builds such an island for an agent: an isolated place where it
+can work safely. The only ways in and out are a few controlled connections
+(git, optionally a network proxy, optionally volume mounts), and the human
+controls all of them.
 
 ## Contents
 
@@ -20,4 +25,10 @@ crannog is a command line application written in Go, built with Cobra.
 
 ## Open questions
 
-- What is the purpose of crannog, and who is it for?
+- Command names for building and destroying a crannog (the user will define
+  these).
+- Sandbox technology: containers (Docker/Podman), gVisor, microVMs, ...?
+- Which coding agents are supported first?
+- Git connection: how do changes get from the sandbox to the host, and how does
+  the human review and accept them?
+- Network proxy: default deny with allowlist?
