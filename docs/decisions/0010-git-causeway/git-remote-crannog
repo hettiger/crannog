@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# Minimal git remote helper: git-remote-crannog <remote> <crannog>
+# Remote URL: crannog::<crannog>. Uses the "connect" capability and pipes
+# git-upload-pack / git-receive-pack through `container exec`.
+#
+# bash's `read` consumes stdin byte by byte on pipes, so after the connect
+# line the remaining stdin goes untouched to `container exec`.
+
+crannog="$2"
+repo="/work/repo"
+
+if [ -n "${CRANNOG_SPIKE_LOG:-}" ]; then
+  echo "invoked GIT_PROTOCOL=${GIT_PROTOCOL:-}" >> "$CRANNOG_SPIKE_LOG"
+fi
+
+while IFS= read -r line; do
+  case "$line" in
+    capabilities)
+      printf 'connect\n\n'
+      ;;
+    "connect git-upload-pack" | "connect git-receive-pack")
+      printf '\n'
+      env_args=()
+      [ -n "${GIT_PROTOCOL:-}" ] && env_args=(--env "GIT_PROTOCOL=$GIT_PROTOCOL")
+      exec container exec -i --user agent "${env_args[@]}" "$crannog" "${line#connect }" "$repo"
+      ;;
+    "")
+      exit 0
+      ;;
+    *)
+      echo "git-remote-crannog: unsupported command: $line" >&2
+      exit 1
+      ;;
+  esac
+done

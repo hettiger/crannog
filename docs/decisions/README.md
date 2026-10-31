@@ -13,3 +13,4 @@ Architecture Decision Records. New ADRs use [template.md](template.md).
 | [0007](0007-iron-proxy-proxy-causeway.md) | iron-proxy as proxy causeway        | Accepted |
 | [0008](0008-agent-home.md)                | Agent logins in a shared agent home | Accepted |
 | [0009](0009-shared-package-caches.md)     | Shared package manager caches       | Accepted |
+| [0010](0010-git-causeway.md)              | Git causeway via a remote helper    | Accepted |

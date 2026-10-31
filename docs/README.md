@@ -20,7 +20,10 @@ requires macOS 26 or later on Apple Silicon
 through iron-proxy, which also injects credentials so they never enter the
 crannog ([ADR 0007](decisions/0007-iron-proxy-proxy-causeway.md)). Agents keep
 their logins in a shared agent home
-([ADR 0008](decisions/0008-agent-home.md)).
+([ADR 0008](decisions/0008-agent-home.md)). Code enters and leaves a crannog
+through plain git remotes, via a remote helper over `container exec`; crannog
+does not touch the user's SSH configuration
+([ADR 0010](decisions/0010-git-causeway.md)).
 
 ## Contents
 
