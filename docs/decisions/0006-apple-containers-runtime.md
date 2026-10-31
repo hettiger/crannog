@@ -30,7 +30,7 @@ crannog uses [Apple Containers](https://github.com/apple/container)
   attached to that network and to the default network and is the agent's only
   way out.
 
-A prototype confirmed: direct egress is blocked (by name and by IP, also for
+A [spike](0006-apple-containers-runtime/README.md) confirmed: direct egress is blocked (by name and by IP, also for
 root, which lacks `NET_ADMIN`), traffic via the proxy follows a domain
 allowlist that can change without restart, the agent cannot reach the LAN,
 and a warm start takes about a second.
