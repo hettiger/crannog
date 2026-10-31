@@ -12,3 +12,4 @@ Architecture Decision Records. New ADRs use [template.md](template.md).
 | [0006](0006-apple-containers-runtime.md)  | Apple Containers as sandbox runtime | Accepted |
 | [0007](0007-iron-proxy-proxy-causeway.md) | iron-proxy as proxy causeway        | Accepted |
 | [0008](0008-agent-home.md)                | Agent logins in a shared agent home | Accepted |
+| [0009](0009-shared-package-caches.md)     | Shared package manager caches       | Accepted |
