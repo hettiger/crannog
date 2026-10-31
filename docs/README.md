@@ -14,6 +14,10 @@ can work safely. The only ways in and out are a few controlled connections
 (git, optionally a network proxy, optionally volume mounts), and the human
 controls all of them.
 
+Each crannog runs in its own lightweight VM via Apple Containers, so crannog
+requires macOS 26 or later on Apple Silicon
+([ADR 0006](decisions/0006-apple-containers-runtime.md)).
+
 ## Contents
 
 | Path                               | Content                                   |
