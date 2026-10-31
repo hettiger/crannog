@@ -16,7 +16,11 @@ controls all of them.
 
 Each crannog runs in its own lightweight VM via Apple Containers, so crannog
 requires macOS 26 or later on Apple Silicon
-([ADR 0006](decisions/0006-apple-containers-runtime.md)).
+([ADR 0006](decisions/0006-apple-containers-runtime.md)). Network access goes
+through iron-proxy, which also injects credentials so they never enter the
+crannog ([ADR 0007](decisions/0007-iron-proxy-proxy-causeway.md)). Agents keep
+their logins in a shared agent home
+([ADR 0008](decisions/0008-agent-home.md)).
 
 ## Contents
 

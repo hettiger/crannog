@@ -23,6 +23,15 @@ records one significant decision, its context, and its consequences.
 
 The coding agent that works autonomously inside a crannog.
 
+## Agent home
+
+The directory `~/.crannog/agents/<agent>` on the host, shared by all crannogs.
+It holds what the agent otherwise keeps in the user's home: login, settings,
+history.
+
+- **Not to be confused with:** the user's own agent configuration (e.g.
+  `~/.claude` on the host), which crannog does not touch
+
 ## Causeway
 
 A connection between the host and a crannog, configured and controlled by the
