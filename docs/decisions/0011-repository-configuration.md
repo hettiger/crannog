@@ -1,6 +1,6 @@
 # 0011. Repository configuration in `.crannog/`
 
-- **Status:** Accepted, partially superseded by [0014](0014-one-crannog-per-start-branch.md) (crannog names: `CRANNOG_NAME`, `crannogs/<name>/`) and [0015](0015-presets.md) (default on setup, source of `.crannog/`)
+- **Status:** Accepted, partially superseded by [0014](0014-one-crannog-per-start-branch.md) (crannog names: `CRANNOG_NAME`, `crannogs/<name>/`), [0015](0015-presets.md) (default on setup, source of `.crannog/`) and [0019](0019-configuration-schema.md) (variables)
 - **Date:** 2026-11-01
 
 ## Context
