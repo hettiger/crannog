@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"os"
@@ -16,9 +16,8 @@ its surroundings. The only ways in and out are causeways you control:
 git, a network proxy and, optionally, volume mounts.`,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+// execute runs the root command and exits with 1 on errors.
+func execute() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

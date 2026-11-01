@@ -1,6 +1,6 @@
 # 0001. Go and Cobra for the CLI
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0027](0027-repository-layout.md) (layout, version path)
 - **Date:** 2026-10-30
 
 ## Context

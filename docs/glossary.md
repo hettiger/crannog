@@ -34,6 +34,14 @@ history.
 - **Not to be confused with:** the user's own agent configuration (e.g.
   `~/.claude` on the host), which crannog does not touch
 
+## Branch slug
+
+The identifier crannog derives from a start branch: the cleaned branch name
+and a hash of it. Used internally for runtime names, the remote and the host
+directory; users never type it.
+
+- **In code:** `BranchSlug`
+
 ## Causeway
 
 A connection between the host and a crannog, configured and controlled by the
@@ -95,8 +103,10 @@ its git worktrees count as one repository. Its configuration lives in
 
 ## Session
 
-An interactive process the user starts in a crannog, e.g. an agent or a
-shell. What it runs is configured in `.crannog/config.yml`.
+A process the user starts in a crannog with `crannog checkout`: usually an
+interactive agent, also a shell or a non-interactive command. A crannog runs
+while it has sessions. What a session runs by default is configured in
+`.crannog/config.yml`.
 
 - **Not to be confused with:** an agent's own sessions (conversations it
   stores, e.g. for resuming)

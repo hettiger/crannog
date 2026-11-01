@@ -1,6 +1,6 @@
 # 0021. Slugs with a branch hash
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0026](0026-empty-branch-slugs.md) (empty cleaned branch)
 - **Date:** 2026-11-01
 
 ## Context

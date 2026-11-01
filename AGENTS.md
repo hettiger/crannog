@@ -7,15 +7,18 @@ Module path: `github.com/hettiger/crannog`.
 
 All relevant commands are in the `Makefile`:
 
-- Build: `make build` (binaries in `dist/`, version from `git describe`)
+- Build: `make build` (macOS/arm64 binaries in `dist/`, version from
+  `git describe`)
 - Check: `make check` (`gofmt -l .` must report nothing, `go vet`, `go test`)
 - Format: `make fmt`
 - Third-party licenses: `make THIRD_PARTY_NOTICES`
 
 ## Layout
 
-- `main.go` – entrypoint, calls `cmd.Execute()`
-- `cmd/` – Cobra commands, one file per command, registered in `init()`
+- `crannog/` – the `crannog` binary (package `main`): entrypoint and Cobra
+  commands, one file per command, registered in `init()`
+- `git-remote-crannog/` – the git remote helper binary (package `main`)
+- `internal/` – packages shared by the binaries
 - `docs/` – project knowledge base (see below)
 
 ## Language

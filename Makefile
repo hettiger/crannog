@@ -1,12 +1,13 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -X github.com/hettiger/crannog/cmd.version=$(VERSION)
+LDFLAGS := -X main.version=$(VERSION)
 
 .PHONY: all build test vet fmt fmt-check check clean THIRD_PARTY_NOTICES
 
 all: check build
 
+# crannog runs on macOS on Apple Silicon only (ADR 0006).
 build:
-	go build -ldflags "$(LDFLAGS)" -o dist/ ./...
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/ ./...
 
 test:
 	go test ./...

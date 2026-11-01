@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// version is set at build time via -ldflags "-X github.com/hettiger/crannog/cmd.version=..."
+// version is set at build time via -ldflags "-X main.version=..."
 var version = "dev"
 
 var versionCmd = &cobra.Command{
