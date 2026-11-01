@@ -25,6 +25,16 @@ through plain git remotes, via a remote helper over `container exec`; crannog
 does not touch the user's SSH configuration
 ([ADR 0010](decisions/0010-git-causeway.md)).
 
+Each repository configures its crannogs in `.crannog/` (image, environment,
+mounts, proxy), and crannog only uses a version the user has approved
+([ADR 0011](decisions/0011-repository-configuration.md)). Crannogs have short
+names per repository, keep the repository on a `/work` volume and agent state
+on a `/state` volume
+([ADR 0012](decisions/0012-crannog-names-volumes-paths.md)). The default image
+ships Claude Code, Codex, OpenCode and Pi, which share their logins and
+settings across crannogs and can call each other
+([ADR 0013](decisions/0013-agents-default-image.md)).
+
 ## Contents
 
 | Path                               | Content                                   |

@@ -21,7 +21,9 @@ records one significant decision, its context, and its consequences.
 
 ## Agent
 
-The coding agent that works autonomously inside a crannog.
+A coding agent (e.g. Claude Code, Codex, OpenCode, Pi) that works
+autonomously inside a crannog. Several agents can be installed in one
+crannog and call each other.
 
 ## Agent home
 
@@ -58,6 +60,25 @@ An optional causeway that mounts a volume from the host into a crannog.
 ## Proxy causeway
 
 An optional causeway that gives a crannog controlled network access.
+
+## Repository
+
+The user's git repository on the host from which crannogs are built. All of
+its git worktrees count as one repository. Its configuration lives in
+`.crannog/`; crannog keeps its state about it in
+`~/.crannog/repositories/<id>/`.
+
+- **Not to be confused with:** the copy of the repository inside a crannog
+  (on the crannog's volume)
+- **In code:** `Repository`
+
+## Session
+
+An interactive process the user starts in a crannog, e.g. an agent or a
+shell. What it runs is configured in `.crannog/config.yml`.
+
+- **Not to be confused with:** an agent's own sessions (conversations it
+  stores, e.g. for resuming)
 
 ## User
 

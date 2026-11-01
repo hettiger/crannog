@@ -1,6 +1,6 @@
 # 0008. Agent logins in a shared agent home
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0013](0013-agents-default-image.md) (symlinks)
 - **Date:** 2026-10-31
 
 ## Context
