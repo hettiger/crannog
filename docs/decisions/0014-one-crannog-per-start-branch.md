@@ -1,6 +1,6 @@
 # 0014. One crannog per start branch
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0021](0021-slugs-with-branch-hash.md) (slug)
 - **Date:** 2026-11-01
 
 ## Context

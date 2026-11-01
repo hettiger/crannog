@@ -1,6 +1,6 @@
 # 0013. Agents in the default image
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0022](0022-default-image-packages-and-state.md) (default allowlist)
 - **Date:** 2026-11-01
 
 ## Context

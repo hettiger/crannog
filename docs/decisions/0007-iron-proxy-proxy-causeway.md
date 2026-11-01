@@ -1,6 +1,6 @@
 # 0007. iron-proxy as proxy causeway
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0020](0020-proxy-address.md) (proxy address)
 - **Date:** 2026-10-31
 
 ## Context

@@ -1,6 +1,6 @@
 # 0019. Configuration schema and content hash
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0020](0020-proxy-address.md) (value of `CRANNOG_PROXY_URL`)
 - **Date:** 2026-11-01
 
 ## Context
