@@ -13,7 +13,7 @@ var rootCmd = &cobra.Command{
 
 Like its namesake, an island dwelling in a lake, a crannog is isolated from
 its surroundings. The only ways in and out are causeways you control:
-git, and optionally a network proxy and volume mounts.`,
+git, a network proxy and, optionally, volume mounts.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

@@ -11,7 +11,7 @@ The name refers to the [crannog](https://en.wikipedia.org/wiki/Crannog), an
 artificial island dwelling built in lakes, reachable only via a narrow
 causeway. crannog builds such an island for an agent: an isolated place where it
 can work safely. The only ways in and out are a few controlled connections
-(git, optionally a network proxy, optionally volume mounts), and the human
+(git, a network proxy, optionally volume mounts), and the human
 controls all of them.
 
 Each crannog runs in its own lightweight VM via Apple Containers, so crannog

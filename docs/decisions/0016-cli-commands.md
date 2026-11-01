@@ -1,6 +1,6 @@
 # 0016. CLI commands
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0018](0018-rebuilds-with-running-sessions.md) (approval and warning on rebuild)
 - **Date:** 2026-11-01
 
 ## Context

@@ -13,7 +13,7 @@ without risking their host system, credentials, or other data.
 1. The user builds a crannog for a repository.
 2. The agent works inside the crannog without asking for permissions.
 3. The agent can reach the outside world only through causeways the user
-   allowed: the git causeway, optionally a proxy causeway, optionally mount
+   allowed: the git causeway, the proxy causeway and optionally mount
    causeways.
 4. The user receives the agent's results via the git causeway and decides what
    to keep.

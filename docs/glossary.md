@@ -42,6 +42,16 @@ causeway, proxy causeway, mount causeway.
 
 - **Not to be confused with:** bridge (not used as a term)
 
+## Confirmation
+
+A yes/no question crannog asks before an action whose consequences the user
+might not expect, e.g. destroying a crannog, replacing `.crannog/` or ending
+running sessions. It never decides which setup a crannog uses. `--yes`
+answers it with yes; without a terminal and without `--yes` it is an error.
+
+- **Not to be confused with:** setup approval
+- **In code:** `Confirmation`
+
 ## Crannog
 
 An isolated sandbox in which an agent works. Reachable only via causeways.
@@ -69,7 +79,8 @@ add their own in `~/.crannog/presets/<name>/`.
 
 ## Proxy causeway
 
-An optional causeway that gives a crannog controlled network access.
+The causeway through which a crannog reaches the network: a proxy that
+allows only listed domains and injects credentials. Every crannog has one.
 
 ## Repository
 
@@ -89,6 +100,25 @@ shell. What it runs is configured in `.crannog/config.yml`.
 
 - **Not to be confused with:** an agent's own sessions (conversations it
   stores, e.g. for resuming)
+
+## Setup approval
+
+The user's agreement to use a setup, i.e. a content of `.crannog/`, in
+crannogs, given after seeing a diff. Each content is approved once; crannog
+keeps approved copies in `approved/<sha256>/`. `--yes` never skips a setup
+approval. Short: approval.
+
+- **Not to be confused with:** confirmation; an agent's own approvals or
+  permission prompts
+- **In code:** `SetupApproval`
+
+## Start branch
+
+The branch of the user's repository a crannog is built from and identified
+by. A repository has at most one crannog per start branch. It is checked out
+in the crannog; the agent may create further branches there.
+
+- **In code:** `StartBranch`
 
 ## User
 
