@@ -19,7 +19,9 @@ All relevant commands are in the `Makefile`:
 - `crannog/cmd/` – Cobra commands (package `cmd`), one file per command,
   registered in `init()`
 - `git-remote-crannog/` – the git remote helper binary (package `main`)
-- `internal/` – packages shared by the binaries
+- `internal/` – packages shared by the binaries; the bundled presets are in
+  `internal/preset/bundled/`
+- `e2e/` – end-to-end smoke test, run on a Mac with Apple Containers
 - `docs/` – project knowledge base (see below)
 
 ## Language
