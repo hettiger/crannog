@@ -20,3 +20,4 @@ Architecture Decision Records. New ADRs use [template.md](template.md).
 | [0014](0014-one-crannog-per-start-branch.md) | One crannog per start branch            | Accepted                                     |
 | [0015](0015-presets.md)                      | Presets                                 | Accepted                                     |
 | [0016](0016-cli-commands.md)                 | CLI commands                            | Accepted                                     |
+| [0017](0017-go-dependencies.md)              | Go dependencies                         | Accepted                                     |

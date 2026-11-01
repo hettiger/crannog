@@ -5,10 +5,12 @@ Module path: `github.com/hettiger/crannog`.
 
 ## Commands
 
-- Build: `go build ./...`
-- Vet: `go vet ./...`
-- Format: `gofmt -l .` must report nothing
-- Test: `go test ./...`
+All relevant commands are in the `Makefile`:
+
+- Build: `make build` (binaries in `dist/`, version from `git describe`)
+- Check: `make check` (`gofmt -l .` must report nothing, `go vet`, `go test`)
+- Format: `make fmt`
+- Third-party licenses: `make THIRD_PARTY_NOTICES`
 
 ## Layout
 
