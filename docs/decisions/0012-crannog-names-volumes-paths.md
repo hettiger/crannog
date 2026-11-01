@@ -1,6 +1,6 @@
 # 0012. Crannog names, volumes and paths
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0014](0014-one-crannog-per-start-branch.md) (names, selection)
 - **Date:** 2026-11-01
 
 ## Context

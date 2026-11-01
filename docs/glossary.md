@@ -57,6 +57,16 @@ The causeway through which code enters a crannog and the agent's results
 
 An optional causeway that mounts a volume from the host into a crannog.
 
+## Preset
+
+A named template for a repository's `.crannog/` directory. crannog ships a
+`default` preset and uses it for repositories without `.crannog/`; users can
+add their own in `~/.crannog/presets/<name>/`.
+
+- **Not to be confused with:** a repository's own `.crannog/`, which may
+  start from a preset but is then versioned with the repository
+- **In code:** `Preset`
+
 ## Proxy causeway
 
 An optional causeway that gives a crannog controlled network access.

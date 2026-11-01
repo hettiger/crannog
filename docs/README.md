@@ -27,13 +27,19 @@ does not touch the user's SSH configuration
 
 Each repository configures its crannogs in `.crannog/` (image, environment,
 mounts, proxy), and crannog only uses a version the user has approved
-([ADR 0011](decisions/0011-repository-configuration.md)). Crannogs have short
-names per repository, keep the repository on a `/work` volume and agent state
-on a `/state` volume
-([ADR 0012](decisions/0012-crannog-names-volumes-paths.md)). The default image
-ships Claude Code, Codex, OpenCode and Pi, which share their logins and
+([ADR 0011](decisions/0011-repository-configuration.md)); without one, a
+preset is used ([ADR 0015](decisions/0015-presets.md)). Crannogs keep the
+repository on a `/work` volume and agent state on a `/state` volume
+([ADR 0012](decisions/0012-crannog-names-volumes-paths.md)). A repository has
+one crannog per start branch, which runs only while a session does
+([ADR 0014](decisions/0014-one-crannog-per-start-branch.md)). The default
+image ships Claude Code, Codex, OpenCode and Pi, which share their logins and
 settings across crannogs and can call each other
 ([ADR 0013](decisions/0013-agents-default-image.md)).
+
+Day to day, `crannog checkout [branch]` opens a session in the crannog of a
+branch, building or updating it as needed
+([ADR 0016](decisions/0016-cli-commands.md)).
 
 ## Contents
 

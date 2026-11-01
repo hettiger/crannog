@@ -1,6 +1,6 @@
 # 0011. Repository configuration in `.crannog/`
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0015](0015-presets.md) (default on setup, source of `.crannog/`)
 - **Date:** 2026-11-01
 
 ## Context

@@ -1,6 +1,6 @@
 # 0010. Git causeway via a remote helper over `container exec`
 
-- **Status:** Accepted, partially superseded by [0012](0012-crannog-names-volumes-paths.md) (remote naming)
+- **Status:** Accepted, partially superseded by [0012](0012-crannog-names-volumes-paths.md) (remote naming) and [0014](0014-one-crannog-per-start-branch.md) (remote lifetime)
 - **Date:** 2026-10-31
 
 ## Context
