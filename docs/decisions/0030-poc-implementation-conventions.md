@@ -5,7 +5,7 @@
 
 ## Context
 
-The PoC needs details that no earlier ADR fixes: formats of the content
+The PoC needs details that no earlier ADR fixes: formats of the setup
 hash and the repository id, how crannog talks to the proxy, how it finds a
 crannog's state, how it runs sessions and what it does with incomplete
 crannogs. They are implemented as described here and are open for review
@@ -15,7 +15,7 @@ with the PoC.
 
 - **Repository id:** sha256 in hex of the git common dir as
   `git rev-parse --path-format=absolute --git-common-dir` prints it.
-- **Content hash:** sha256 in hex over the files sorted by path; per file
+- **Setup hash:** sha256 in hex over the files sorted by path; per file
   `path NUL x|- NUL length NUL content`, where `x` marks the executable
   bit. Files of the bundled presets are never executable. A setup without
   `config.yml`, `iron-proxy.yaml` or `container/Dockerfile` is an error.

@@ -38,9 +38,9 @@ func (u *UI) Printf(format string, args ...any) {
 	fmt.Fprintf(u.Out, format, args...)
 }
 
-// Confirm asks a confirmation. --yes answers it; without a terminal and
-// without --yes it is an error.
-func (u *UI) Confirm(question string) error {
+// AskConfirmation asks a confirmation. --yes answers it; without a
+// terminal and without --yes it is an error.
+func (u *UI) AskConfirmation(question string) error {
 	if u.Yes {
 		return nil
 	}
@@ -57,9 +57,9 @@ func (u *UI) Confirm(question string) error {
 	return nil
 }
 
-// Approve asks for a setup approval. --yes never answers it; without a
-// terminal it is an error.
-func (u *UI) Approve(question string) error {
+// AskSetupApproval asks for a setup approval. --yes never answers it;
+// without a terminal it is an error.
+func (u *UI) AskSetupApproval(question string) error {
 	if !u.Interactive() {
 		return errors.New("the setup needs your approval; run crannog in a terminal (--yes does not approve setups)")
 	}

@@ -5,8 +5,8 @@
 # default preset and checks checkout, sessions, the git causeway, the proxy
 # causeway, apply (reload and rebuild), list, destroy and self-repair.
 #
-# Uses the real ~/.crannog: the instruction blocks land in your agent homes,
-# as with any crannog. The temporary repository's state in
+# Uses the real ~/.crannog: the managed instructions blocks land in your
+# agent homes, as with any crannog. The temporary repository's state in
 # ~/.crannog/repositories/ is removed afterwards; images are kept.
 #
 # Run it in a terminal: some steps ask for a setup approval (answer Yes).
@@ -131,10 +131,10 @@ check "source printed: preset default" ok grep -q 'Using .crannog/ from preset d
 check "no approval needed for the preset" fail grep -qi approv "$WORK/first.log"
 check "crannog stopped after the session" ok [ "$(status_of main)" = "stopped 0" ]
 check "no crannog remote while stopped" ok [ -z "$(remotes)" ]
-check "approved copy of the preset stored" ok test -s "$HOME/.crannog/repositories/$ID/approved/latest"
-check "instruction block in Claude's agent home" ok grep -q 'crannog:begin' "$HOME/.crannog/agents/claude/CLAUDE.md"
+check "approved setup of the preset stored" ok test -s "$HOME/.crannog/repositories/$ID/approved/latest"
+check "managed instructions block in Claude's agent home" ok grep -q 'crannog:begin' "$HOME/.crannog/agents/claude/CLAUDE.md"
 for f in codex/AGENTS.md opencode/AGENTS.md pi/AGENTS.md; do
-  check "instruction block in agents/$f" ok grep -q 'crannog:begin' "$HOME/.crannog/agents/$f"
+  check "managed instructions block in agents/$f" ok grep -q 'crannog:begin' "$HOME/.crannog/agents/$f"
 done
 
 # --- 2. Inside the crannog ----------------------------------------------------

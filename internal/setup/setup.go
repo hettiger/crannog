@@ -39,7 +39,7 @@ type File struct {
 // path relative to .crannog/.
 type Setup map[string]File
 
-// Hash returns the content hash: sha256 over the sorted paths, the
+// Hash returns the setup hash: sha256 over the sorted paths, the
 // executable bits and the contents, in hex.
 func (s Setup) Hash() string {
 	h := sha256.New()
@@ -67,7 +67,7 @@ func (s Setup) Container() Setup {
 }
 
 // ImageName returns the name of the image built from container/:
-// crannog-<first twelve characters of the content hash of container/>.
+// crannog-<first twelve characters of the hash of container/ alone>.
 func (s Setup) ImageName() string {
 	return "crannog-" + s.Container().Hash()[:12]
 }

@@ -173,7 +173,7 @@ func TestReviewPresetNeedsNoApproval(t *testing.T) {
 	assert.Equal(t, changeCreate, c)
 	assert.Empty(t, f.prompt.asked)
 	ok, _ := f.m.store().Has(hash)
-	assert.True(t, ok, "stored as an approved copy")
+	assert.True(t, ok, "stored as an approved setup")
 	latest, _ := f.m.store().Latest()
 	assert.Equal(t, hash, latest)
 }
@@ -189,7 +189,7 @@ func (f *fixture) existing(branch string, s setup.Setup) *target {
 	require.NoError(f.t, tg.dir.WriteHash(hash))
 	require.NoError(f.t, f.m.writeProxyConfig(tg, s))
 	f.rt.images[s.ImageName()] = true
-	_, cfg, err := f.m.loadCopy(tg, hash)
+	_, cfg, err := f.m.loadApproved(tg, hash)
 	require.NoError(f.t, err)
 	f.rt.images[cfg.Proxy.Image] = true
 	require.NoError(f.t, f.m.createContainers(tg, s, cfg))

@@ -89,7 +89,7 @@ func (m *Manager) sessionCommand(t *target, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, cfg, err := m.loadCopy(t, hash)
+	_, cfg, err := m.loadApproved(t, hash)
 	if err != nil {
 		return "", err
 	}

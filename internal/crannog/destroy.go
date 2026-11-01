@@ -74,7 +74,7 @@ func (m *Manager) Destroy(branchArg string) error {
 	if sessions > 0 {
 		m.UI.Printf("%s running in this crannog end.\n", plural(sessions, "session", "sessions"))
 	}
-	if err := m.UI.Confirm(fmt.Sprintf("Destroy the crannog of %s?", branch)); err != nil {
+	if err := m.UI.AskConfirmation(fmt.Sprintf("Destroy the crannog of %s?", branch)); err != nil {
 		// The check may have started the crannog.
 		if serr := m.stopIdle(t); serr != nil {
 			m.UI.Printf("Warning: %v\n", serr)

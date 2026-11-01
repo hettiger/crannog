@@ -29,9 +29,9 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestBlockIsMarked(t *testing.T) {
-	assert.True(t, strings.HasPrefix(Block, Begin+"\n"))
-	assert.True(t, strings.HasSuffix(Block, "\n"+End))
-	assert.Equal(t, 1, strings.Count(Block, Begin))
+	assert.True(t, strings.HasPrefix(ManagedBlock, Begin+"\n"))
+	assert.True(t, strings.HasSuffix(ManagedBlock, "\n"+End))
+	assert.Equal(t, 1, strings.Count(ManagedBlock, Begin))
 }
 
 func TestWrite(t *testing.T) {
@@ -43,7 +43,7 @@ func TestWrite(t *testing.T) {
 	for _, a := range Agents {
 		data, err := os.ReadFile(filepath.Join(dir, a.Name, a.File))
 		require.NoError(t, err, a.Name)
-		assert.Contains(t, string(data), Block, a.Name)
+		assert.Contains(t, string(data), ManagedBlock, a.Name)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "claude", "CLAUDE.md"))
 	require.NoError(t, err)

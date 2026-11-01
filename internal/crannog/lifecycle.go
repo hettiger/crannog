@@ -34,7 +34,7 @@ const (
 	managementKeyEnv = "IRON_MANAGEMENT_API_KEY"
 )
 
-// create builds a new crannog from an approved copy and starts it. On
+// create builds a new crannog from an approved setup and starts it. On
 // failure, it removes everything it created (the image stays).
 func (m *Manager) create(t *target, hash string) (err error) {
 	defer func() {
@@ -46,7 +46,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 		}
 	}()
 
-	copy, cfg, err := m.loadCopy(t, hash)
+	approved, cfg, err := m.loadApproved(t, hash)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 	if err := m.prepareHost(cfg); err != nil {
 		return err
 	}
-	if err := m.prepareImages(copy, hash, cfg); err != nil {
+	if err := m.prepareImages(approved, hash, cfg); err != nil {
 		return err
 	}
 
@@ -80,7 +80,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 	if err := os.WriteFile(filepath.Join(t.dir.CADir(), "ca.crt"), crt, 0o644); err != nil {
 		return err
 	}
-	if err := m.writeProxyConfig(t, copy); err != nil {
+	if err := m.writeProxyConfig(t, approved); err != nil {
 		return err
 	}
 
@@ -93,7 +93,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 			return err
 		}
 	}
-	if err := m.createContainers(t, copy, cfg); err != nil {
+	if err := m.createContainers(t, approved, cfg); err != nil {
 		return err
 	}
 	if err := m.start(t, status{}); err != nil {
@@ -122,7 +122,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 }
 
 // prepareHost creates the directories crannog provides on the host and
-// writes the managed instruction block (ADR 0013).
+// writes the managed instructions block (ADR 0013).
 func (m *Manager) prepareHost(cfg *config.Config) error {
 	if err := instructions.Write(m.Home.AgentsDir()); err != nil {
 		return err
@@ -138,10 +138,10 @@ func (m *Manager) prepareHost(cfg *config.Config) error {
 	return nil
 }
 
-// prepareImages builds the crannog's image from the approved copy if it is
+// prepareImages builds the crannog's image from the approved setup if it is
 // missing and pulls the proxy image.
-func (m *Manager) prepareImages(copy setup.Setup, hash string, cfg *config.Config) error {
-	image := copy.ImageName()
+func (m *Manager) prepareImages(approved setup.Setup, hash string, cfg *config.Config) error {
+	image := approved.ImageName()
 	ok, err := m.Runtime.ImageExists(image)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func (m *Manager) prepareImages(copy setup.Setup, hash string, cfg *config.Confi
 }
 
 // createContainers creates the proxy and the crannog, both stopped.
-func (m *Manager) createContainers(t *target, copy setup.Setup, cfg *config.Config) error {
+func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.Config) error {
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return err
@@ -194,7 +194,7 @@ func (m *Manager) createContainers(t *target, copy setup.Setup, cfg *config.Conf
 	}
 	return m.Runtime.Create(runtime.Spec{
 		Name:     t.names.Container,
-		Image:    copy.ImageName(),
+		Image:    approved.ImageName(),
 		CPUs:     cfg.Resources.CPUs,
 		Memory:   cfg.Resources.Memory,
 		Networks: []string{t.names.Network},
@@ -204,8 +204,8 @@ func (m *Manager) createContainers(t *target, copy setup.Setup, cfg *config.Conf
 }
 
 // writeProxyConfig gives the proxy its copy of iron-proxy.yaml.
-func (m *Manager) writeProxyConfig(t *target, copy setup.Setup) error {
-	return renameio.WriteFile(filepath.Join(t.dir.ProxyDir(), proxyConfigFile), copy[setup.ProxyFile].Data, 0o644)
+func (m *Manager) writeProxyConfig(t *target, approved setup.Setup) error {
+	return renameio.WriteFile(filepath.Join(t.dir.ProxyDir(), proxyConfigFile), approved[setup.ProxyFile].Data, 0o644)
 }
 
 // start starts the proxy and the crannog if they are not running, waits
@@ -299,19 +299,19 @@ func (m *Manager) stop(t *target) error {
 }
 
 // rebuild replaces the proxy and the crannog with containers from another
-// approved copy. Volumes, network, CA and the host directory stay. The new
+// approved setup. Volumes, network, CA and the host directory stay. The new
 // image is built first; a failing build leaves the old containers in place
 // (ADR 0025). With start, the crannog is started afterwards; otherwise it
 // stays stopped until the next session.
 func (m *Manager) rebuild(t *target, hash string, start bool) error {
-	copy, cfg, err := m.loadCopy(t, hash)
+	approved, cfg, err := m.loadApproved(t, hash)
 	if err != nil {
 		return err
 	}
 	if err := m.prepareHost(cfg); err != nil {
 		return err
 	}
-	if err := m.prepareImages(copy, hash, cfg); err != nil {
+	if err := m.prepareImages(approved, hash, cfg); err != nil {
 		return err
 	}
 	m.UI.Printf("Rebuilding the crannog of %s\n", t.branch)
@@ -334,10 +334,10 @@ func (m *Manager) rebuild(t *target, hash string, start bool) error {
 	if err := m.removeRemote(t.names); err != nil {
 		return err
 	}
-	if err := m.writeProxyConfig(t, copy); err != nil {
+	if err := m.writeProxyConfig(t, approved); err != nil {
 		return err
 	}
-	if err := m.createContainers(t, copy, cfg); err != nil {
+	if err := m.createContainers(t, approved, cfg); err != nil {
 		return err
 	}
 	if err := t.dir.WriteHash(hash); err != nil {
@@ -353,7 +353,7 @@ func (m *Manager) rebuild(t *target, hash string, start bool) error {
 // Running sessions continue. If the proxy rejects the file, the old one is
 // restored.
 func (m *Manager) reload(t *target, hash string) error {
-	copy, err := m.store().Get(hash)
+	approved, err := m.store().Get(hash)
 	if err != nil {
 		return err
 	}
@@ -362,7 +362,7 @@ func (m *Manager) reload(t *target, hash string) error {
 	if err != nil {
 		return err
 	}
-	if err := m.writeProxyConfig(t, copy); err != nil {
+	if err := m.writeProxyConfig(t, approved); err != nil {
 		return err
 	}
 	st, err := m.status(t.names)

@@ -34,7 +34,7 @@ func (d HostDir) CADir() string { return filepath.Join(d.Dir, "ca") }
 // Branch returns the start branch, or "" if it was not recorded.
 func (d HostDir) Branch() (string, error) { return readValue(d.branchFile()) }
 
-// Hash returns the hash of the approved copy the crannog uses, or "" if the
+// Hash returns the setup hash of the approved setup the crannog uses, or "" if the
 // crannog was never completely built.
 func (d HostDir) Hash() (string, error) { return readValue(d.hashFile()) }
 

@@ -46,7 +46,7 @@ func (h Home) CrannogDir(id, slug string) string {
 	return filepath.Join(h.CrannogsDir(id), slug)
 }
 
-// ApprovedDir holds the approved copies of a repository's .crannog/.
+// ApprovedDir holds a repository's approved setups.
 func (h Home) ApprovedDir(id string) string {
 	return filepath.Join(h.RepositoryDir(id), "approved")
 }

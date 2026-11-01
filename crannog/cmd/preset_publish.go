@@ -64,7 +64,7 @@ one. It asks before replacing an existing .crannog/.`,
 
 		target := filepath.Join(repo.Dir, setup.Dir)
 		if _, err := os.Lstat(target); err == nil {
-			if err := u.Confirm(fmt.Sprintf("Replace %s?", target)); err != nil {
+			if err := u.AskConfirmation(fmt.Sprintf("Replace %s?", target)); err != nil {
 				return err
 			}
 		} else if !errors.Is(err, fs.ErrNotExist) {

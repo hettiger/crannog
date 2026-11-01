@@ -68,7 +68,7 @@ func decide(c change, approved, fromPreset bool, sessions int, checkout bool) qu
 
 // review decides what the new setup means for the crannog and asks the
 // user if needed. current is the crannog's copy, nil for a new crannog. It
-// stores approved and preset setups as approved copies and returns the
+// stores approved and preset setups as approved setups and returns the
 // change and the hash of the setup to use.
 func (m *Manager) review(t *target, src *source, current setup.Setup, sessions int, checkout bool) (change, string, error) {
 	c := planChange(current, src.setup)
@@ -105,7 +105,7 @@ func (m *Manager) review(t *target, src *source, current setup.Setup, sessions i
 		if note != "" {
 			m.UI.Printf("%s\n", note)
 		}
-		if err := m.UI.Approve(fmt.Sprintf("Approve this setup for the crannog of %s?", t.branch)); err != nil {
+		if err := m.UI.AskSetupApproval(fmt.Sprintf("Approve this setup for the crannog of %s?", t.branch)); err != nil {
 			return 0, "", err
 		}
 		if _, err := store.Add(src.setup); err != nil {
@@ -121,14 +121,14 @@ func (m *Manager) review(t *target, src *source, current setup.Setup, sessions i
 			return 0, "", err
 		}
 		m.UI.Printf("%s\n", note)
-		if err := m.UI.Confirm(fmt.Sprintf("Rebuild the crannog of %s?", t.branch)); err != nil {
+		if err := m.UI.AskConfirmation(fmt.Sprintf("Rebuild the crannog of %s?", t.branch)); err != nil {
 			return 0, "", err
 		}
 
 	case askSecondSession:
 		if !m.UI.Yes && !m.UI.Interactive() {
 			m.UI.Printf("Warning: %s\n", note)
-		} else if err := m.UI.Confirm(note + " Start another one?"); err != nil {
+		} else if err := m.UI.AskConfirmation(note + " Start another one?"); err != nil {
 			return 0, "", err
 		}
 	}

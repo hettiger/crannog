@@ -14,13 +14,13 @@ import (
 // latestFile names the hash of the most recent setup approval.
 const latestFile = "latest"
 
-// Store holds the approved copies of a repository's setups in
+// Store holds a repository's approved setups in
 // approved/<sha256>/ (ADR 0011).
 type Store struct {
 	Dir string
 }
 
-// Path returns the directory of an approved copy.
+// Path returns the directory of an approved setup.
 func (st Store) Path(hash string) string { return filepath.Join(st.Dir, hash) }
 
 // Has reports whether the content with this hash was approved.
@@ -38,19 +38,19 @@ func (st Store) Has(hash string) (bool, error) {
 	return true, nil
 }
 
-// Get reads an approved copy and checks its hash.
+// Get reads an approved setup and checks its setup hash.
 func (st Store) Get(hash string) (Setup, error) {
 	s, err := ReadDir(st.Path(hash))
 	if err != nil {
 		return nil, err
 	}
 	if got := s.Hash(); got != hash {
-		return nil, fmt.Errorf("approved copy %s was changed (content hash %s)", st.Path(hash), got)
+		return nil, fmt.Errorf("approved setup %s was changed (setup hash %s)", st.Path(hash), got)
 	}
 	return s, nil
 }
 
-// Add stores a setup as an approved copy and returns its hash. Adding a
+// Add stores a setup as an approved setup and returns its hash. Adding a
 // content twice is harmless.
 func (st Store) Add(s Setup) (string, error) {
 	hash := s.Hash()

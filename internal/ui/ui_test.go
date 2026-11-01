@@ -28,33 +28,33 @@ func (f *Fake) Pick(title string, options []string) (string, error) {
 	return f.Choice, nil
 }
 
-func TestConfirm(t *testing.T) {
+func TestAskConfirmation(t *testing.T) {
 	f := &Fake{}
 	u := &UI{Prompter: f, Out: io.Discard}
-	assert.ErrorContains(t, u.Confirm("Destroy?"), "pass --yes")
+	assert.ErrorContains(t, u.AskConfirmation("Destroy?"), "pass --yes")
 
 	u.Yes = true
-	assert.NoError(t, u.Confirm("Destroy?"))
+	assert.NoError(t, u.AskConfirmation("Destroy?"))
 	assert.Empty(t, f.Asked, "--yes does not ask")
 
 	u.Yes = false
 	f.Terminal = true
-	assert.ErrorIs(t, u.Confirm("Destroy?"), ErrDeclined)
+	assert.ErrorIs(t, u.AskConfirmation("Destroy?"), ErrDeclined)
 	f.Answer = true
-	assert.NoError(t, u.Confirm("Destroy?"))
+	assert.NoError(t, u.AskConfirmation("Destroy?"))
 	assert.Len(t, f.Asked, 2)
 }
 
-func TestApprove(t *testing.T) {
+func TestAskSetupApproval(t *testing.T) {
 	f := &Fake{Answer: true}
 	u := &UI{Prompter: f, Out: io.Discard, Yes: true}
-	assert.ErrorContains(t, u.Approve("Approve?"), "--yes does not approve", "--yes never approves")
+	assert.ErrorContains(t, u.AskSetupApproval("Approve?"), "--yes does not approve", "--yes never approves")
 
 	f.Terminal = true
-	require.NoError(t, u.Approve("Approve?"))
+	require.NoError(t, u.AskSetupApproval("Approve?"))
 	assert.Equal(t, []string{"Approve?"}, f.Asked, "asked despite --yes")
 	f.Answer = false
-	assert.ErrorIs(t, u.Approve("Approve?"), ErrDeclined)
+	assert.ErrorIs(t, u.AskSetupApproval("Approve?"), ErrDeclined)
 }
 
 func TestPickOne(t *testing.T) {

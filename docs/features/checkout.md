@@ -51,5 +51,5 @@ confirmations, never setup approvals.
 8. When the session ends: if no other session runs, stops crannog and proxy
    and removes the remote. Exits with the session's exit code.
 
-The managed instruction block is written into each agent home on every
+The managed instructions block is written into each agent home on every
 build and rebuild.

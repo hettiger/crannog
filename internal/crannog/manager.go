@@ -109,8 +109,8 @@ func (m *Manager) vars(t *target) config.Vars {
 	}
 }
 
-// loadCopy reads an approved copy and its config.yml, interpolated.
-func (m *Manager) loadCopy(t *target, hash string) (setup.Setup, *config.Config, error) {
+// loadApproved reads an approved setup and its config.yml, interpolated.
+func (m *Manager) loadApproved(t *target, hash string) (setup.Setup, *config.Config, error) {
 	s, err := m.store().Get(hash)
 	if err != nil {
 		return nil, nil, err

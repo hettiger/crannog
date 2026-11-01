@@ -1,6 +1,6 @@
-// Package instructions keeps crannog's managed block in each agent's global
-// instruction file in the agent home (ADR 0013), and creates the agent
-// homes.
+// Package instructions keeps crannog's managed instructions block in each
+// agent's global instruction file in the agent home (ADR 0013), and creates
+// the agent homes.
 package instructions
 
 import (
@@ -14,7 +14,7 @@ import (
 	"github.com/google/renameio/v2"
 )
 
-// Markers of the managed block.
+// Markers of the managed instructions block.
 const (
 	Begin = "<!-- crannog:begin -->"
 	End   = "<!-- crannog:end -->"
@@ -36,8 +36,8 @@ var Agents = []Agent{
 	{Name: "pi", File: "AGENTS.md"},
 }
 
-// Block is the managed block, markers included.
-const Block = Begin + `
+// ManagedBlock is the managed instructions block, markers included.
+const ManagedBlock = Begin + `
 # crannog
 
 You are working inside a crannog: an isolated sandbox with its own Linux VM
@@ -74,8 +74,8 @@ replaces it on every build; edits to it have no lasting effect.
   them on the host.
 ` + End
 
-// Update returns content with the managed block replaced by block, or with
-// block appended if content has none.
+// Update returns content with the managed instructions block replaced by
+// block, or with block appended if content has none.
 func Update(content, block string) string {
 	start := strings.Index(content, Begin)
 	if start >= 0 {
@@ -110,8 +110,8 @@ func EnsureHomes(agentsDir string) error {
 	return nil
 }
 
-// Write updates the managed block in each agent's instruction file. It
-// writes atomically and never through a symlink.
+// Write updates the managed instructions block in each agent's instruction
+// file. It writes atomically and never through a symlink.
 func Write(agentsDir string) error {
 	if err := EnsureHomes(agentsDir); err != nil {
 		return err
@@ -132,7 +132,7 @@ func Write(agentsDir string) error {
 				return err
 			}
 		}
-		updated := Update(string(content), Block)
+		updated := Update(string(content), ManagedBlock)
 		if updated == string(content) {
 			continue
 		}
