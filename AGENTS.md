@@ -15,8 +15,9 @@ All relevant commands are in the `Makefile`:
 
 ## Layout
 
-- `crannog/` – the `crannog` binary (package `main`): entrypoint and Cobra
-  commands, one file per command, registered in `init()`
+- `crannog/` – the `crannog` binary (package `main`): entrypoint only
+- `crannog/cmd/` – Cobra commands (package `cmd`), one file per command,
+  registered in `init()`
 - `git-remote-crannog/` – the git remote helper binary (package `main`)
 - `internal/` – packages shared by the binaries
 - `docs/` – project knowledge base (see below)

@@ -1,6 +1,6 @@
 # 0027. Repository layout with one directory per binary
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by 0028
 - **Date:** 2026-11-01
 
 ## Context

@@ -30,4 +30,5 @@ Architecture Decision Records. New ADRs use [template.md](template.md).
 | [0024](0024-readiness-marker.md)                 | Readiness marker                                         | Accepted                                           |
 | [0025](0025-session-locks-and-lifecycle.md)      | Session locks and lifecycle details                      | Accepted                                           |
 | [0026](0026-empty-branch-slugs.md)               | Branch slugs of branches without ASCII letters or digits | Accepted                                           |
-| [0027](0027-repository-layout.md)                | Repository layout with one directory per binary          | Accepted                                           |
+| [0027](0027-repository-layout.md)                | Repository layout with one directory per binary          | Accepted, partially superseded by 0028             |
+| [0028](0028-cobra-commands-in-a-subpackage.md)   | Cobra commands in a subpackage                           | Accepted                                           |

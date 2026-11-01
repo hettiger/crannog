@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"os"
@@ -16,8 +16,8 @@ its surroundings. The only ways in and out are causeways you control:
 git, a network proxy and, optionally, volume mounts.`,
 }
 
-// execute runs the root command and exits with 1 on errors.
-func execute() {
+// Execute runs the root command and exits with 1 on errors.
+func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

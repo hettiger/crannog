@@ -1,5 +1,5 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -X main.version=$(VERSION)
+LDFLAGS := -X github.com/hettiger/crannog/crannog/cmd.version=$(VERSION)
 
 .PHONY: all build test vet fmt fmt-check check clean THIRD_PARTY_NOTICES
 
