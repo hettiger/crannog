@@ -32,3 +32,5 @@ Architecture Decision Records. New ADRs use [template.md](template.md).
 | [0026](0026-empty-branch-slugs.md)               | Branch slugs of branches without ASCII letters or digits | Accepted                                           |
 | [0027](0027-repository-layout.md)                | Repository layout with one directory per binary          | Accepted, partially superseded by 0028             |
 | [0028](0028-cobra-commands-in-a-subpackage.md)   | Cobra commands in a subpackage                           | Accepted                                           |
+| [0029](0029-poc-lifecycle-details.md)            | Lifecycle details of the PoC                             | Accepted                                           |
+| [0030](0030-poc-implementation-conventions.md)   | Implementation conventions of the PoC                    | Proposed                                           |

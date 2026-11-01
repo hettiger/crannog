@@ -1,7 +1,7 @@
 # Let a coding agent work autonomously
 
 - **Actor:** User
-- **Features:** –
+- **Features:** [checkout](../features/checkout.md), [apply](../features/apply.md), [destroy](../features/destroy.md), [list](../features/list.md), [preset publish](../features/preset-publish.md), [git-remote-crannog](../features/git-remote-crannog.md), [default preset](../features/default-preset.md)
 
 ## Goal
 
