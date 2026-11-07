@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/renameio/v2"
 
+	"github.com/hettiger/crannog/internal/hostfs"
 	"github.com/hettiger/crannog/internal/untrusted"
 )
 
@@ -97,15 +98,12 @@ func Update(content, block string) string {
 	return content + block + "\n"
 }
 
-// EnsureHomes creates the agents directory and one agent home per agent.
+// EnsureHomes creates one agent home per agent in the agents directory.
 // Symlinks are refused: a crannog can create symlinks in the agent home
 // that point to host paths (ADR 0008).
-func EnsureHomes(agentsDir string) error {
-	if err := ensureDir(agentsDir); err != nil {
-		return err
-	}
+func EnsureHomes(agents *os.Root) error {
 	for _, a := range Agents {
-		if err := ensureDir(filepath.Join(agentsDir, a.Name)); err != nil {
+		if err := hostfs.MkdirAll(agents, a.Name); err != nil {
 			return err
 		}
 	}
@@ -120,25 +118,20 @@ const maxFileSize = 1 << 20
 // file. It writes atomically and never through a symlink. Running crannogs
 // can change the agent homes concurrently, so every access is anchored in
 // an os.Root (ADR 0031).
-func Write(agentsDir string) error {
-	if err := EnsureHomes(agentsDir); err != nil {
+func Write(agents *os.Root) error {
+	if err := EnsureHomes(agents); err != nil {
 		return err
 	}
-	agents, err := os.OpenRoot(agentsDir)
-	if err != nil {
-		return err
-	}
-	defer agents.Close()
 	for _, a := range Agents {
 		if err := write(agents, a); err != nil {
-			return fmt.Errorf("%s: %w", filepath.Join(agentsDir, a.Name, a.File), err)
+			return fmt.Errorf("%s: %w", filepath.Join(agents.Name(), a.Name, a.File), err)
 		}
 	}
 	return nil
 }
 
 func write(agents *os.Root, a Agent) error {
-	home, err := agents.OpenRoot(a.Name)
+	home, err := hostfs.OpenDir(agents, a.Name, false)
 	if err != nil {
 		return err
 	}
@@ -164,20 +157,4 @@ func write(agents *os.Root, a Agent) error {
 	}
 	// renameio keeps the mode of an existing file.
 	return renameio.WriteFile(a.File, []byte(updated), 0o644, renameio.WithRoot(home))
-}
-
-// ensureDir creates dir if it is missing and checks that it is a directory
-// and not a symlink.
-func ensureDir(dir string) error {
-	info, err := os.Lstat(dir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return os.MkdirAll(dir, 0o755)
-	}
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", dir)
-	}
-	return nil
 }

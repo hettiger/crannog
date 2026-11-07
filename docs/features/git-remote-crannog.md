@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0012](../decisions/0012-crannog-names-volumes-paths.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0027](../decisions/0027-repository-layout.md)
+- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0012](../decisions/0012-crannog-names-volumes-paths.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0027](../decisions/0027-repository-layout.md), [0032](../decisions/0032-anchored-host-file-access.md)
 
 ## Summary
 
@@ -21,6 +21,7 @@ git push crannog-<slug> main
 
 ## Behavior
 
+- A URL whose slug is not a branch slug is an error.
 - Supports only the `connect` capability. On `connect git-upload-pack` or
   `connect git-receive-pack`, it replaces itself with
   `container exec -i --user agent <crannog> <service> /work/<host path>`,

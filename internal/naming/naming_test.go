@@ -38,4 +38,9 @@ func TestSlugFromURL(t *testing.T) {
 	assert.False(t, ok)
 	_, ok = SlugFromURL("git@github.com:x/y")
 	assert.False(t, ok)
+	// Slugs name directories; a remote URL must not lead elsewhere.
+	_, ok = SlugFromURL("crannog::../../x")
+	assert.False(t, ok)
+	_, ok = SlugFromURL("crannog::../../x-1a2b3c4d")
+	assert.False(t, ok)
 }

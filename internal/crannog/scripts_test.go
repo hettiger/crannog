@@ -1,7 +1,6 @@
 package crannog
 
 import (
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -41,6 +40,6 @@ func TestDirtyScript(t *testing.T) {
 	testgit.Git(t, dir, "worktree", "add", "-q", "-b", "agent", wt)
 	assert.Empty(t, runScript(t, dirtyScript, dir))
 
-	require.NoError(t, os.WriteFile(filepath.Join(wt, "new.txt"), nil, 0o644))
+	testgit.WriteFile(t, wt, "new.txt", "", 0o644)
 	assert.Equal(t, []string{wt}, strings.Split(strings.TrimSpace(runScript(t, dirtyScript, dir)), "\n"))
 }

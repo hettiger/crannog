@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0011](../decisions/0011-repository-configuration.md), [0013](../decisions/0013-agents-default-image.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0015](../decisions/0015-presets.md), [0016](../decisions/0016-cli-commands.md), [0018](../decisions/0018-rebuilds-with-running-sessions.md), [0019](../decisions/0019-configuration-schema.md), [0020](../decisions/0020-proxy-address.md), [0023](../decisions/0023-git-author-from-the-host.md), [0024](../decisions/0024-readiness-marker.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0030](../decisions/0030-poc-implementation-conventions.md), [0031](../decisions/0031-crannog-writable-paths.md)
+- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0011](../decisions/0011-repository-configuration.md), [0013](../decisions/0013-agents-default-image.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0015](../decisions/0015-presets.md), [0016](../decisions/0016-cli-commands.md), [0018](../decisions/0018-rebuilds-with-running-sessions.md), [0019](../decisions/0019-configuration-schema.md), [0020](../decisions/0020-proxy-address.md), [0023](../decisions/0023-git-author-from-the-host.md), [0024](../decisions/0024-readiness-marker.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0030](../decisions/0030-poc-implementation-conventions.md), [0031](../decisions/0031-crannog-writable-paths.md), [0032](../decisions/0032-anchored-host-file-access.md)
 
 ## Summary
 
@@ -57,4 +57,6 @@ confirmations, never setup approvals.
 The managed instructions block is written into each agent home on every
 build and rebuild. A symlinked agent home or instruction file and an
 instruction file larger than 1 MiB are errors. The proxy mounts its
-directory read-only.
+directory read-only. A symlinked directory in crannog's state in
+`~/.crannog` is an error, never followed. The approval diff is built in a
+temporary directory `crannog-diff-*` in `$TMPDIR`.

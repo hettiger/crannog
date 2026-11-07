@@ -55,6 +55,21 @@ func TestBranchSlugShape(t *testing.T) {
 		s := BranchSlug(b)
 		assert.LessOrEqual(t, len(s), 40, b)
 		assert.Regexp(t, valid, s, b)
+		assert.True(t, Valid(s), b)
 	}
 	assert.Regexp(t, `^1{30}-[0-9a-f]{8}$`, BranchSlug(strings.Repeat("1", 30)+"/xyz"))
+}
+
+func TestValid(t *testing.T) {
+	for _, s := range []string{"1a2b3c4d", "main-1a2b3c4d", "a-b-1a2b3c4d", BranchSlug(strings.Repeat("x", 100))} {
+		assert.True(t, Valid(s), s)
+	}
+	invalid := []string{
+		"", "main", "-1a2b3c4d", "main-1A2B3C4D", "main-1a2b3c4", "main--1a2b3c4d", "Main-1a2b3c4d",
+		"../1a2b3c4d", "a/b-1a2b3c4d", "../../x-1a2b3c4d", ".-1a2b3c4d",
+		strings.Repeat("x", 32) + "-1a2b3c4d",
+	}
+	for _, s := range invalid {
+		assert.False(t, Valid(s), s)
+	}
 }

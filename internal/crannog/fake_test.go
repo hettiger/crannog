@@ -3,7 +3,9 @@ package crannog
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/hettiger/crannog/internal/home"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/runtime"
+	"github.com/hettiger/crannog/internal/testfs"
 	"github.com/hettiger/crannog/internal/testgit"
 	"github.com/hettiger/crannog/internal/ui"
 )
@@ -154,8 +157,11 @@ func newFixture(t *testing.T) *fixture {
 		hostEnv: map[string]string{},
 	}
 	userHome := t.TempDir()
+	h, err := home.Open(filepath.Join(userHome, ".crannog"))
+	require.NoError(t, err)
+	t.Cleanup(func() { h.Close() })
 	f.m = &Manager{
-		Home:    home.Home{Dir: userHome + "/.crannog"},
+		Home:    h,
 		Repo:    repo,
 		Runtime: f.rt,
 		UI:      &ui.UI{Prompter: f.prompt, Out: f.out},
@@ -167,6 +173,9 @@ func newFixture(t *testing.T) *fixture {
 	}
 	return f
 }
+
+// userRoot is the user's home directory, outside ~/.crannog.
+func (f *fixture) userRoot() *os.Root { return testfs.Root(f.t, f.m.UserHome) }
 
 func (f *fixture) target(branch string) *target {
 	t, err := f.m.target(branch)

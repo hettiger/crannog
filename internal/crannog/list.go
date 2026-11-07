@@ -3,13 +3,12 @@ package crannog
 import (
 	"errors"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"sort"
 
+	"github.com/hettiger/crannog/internal/home"
 	"github.com/hettiger/crannog/internal/naming"
 	"github.com/hettiger/crannog/internal/runtime"
-	"github.com/hettiger/crannog/internal/session"
+	"github.com/hettiger/crannog/internal/slug"
 )
 
 // Info describes a crannog for crannog list.
@@ -37,19 +36,13 @@ func (m *Manager) List() ([]Info, error) {
 		byName[c.Name] = c
 	}
 
-	entries, err := os.ReadDir(m.Home.CrannogsDir(m.Repo.ID))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
+	slugs, err := m.hostDirSlugs()
 	if err != nil {
 		return nil, err
 	}
 	var list []Info
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		d := HostDir{Dir: filepath.Join(m.Home.CrannogsDir(m.Repo.ID), e.Name())}
+	for _, s := range slugs {
+		d := newHostDir(m.Home, m.Repo.ID, s)
 		branch, err := d.Branch()
 		if err != nil || branch == "" {
 			continue
@@ -58,7 +51,7 @@ func (m *Manager) List() ([]Info, error) {
 		if err != nil {
 			return nil, err
 		}
-		n := naming.New(m.Repo.ID8(), e.Name())
+		n := naming.New(m.Repo.ID8(), s)
 		info := Info{Branch: branch}
 		c, ok := byName[n.Container]
 		switch {
@@ -69,11 +62,36 @@ func (m *Manager) List() ([]Info, error) {
 		default:
 			info.Status = c.State
 		}
-		if info.Sessions, err = session.Count(d.SessionsDir(), false); err != nil {
+		if info.Sessions, err = d.sessions(false); err != nil {
 			return nil, err
 		}
 		list = append(list, info)
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].Branch < list[j].Branch })
 	return list, nil
+}
+
+// hostDirSlugs returns the branch slugs of the repository's crannog
+// directories. Entries that are no directory or not named like a branch
+// slug are not crannog directories.
+func (m *Manager) hostDirSlugs() ([]string, error) {
+	r, err := m.Home.OpenDir(home.CrannogsPath(m.Repo.ID), false)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	entries, err := fs.ReadDir(r.FS(), ".")
+	if err != nil {
+		return nil, err
+	}
+	var slugs []string
+	for _, e := range entries {
+		if e.IsDir() && slug.Valid(e.Name()) {
+			slugs = append(slugs, e.Name())
+		}
+	}
+	return slugs, nil
 }

@@ -2,9 +2,6 @@ package crannog
 
 import (
 	"errors"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/hettiger/crannog/internal/git"
@@ -41,28 +38,31 @@ func (m *Manager) selfRepair() error {
 	for s := range remotes {
 		slugs[s] = true
 	}
-	entries, err := os.ReadDir(m.Home.CrannogsDir(m.Repo.ID))
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	dirs, err := m.hostDirSlugs()
+	if err != nil {
 		return err
 	}
-	for _, e := range entries {
-		if e.IsDir() {
-			slugs[e.Name()] = true
-		}
+	for _, s := range dirs {
+		slugs[s] = true
 	}
 
 	var errs []error
 	for s := range slugs {
 		n := naming.New(m.Repo.ID8(), s)
-		d := HostDir{Dir: m.Home.CrannogDir(m.Repo.ID, s)}
-		if _, err := os.Stat(d.Dir); err != nil {
+		d := newHostDir(m.Home, m.Repo.ID, s)
+		ok, err := d.exists()
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if !ok {
 			// A remote without a crannog directory.
 			if remotes[s] && !running[n.Container] {
 				errs = append(errs, m.removeRemote(n))
 			}
 			continue
 		}
-		lock, err := session.TryLock(filepath.Join(d.Dir, "lock"))
+		lock, err := d.tryLock()
 		if errors.Is(err, session.ErrLocked) {
 			continue
 		}
@@ -78,7 +78,7 @@ func (m *Manager) selfRepair() error {
 
 // repairOne repairs one crannog. The caller holds its lock.
 func (m *Manager) repairOne(n naming.Names, d HostDir, running map[string]bool, hasRemote bool) error {
-	sessions, err := session.Count(d.SessionsDir(), true)
+	sessions, err := d.sessions(true)
 	if err != nil {
 		return err
 	}

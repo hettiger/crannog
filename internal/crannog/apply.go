@@ -2,8 +2,6 @@ package crannog
 
 import (
 	"fmt"
-
-	"github.com/hettiger/crannog/internal/session"
 )
 
 // Apply applies changes to .crannog/ to the crannog of a start branch
@@ -44,7 +42,7 @@ func (m *Manager) Apply(branchArg string) error {
 	if err != nil {
 		return err
 	}
-	sessions, err := session.Count(t.dir.SessionsDir(), true)
+	sessions, err := t.dir.sessions(true)
 	if err != nil {
 		return err
 	}

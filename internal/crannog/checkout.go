@@ -55,11 +55,11 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 		err = m.prepareSession(t)
 	}
 	var sess *session.Lock
-	var path string
+	var name string
 	if err == nil {
 		// The session file stays locked while the session runs, also by
 		// the container CLI if crannog is killed (ADR 0025).
-		sess, path, err = session.Register(t.dir.SessionsDir())
+		sess, name, err = t.dir.registerSession()
 	}
 	if err != nil {
 		if serr := m.stopIdle(t); serr != nil {
@@ -72,7 +72,7 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 	code, runErr := m.runSession(t, sess, command)
 
 	sess.Unlock()
-	_ = os.Remove(path)
+	_ = t.dir.removeSession(name)
 	if err := m.endSession(t); err != nil {
 		m.UI.Printf("Warning: %v\n", err)
 	}
@@ -133,7 +133,7 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 	if st.crannog == nil || st.proxy == nil {
 		return fmt.Errorf("the containers of the crannog of %s are missing; remove it with crannog destroy %s", t.branch, t.branch)
 	}
-	sessions, err := session.Count(t.dir.SessionsDir(), true)
+	sessions, err := t.dir.sessions(true)
 	if err != nil {
 		return err
 	}
@@ -154,10 +154,7 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 
 // lock takes the crannog's lock, waiting for other crannog processes.
 func (m *Manager) lock(t *target) (*session.Lock, error) {
-	if err := os.MkdirAll(t.dir.Dir, 0o755); err != nil {
-		return nil, err
-	}
-	return session.LockWait(t.dir.LockPath(), func() {
+	return t.dir.lock(func() {
 		m.UI.Printf("Waiting for another crannog command on the crannog of %s\n", t.branch)
 	})
 }
@@ -230,7 +227,7 @@ func (m *Manager) endSession(t *target) error {
 // stopIdle stops the crannog if no session runs. The caller holds the
 // lock.
 func (m *Manager) stopIdle(t *target) error {
-	n, err := session.Count(t.dir.SessionsDir(), true)
+	n, err := t.dir.sessions(true)
 	if err != nil {
 		return err
 	}

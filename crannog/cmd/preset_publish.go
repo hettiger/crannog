@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -41,7 +39,7 @@ one. It asks before replacing an existing .crannog/.`,
 
 		name := firstArg(args)
 		if name == "" {
-			list, err := preset.List(h.PresetsDir())
+			list, err := preset.List(h)
 			if err != nil {
 				return err
 			}
@@ -53,7 +51,7 @@ one. It asks before replacing an existing .crannog/.`,
 				return err
 			}
 		}
-		p, err := preset.Find(h.PresetsDir(), name)
+		p, err := preset.Find(h, name)
 		if err != nil {
 			return err
 		}
@@ -63,12 +61,14 @@ one. It asks before replacing an existing .crannog/.`,
 		}
 
 		target := filepath.Join(repo.Dir, setup.Dir)
-		if _, err := os.Lstat(target); err == nil {
+		present, err := setup.Present(repo.Dir)
+		if err != nil {
+			return err
+		}
+		if present {
 			if err := u.AskConfirmation(fmt.Sprintf("Replace %s?", target)); err != nil {
 				return err
 			}
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return err
 		}
 		if err := preset.Publish(s, repo.Dir); err != nil {
 			return err

@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/hettiger/crannog/internal/home"
+	"github.com/hettiger/crannog/internal/hostfs"
 	"github.com/hettiger/crannog/internal/setup"
 )
 
@@ -29,8 +29,10 @@ type Preset struct {
 	// ReplacesBundled is true for a user preset with the name of a bundled
 	// one, which it replaces completely.
 	ReplacesBundled bool
-	// Dir is the directory of a user preset.
+	// Dir is the absolute path of a user preset, for messages.
 	Dir string
+	// home is ~/.crannog, for reading a user preset.
+	home home.Home
 }
 
 // Source describes where the preset comes from, e.g. for crannog's
@@ -48,7 +50,7 @@ func (p Preset) Source() string {
 
 // List returns all presets, sorted by name. A user preset hides a bundled
 // one of the same name.
-func List(presetsDir string) ([]Preset, error) {
+func List(h home.Home) ([]Preset, error) {
 	byName := map[string]Preset{}
 	entries, err := fs.ReadDir(bundled, "bundled")
 	if err != nil {
@@ -60,8 +62,8 @@ func List(presetsDir string) ([]Preset, error) {
 		}
 	}
 
-	entries, err = os.ReadDir(presetsDir)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	entries, err = userPresets(h)
+	if err != nil {
 		return nil, err
 	}
 	for _, e := range entries {
@@ -74,7 +76,8 @@ func List(presetsDir string) ([]Preset, error) {
 			Name:            e.Name(),
 			User:            true,
 			ReplacesBundled: isBundled,
-			Dir:             filepath.Join(presetsDir, e.Name()),
+			Dir:             h.Abs(home.Presets + "/" + e.Name()),
+			home:            h,
 		}
 	}
 
@@ -86,9 +89,22 @@ func List(presetsDir string) ([]Preset, error) {
 	return list, nil
 }
 
+// userPresets lists ~/.crannog/presets/.
+func userPresets(h home.Home) ([]fs.DirEntry, error) {
+	r, err := h.OpenDir(home.Presets, false)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return fs.ReadDir(r.FS(), ".")
+}
+
 // Find returns the preset with the given name.
-func Find(presetsDir, name string) (Preset, error) {
-	list, err := List(presetsDir)
+func Find(h home.Home, name string) (Preset, error) {
+	list, err := List(h)
 	if err != nil {
 		return Preset{}, err
 	}
@@ -100,23 +116,28 @@ func Find(presetsDir, name string) (Preset, error) {
 	return Preset{}, fmt.Errorf("no preset named %q (see crannog preset list)", name)
 }
 
-// Publish writes a setup to .crannog/ in dir, replacing an existing one.
-// The new content is written next to it first, so a failure leaves the old
-// .crannog/ in place.
+// Publish writes a setup to .crannog/ in the worktree at dir, replacing an
+// existing one. The new content is written next to it first, so a failure
+// leaves the old .crannog/ in place. Only .crannog/ and its temporary
+// sibling are accessed in the worktree (ADR 0032).
 func Publish(s setup.Setup, dir string) error {
-	tmp, err := os.MkdirTemp(dir, setup.Dir+".tmp-")
+	wt, err := hostfs.OpenAnchor(dir, false)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmp)
-	if err := s.Write(filepath.Join(tmp, setup.Dir)); err != nil {
+	defer wt.Close()
+	tmp, err := hostfs.MkdirTemp(wt, setup.Dir+".tmp-")
+	if err != nil {
 		return err
 	}
-	target := filepath.Join(dir, setup.Dir)
-	if err := os.RemoveAll(target); err != nil {
+	defer wt.RemoveAll(tmp)
+	if err := s.Write(wt, tmp+"/"+setup.Dir); err != nil {
 		return err
 	}
-	return os.Rename(filepath.Join(tmp, setup.Dir), target)
+	if err := wt.RemoveAll(setup.Dir); err != nil {
+		return err
+	}
+	return wt.Rename(tmp+"/"+setup.Dir, setup.Dir)
 }
 
 // Load reads the content of a preset and checks that it is a complete
@@ -125,7 +146,7 @@ func (p Preset) Load() (setup.Setup, error) {
 	var s setup.Setup
 	var err error
 	if p.User {
-		s, err = setup.ReadDir(p.Dir)
+		s, err = setup.ReadDir(p.home.Root, home.Presets+"/"+p.Name)
 	} else {
 		var sub fs.FS
 		sub, err = fs.Sub(bundled, "bundled/"+p.Name)

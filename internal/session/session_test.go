@@ -3,39 +3,41 @@ package session
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hettiger/crannog/internal/testfs"
 )
 
 func TestTryLock(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "lock")
-	l, err := TryLock(path)
+	dir, _ := testfs.TempRoot(t)
+	l, err := TryLock(dir, "lock")
 	require.NoError(t, err)
 
 	// flock locks belong to the open file, so a second open in the same
 	// process conflicts like another process would.
-	_, err = TryLock(path)
+	_, err = TryLock(dir, "lock")
 	assert.ErrorIs(t, err, ErrLocked)
 
 	require.NoError(t, l.Unlock())
-	l2, err := TryLock(path)
+	l2, err := TryLock(dir, "lock")
 	require.NoError(t, err)
 	require.NoError(t, l2.Unlock())
 	assert.NoError(t, (*Lock)(nil).Unlock())
 }
 
 func TestLockWait(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "lock")
-	l, err := TryLock(path)
+	dir, _ := testfs.TempRoot(t)
+	l, err := TryLock(dir, "lock")
 	require.NoError(t, err)
 
 	done := make(chan *Lock)
 	waited := make(chan bool, 1)
 	go func() {
-		l2, err := LockWait(path, func() { waited <- true })
+		l2, err := LockWait(dir, "lock", func() { waited <- true })
 		assert.NoError(t, err)
 		done <- l2
 	}()
@@ -46,39 +48,46 @@ func TestLockWait(t *testing.T) {
 }
 
 func TestLockRefusesSymlinks(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "target")
-	require.NoError(t, os.WriteFile(target, nil, 0o644))
-	require.NoError(t, os.Symlink(target, filepath.Join(dir, "lock")))
-	_, err := TryLock(filepath.Join(dir, "lock"))
+	dir, _ := testfs.TempRoot(t)
+	testfs.WriteFile(t, dir, "target", "", 0o644)
+	require.NoError(t, dir.Symlink("target", "lock"))
+	_, err := TryLock(dir, "lock")
+	assert.ErrorContains(t, err, "not a regular file")
+	require.NoError(t, dir.Mkdir("dir", 0o755))
+	_, err = TryLock(dir, "dir")
 	assert.Error(t, err)
 }
 
 func TestRegisterAndCount(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "sessions")
+	dir, _ := testfs.TempRoot(t)
 
 	n, err := Count(dir, true)
 	require.NoError(t, err)
-	assert.Equal(t, 0, n, "missing dir")
+	assert.Equal(t, 0, n, "empty dir")
 
-	l, path, err := Register(dir)
+	l, name, err := Register(dir)
 	require.NoError(t, err)
-	assert.FileExists(t, path)
+	assert.Equal(t, strconv.Itoa(os.Getpid()), name)
+	assert.True(t, testfs.Exists(t, dir, name))
 
 	// A session that ended without cleaning up.
-	stale := filepath.Join(dir, "99999999")
-	require.NoError(t, os.WriteFile(stale, nil, 0o644))
+	testfs.WriteFile(t, dir, "99999999", "", 0o644)
+	// Files not named like a process id are no session files.
+	testfs.WriteFile(t, dir, "notes.txt", "", 0o644)
+	testfs.WriteFile(t, dir, "0123", "", 0o644)
 
 	n, err = Count(dir, false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, n)
-	assert.FileExists(t, stale, "kept without prune")
+	assert.True(t, testfs.Exists(t, dir, "99999999"), "kept without prune")
 
 	n, err = Count(dir, true)
 	require.NoError(t, err)
 	assert.Equal(t, 1, n)
-	assert.NoFileExists(t, stale, "pruned")
-	assert.FileExists(t, path, "running session kept")
+	assert.False(t, testfs.Exists(t, dir, "99999999"), "pruned")
+	assert.True(t, testfs.Exists(t, dir, name), "running session kept")
+	assert.True(t, testfs.Exists(t, dir, "notes.txt"), "no session file, kept")
+	assert.True(t, testfs.Exists(t, dir, "0123"), "no session file, kept")
 
 	require.NoError(t, l.Unlock())
 	n, err = Count(dir, true)
@@ -89,7 +98,7 @@ func TestRegisterAndCount(t *testing.T) {
 // A child process that inherits the session file keeps the session
 // running after the parent released its descriptor (ADR 0025).
 func TestChildKeepsTheSession(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "sessions")
+	dir, _ := testfs.TempRoot(t)
 	l, _, err := Register(dir)
 	require.NoError(t, err)
 

@@ -8,16 +8,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/hettiger/crannog/internal/git"
+	"github.com/hettiger/crannog/internal/hostfs"
+	"github.com/hettiger/crannog/internal/untrusted"
 )
 
 // Dir is the name of the setup directory in a repository.
@@ -150,9 +152,10 @@ func (s Setup) paths() []string {
 	return ps
 }
 
-// Write writes the setup into dir, which must not exist yet.
-func (s Setup) Write(dir string) error {
-	if err := os.Mkdir(dir, 0o755); err != nil {
+// Write writes the setup into the directory dir within root, which must not
+// exist yet. dir is slash-separated.
+func (s Setup) Write(root *os.Root, dir string) error {
+	if err := root.Mkdir(dir, 0o755); err != nil {
 		return err
 	}
 	for _, p := range s.paths() {
@@ -160,55 +163,53 @@ func (s Setup) Write(dir string) error {
 		if !validPath(p) {
 			return fmt.Errorf("invalid path in setup: %q", p)
 		}
-		target := filepath.Join(dir, filepath.FromSlash(p))
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		target := path.Join(dir, p)
+		if err := root.MkdirAll(path.Dir(target), 0o755); err != nil {
 			return err
 		}
 		mode := os.FileMode(0o644)
 		if f.Executable {
 			mode = 0o755
 		}
-		if err := os.WriteFile(target, f.Data, mode); err != nil {
+		if err := root.WriteFile(target, f.Data, mode); err != nil {
 			return err
 		}
-		if err := os.Chmod(target, mode); err != nil {
+		if err := root.Chmod(target, mode); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// ReadDir reads a setup from a directory on the host, e.g. an approved
-// copy or a user preset. Symlinks are an error.
-func ReadDir(dir string) (Setup, error) {
+// ReadDir reads a setup from the directory dir within root, e.g. an
+// approved copy or a user preset. dir is slash-separated. Symlinks are an
+// error.
+func ReadDir(root *os.Root, dir string) (Setup, error) {
+	r, err := hostfs.OpenDir(root, dir, false)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
 	s := Setup{}
-	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if p == dir {
-			if d.Type()&fs.ModeSymlink != 0 {
-				return fmt.Errorf("%s is a symlink", p)
-			}
-			return nil
-		}
-		rel, err := filepath.Rel(dir, p)
+	err = fs.WalkDir(r.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		switch {
+		case p == ".":
+			return nil
 		case d.Type()&fs.ModeSymlink != 0:
-			return fmt.Errorf("%s is a symlink", p)
+			return fmt.Errorf("%s/%s is a symlink", dir, p)
 		case d.IsDir():
 			return nil
 		case !d.Type().IsRegular():
-			return fmt.Errorf("%s is not a regular file", p)
+			return fmt.Errorf("%s/%s is not a regular file", dir, p)
 		}
-		f, err := readFile(p)
+		f, err := readFile(r, p)
 		if err != nil {
 			return err
 		}
-		s[filepath.ToSlash(rel)] = f
+		s[p] = f
 		return nil
 	})
 	return s, err
@@ -236,19 +237,45 @@ func ReadFS(fsys fs.FS) (Setup, error) {
 	return s, err
 }
 
-func readFile(p string) (File, error) {
-	info, err := os.Lstat(p)
+// readFile reads the regular file name within root.
+func readFile(root *os.Root, name string) (File, error) {
+	f, info, err := untrusted.Open(root, name)
 	if err != nil {
 		return File{}, err
 	}
-	if !info.Mode().IsRegular() {
-		return File{}, fmt.Errorf("%s is not a regular file", p)
-	}
-	data, err := os.ReadFile(p)
+	defer f.Close()
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return File{}, err
 	}
 	return File{Data: data, Executable: info.Mode()&0o100 != 0}, nil
+}
+
+// OpenWorktree opens .crannog/ in the worktree at dir as a root. Only
+// .crannog/ and its siblings named .crannog.tmp-* are accessed through
+// the worktree's root (ADR 0032).
+func OpenWorktree(dir string) (*os.Root, error) {
+	wt, err := hostfs.OpenAnchor(dir, false)
+	if err != nil {
+		return nil, err
+	}
+	defer wt.Close()
+	return hostfs.OpenDir(wt, Dir, false)
+}
+
+// Present reports whether the worktree at dir has a .crannog/ (or a file
+// of that name).
+func Present(dir string) (bool, error) {
+	wt, err := hostfs.OpenAnchor(dir, false)
+	if err != nil {
+		return false, err
+	}
+	defer wt.Close()
+	_, err = wt.Lstat(Dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // ReadWorktree reads .crannog/ from the working tree of the worktree at
@@ -261,6 +288,7 @@ func ReadWorktree(dir string) (Setup, error) {
 		return nil, err
 	}
 	s := Setup{}
+	var root *os.Root
 	seen := map[string]bool{}
 	for _, name := range strings.Split(string(out), "\x00") {
 		if name == "" || seen[name] {
@@ -271,8 +299,13 @@ func ReadWorktree(dir string) (Setup, error) {
 		if !ok {
 			continue
 		}
-		p := filepath.Join(dir, filepath.FromSlash(name))
-		info, err := os.Lstat(p)
+		if root == nil {
+			if root, err = OpenWorktree(dir); err != nil {
+				return nil, err
+			}
+			defer root.Close()
+		}
+		info, err := root.Lstat(rel)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
@@ -285,7 +318,7 @@ func ReadWorktree(dir string) (Setup, error) {
 		if info.IsDir() {
 			return nil, fmt.Errorf("%s is a directory, e.g. a nested repository", name)
 		}
-		f, err := readFile(p)
+		f, err := readFile(root, rel)
 		if err != nil {
 			return nil, err
 		}

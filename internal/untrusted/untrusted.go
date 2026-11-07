@@ -1,7 +1,8 @@
 // Package untrusted opens files in directories that a crannog or a proxy
-// can write to (ADR 0031). Callers anchor every access in an os.Root, so
-// symlinks never lead out of the directory, even if the guest replaces
-// paths concurrently.
+// can write to (ADR 0031), and other files crannog reads but does not
+// write, such as a worktree's .crannog/. Callers anchor every access in an
+// os.Root, so symlinks never lead out of the directory, even if the guest
+// replaces paths concurrently.
 package untrusted
 
 import (

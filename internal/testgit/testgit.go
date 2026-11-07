@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hettiger/crannog/internal/testfs"
 )
 
 // Isolate makes git ignore the user's and the system's configuration for
@@ -51,14 +53,5 @@ func Git(t *testing.T, dir string, args ...string) string {
 // WriteFile writes a file below dir, creating parent directories.
 func WriteFile(t *testing.T, dir, name, content string, mode os.FileMode) {
 	t.Helper()
-	p := filepath.Join(dir, name)
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(p, []byte(content), mode); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(p, mode); err != nil {
-		t.Fatal(err)
-	}
+	testfs.WriteFile(t, testfs.Root(t, dir), filepath.ToSlash(name), content, mode)
 }

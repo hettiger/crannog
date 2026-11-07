@@ -16,6 +16,7 @@ import (
 	"github.com/hettiger/crannog/internal/naming"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/runtime"
+	"github.com/hettiger/crannog/internal/slug"
 )
 
 func main() {
@@ -30,9 +31,12 @@ func run() error {
 	if len(os.Args) != 3 || os.Args[2] == "" {
 		return errors.New("usage: git-remote-crannog <remote> <slug> (run by git for crannog::<slug> URLs)")
 	}
-	slug := os.Args[2]
+	s := os.Args[2]
+	if !slug.Valid(s) {
+		return fmt.Errorf("invalid crannog URL crannog::%s", s)
+	}
 	return serve(os.Stdin, os.Stdout, func(service string) error {
-		return connect(slug, service)
+		return connect(s, service)
 	})
 }
 
@@ -87,7 +91,7 @@ func readLine(r io.Reader) (string, error) {
 
 // connect checks that the crannog runs, confirms the connection to git and
 // replaces this process with the service in the crannog.
-func connect(slug, service string) error {
+func connect(branchSlug, service string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -96,7 +100,7 @@ func connect(slug, service string) error {
 	if err != nil {
 		return err
 	}
-	n := naming.New(repo.ID8(), slug)
+	n := naming.New(repo.ID8(), branchSlug)
 	list, err := runtime.CLI{}.List(n.Container)
 	if err != nil {
 		return err
@@ -108,7 +112,7 @@ func connect(slug, service string) error {
 		}
 	}
 	if !running {
-		return fmt.Errorf("the crannog %s is not running; it runs while a session does (crannog checkout)", slug)
+		return fmt.Errorf("the crannog %s is not running; it runs while a session does (crannog checkout)", branchSlug)
 	}
 
 	o := runtime.ExecOptions{User: "agent", Interactive: true}

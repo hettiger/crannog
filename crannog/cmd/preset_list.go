@@ -17,7 +17,7 @@ var presetListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		list, err := preset.List(h.PresetsDir())
+		list, err := preset.List(h)
 		if err != nil {
 			return err
 		}

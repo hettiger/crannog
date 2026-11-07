@@ -2,7 +2,11 @@
 // of a crannog (ADR 0012, ADR 0014, ADR 0021).
 package naming
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/hettiger/crannog/internal/slug"
+)
 
 // URLPrefix is the prefix of a crannog remote's URL.
 const URLPrefix = "crannog::"
@@ -38,8 +42,9 @@ func New(id8, slug string) Names {
 	}
 }
 
-// SlugFromURL returns the branch slug of a crannog remote URL.
+// SlugFromURL returns the branch slug of a crannog remote URL. A URL whose
+// slug is not a valid branch slug is not a crannog remote URL.
 func SlugFromURL(url string) (string, bool) {
-	slug, ok := strings.CutPrefix(url, URLPrefix)
-	return slug, ok && slug != ""
+	s, ok := strings.CutPrefix(url, URLPrefix)
+	return s, ok && slug.Valid(s)
 }

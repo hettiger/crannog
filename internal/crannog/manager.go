@@ -79,7 +79,7 @@ func (m *Manager) target(branch string) (*target, error) {
 	t := &target{
 		branch: branch,
 		names:  naming.New(m.Repo.ID8(), s),
-		dir:    HostDir{Dir: m.Home.CrannogDir(m.Repo.ID, s)},
+		dir:    newHostDir(m.Home, m.Repo.ID, s),
 	}
 	recorded, err := t.dir.Branch()
 	if err != nil {
@@ -92,15 +92,15 @@ func (m *Manager) target(branch string) (*target, error) {
 }
 
 func (m *Manager) store() setup.Store {
-	return setup.Store{Dir: m.Home.ApprovedDir(m.Repo.ID)}
+	return setup.Store{Root: m.Home.Root, Dir: home.ApprovedPath(m.Repo.ID)}
 }
 
 // vars returns the variables for interpolating the crannog's config.yml.
 func (m *Manager) vars(t *target) config.Vars {
 	return config.Vars{
 		Crannog: map[string]string{
-			config.AgentsDir: m.Home.AgentsDir(),
-			config.CacheDir:  m.Home.CacheDir(),
+			config.AgentsDir: m.Home.Abs(home.Agents),
+			config.CacheDir:  m.Home.Abs(home.Cache),
 			config.CADir:     t.dir.CADir(),
 			config.RepoDir:   m.Repo.PathInCrannog(),
 			config.ProxyURL:  config.ProxyURLValue,

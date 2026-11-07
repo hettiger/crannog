@@ -1,19 +1,19 @@
 package repository
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hettiger/crannog/internal/testfs"
 	"github.com/hettiger/crannog/internal/testgit"
 )
 
 func TestOpen(t *testing.T) {
 	dir := testgit.Init(t)
-	require.NoError(t, os.Mkdir(filepath.Join(dir, "sub"), 0o755))
+	require.NoError(t, testfs.Root(t, dir).Mkdir("sub", 0o755))
 
 	r, err := Open(filepath.Join(dir, "sub"))
 	require.NoError(t, err)

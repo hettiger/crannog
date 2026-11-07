@@ -1,7 +1,6 @@
 package crannog
 
 import (
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -10,16 +9,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hettiger/crannog/internal/home"
 	"github.com/hettiger/crannog/internal/preset"
 	"github.com/hettiger/crannog/internal/runtime"
-	"github.com/hettiger/crannog/internal/session"
 	"github.com/hettiger/crannog/internal/setup"
+	"github.com/hettiger/crannog/internal/testfs"
 	"github.com/hettiger/crannog/internal/testgit"
 	"github.com/hettiger/crannog/internal/ui"
 )
 
 func defaultSetup(t *testing.T) setup.Setup {
-	p, err := preset.Find(t.TempDir(), preset.Default)
+	h, err := home.Open(filepath.Join(t.TempDir(), ".crannog"))
+	require.NoError(t, err)
+	defer h.Close()
+	p, err := preset.Find(h, preset.Default)
 	require.NoError(t, err)
 	s, err := p.Load()
 	require.NoError(t, err)
@@ -75,8 +78,9 @@ func TestDecide(t *testing.T) {
 }
 
 func writeSetup(t *testing.T, dir string, s setup.Setup) {
-	require.NoError(t, os.RemoveAll(filepath.Join(dir, setup.Dir)))
-	require.NoError(t, s.Write(filepath.Join(dir, setup.Dir)))
+	wt := testfs.Root(t, dir)
+	require.NoError(t, wt.RemoveAll(setup.Dir))
+	require.NoError(t, s.Write(wt, setup.Dir))
 }
 
 func TestReadSource(t *testing.T) {
@@ -188,8 +192,7 @@ func (f *fixture) existing(branch string, s setup.Setup) *target {
 	tg := f.target(branch)
 	hash, err := f.m.store().Add(s)
 	require.NoError(f.t, err)
-	require.NoError(f.t, os.MkdirAll(tg.dir.ProxyDir(), 0o755))
-	require.NoError(f.t, os.MkdirAll(tg.dir.CADir(), 0o755))
+	require.NoError(f.t, tg.dir.mkdirs(proxyDir, caDir))
 	require.NoError(f.t, tg.dir.WriteBranch(branch))
 	require.NoError(f.t, tg.dir.WriteHash(hash))
 	require.NoError(f.t, f.m.writeProxyConfig(tg, s))
@@ -224,7 +227,7 @@ func TestApplyReloadsTheProxy(t *testing.T) {
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
 
 	// A running session.
-	sess, _, err := session.Register(tg.dir.SessionsDir())
+	sess, _, err := tg.dir.registerSession()
 	require.NoError(t, err)
 	defer sess.Unlock()
 
@@ -234,7 +237,7 @@ func TestApplyReloadsTheProxy(t *testing.T) {
 	require.NoError(t, f.m.Apply(""))
 
 	assert.Equal(t, []string{"exec " + tg.names.Proxy + " sh"}, f.rt.calls, "reload, no rebuild")
-	data, err := os.ReadFile(filepath.Join(tg.dir.ProxyDir(), proxyConfigFile))
+	data, err := readProxyFile(tg)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "# changed")
 	hash, _ := tg.dir.Hash()
@@ -248,7 +251,7 @@ func TestApplyRebuildsAndLeavesTheCrannogStopped(t *testing.T) {
 	tg := f.existing("main", s)
 	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
-	sess, _, err := session.Register(tg.dir.SessionsDir())
+	sess, _, err := tg.dir.registerSession()
 	require.NoError(t, err)
 	defer sess.Unlock()
 
@@ -284,7 +287,7 @@ func TestSelfRepair(t *testing.T) {
 		f.rt.containers[tg.names.Container].State = runtime.StateRunning
 		require.NoError(t, f.m.addRemote(tg.names))
 	}
-	sess, _, err := session.Register(busy.dir.SessionsDir())
+	sess, _, err := busy.dir.registerSession()
 	require.NoError(t, err)
 	defer sess.Unlock()
 
@@ -306,7 +309,7 @@ func TestSelfRepairSkipsLockedCrannogs(t *testing.T) {
 	f := newFixture(t)
 	tg := f.existing("main", defaultSetup(t))
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
-	lock, err := session.TryLock(tg.dir.LockPath())
+	lock, err := tg.dir.tryLock()
 	require.NoError(t, err)
 	defer lock.Unlock()
 	f.m.SelfRepair()
@@ -319,13 +322,12 @@ func TestList(t *testing.T) {
 	f.existing("main", s)
 	b := f.existing("feature/x", s)
 	f.rt.containers[b.names.Container].State = runtime.StateRunning
-	sess, _, err := session.Register(b.dir.SessionsDir())
+	sess, _, err := b.dir.registerSession()
 	require.NoError(t, err)
 	defer sess.Unlock()
 	gone := f.existing("gone", s)
 	delete(f.rt.containers, gone.names.Container)
 	half := f.target("half")
-	require.NoError(t, os.MkdirAll(half.dir.Dir, 0o755))
 	require.NoError(t, half.dir.WriteBranch("half"))
 
 	list, err := f.m.List()
@@ -341,7 +343,6 @@ func TestList(t *testing.T) {
 func TestTargetSafetyNet(t *testing.T) {
 	f := newFixture(t)
 	tg := f.target("main")
-	require.NoError(t, os.MkdirAll(tg.dir.Dir, 0o755))
 	require.NoError(t, tg.dir.WriteBranch("something-else"))
 	_, err := f.m.target("main")
 	assert.ErrorContains(t, err, `belongs to branch "something-else"`)

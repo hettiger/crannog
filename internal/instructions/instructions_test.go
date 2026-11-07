@@ -1,6 +1,7 @@
 package instructions
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hettiger/crannog/internal/testfs"
 	"github.com/hettiger/crannog/internal/untrusted"
 )
 
@@ -36,90 +38,88 @@ func TestBlockIsMarked(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(ManagedBlock, Begin))
 }
 
-func TestWrite(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "agents")
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "claude"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "claude", "CLAUDE.md"), []byte("# My rules\n"), 0o600))
-
-	require.NoError(t, Write(dir))
-	for _, a := range Agents {
-		data, err := os.ReadFile(filepath.Join(dir, a.Name, a.File))
-		require.NoError(t, err, a.Name)
-		assert.Contains(t, string(data), ManagedBlock, a.Name)
-	}
-	data, err := os.ReadFile(filepath.Join(dir, "claude", "CLAUDE.md"))
+// agentsDir returns a temporary directory with an agents directory and a
+// host directory next to it, standing for files outside ~/.crannog.
+func agentsDir(t *testing.T) (tmp, agents *os.Root) {
+	tmp, _ = testfs.TempRoot(t)
+	require.NoError(t, tmp.Mkdir("agents", 0o755))
+	require.NoError(t, tmp.Mkdir("host", 0o755))
+	testfs.WriteFile(t, tmp, "host/CLAUDE.md", "host", 0o600)
+	agents, err := tmp.OpenRoot("agents")
 	require.NoError(t, err)
-	assert.True(t, strings.HasPrefix(string(data), "# My rules\n\n"+Begin))
-	info, err := os.Stat(filepath.Join(dir, "claude", "CLAUDE.md"))
+	t.Cleanup(func() { agents.Close() })
+	return tmp, agents
+}
+
+// hostUntouched checks that the host directory holds its file only.
+func hostUntouched(t *testing.T, tmp *os.Root) {
+	assert.Equal(t, "host", testfs.ReadFile(t, tmp, "host/CLAUDE.md"), "host file untouched")
+	entries, err := fs.ReadDir(tmp.FS(), "host")
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "no temporary file on the host")
+}
+
+func TestWrite(t *testing.T) {
+	_, agents := agentsDir(t)
+	testfs.WriteFile(t, agents, "claude/CLAUDE.md", "# My rules\n", 0o600)
+
+	require.NoError(t, Write(agents))
+	for _, a := range Agents {
+		assert.Contains(t, testfs.ReadFile(t, agents, a.Name+"/"+a.File), ManagedBlock, a.Name)
+	}
+	data := testfs.ReadFile(t, agents, "claude/CLAUDE.md")
+	assert.True(t, strings.HasPrefix(data, "# My rules\n\n"+Begin))
+	info, err := agents.Stat("claude/CLAUDE.md")
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "mode kept")
 
-	require.NoError(t, Write(dir), "second write")
-	again, err := os.ReadFile(filepath.Join(dir, "claude", "CLAUDE.md"))
-	require.NoError(t, err)
-	assert.Equal(t, data, again)
+	require.NoError(t, Write(agents), "second write")
+	assert.Equal(t, data, testfs.ReadFile(t, agents, "claude/CLAUDE.md"))
 }
 
 func TestWriteRefusesSymlinks(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "agents")
-	require.NoError(t, EnsureHomes(dir))
-	target := filepath.Join(t.TempDir(), "host-file")
-	require.NoError(t, os.WriteFile(target, []byte("host"), 0o644))
-	require.NoError(t, os.Symlink(target, filepath.Join(dir, "codex", "AGENTS.md")))
-
-	assert.ErrorContains(t, Write(dir), "not a regular file")
-	data, err := os.ReadFile(target)
-	require.NoError(t, err)
-	assert.Equal(t, "host", string(data), "target untouched")
+	tmp, agents := agentsDir(t)
+	require.NoError(t, EnsureHomes(agents))
+	require.NoError(t, agents.Symlink("../../host/CLAUDE.md", "codex/AGENTS.md"))
+	assert.ErrorContains(t, Write(agents), "not a regular file")
+	hostUntouched(t, tmp)
 
 	// A symlinked agent home.
-	dir2 := filepath.Join(t.TempDir(), "agents")
-	require.NoError(t, os.MkdirAll(dir2, 0o755))
-	require.NoError(t, os.Symlink(t.TempDir(), filepath.Join(dir2, "pi")))
-	assert.ErrorContains(t, EnsureHomes(dir2), "not a directory")
+	tmp, agents = agentsDir(t)
+	require.NoError(t, agents.Symlink(filepath.Join(tmp.Name(), "host"), "pi"))
+	assert.ErrorContains(t, EnsureHomes(agents), "not a directory")
+	hostUntouched(t, tmp)
 }
 
 // A crannog can replace an agent home or an instruction file with a symlink
 // after EnsureHomes and Lstat checked them. The os.Root must still refuse
 // to leave the agent home.
 func TestWriteStaysInTheAgentHome(t *testing.T) {
-	host := t.TempDir()
-	hostFile := filepath.Join(host, "CLAUDE.md")
-	require.NoError(t, os.WriteFile(hostFile, []byte("host"), 0o600))
-
-	dir := filepath.Join(t.TempDir(), "agents")
-	require.NoError(t, EnsureHomes(dir))
-	agents, err := os.OpenRoot(dir)
-	require.NoError(t, err)
-	defer agents.Close()
+	tmp, agents := agentsDir(t)
+	require.NoError(t, EnsureHomes(agents))
 	claude := Agents[0]
 
 	// The agent home replaced by a symlink to a host directory.
-	require.NoError(t, os.Remove(filepath.Join(dir, "claude")))
-	require.NoError(t, os.Symlink(host, filepath.Join(dir, "claude")))
+	require.NoError(t, agents.Remove("claude"))
+	require.NoError(t, agents.Symlink(filepath.Join(tmp.Name(), "host"), "claude"))
 	assert.Error(t, write(agents, claude))
 
 	// The instruction file replaced by a symlink to a host file.
-	require.NoError(t, os.Remove(filepath.Join(dir, "claude")))
-	require.NoError(t, os.Mkdir(filepath.Join(dir, "claude"), 0o755))
+	require.NoError(t, agents.Remove("claude"))
+	require.NoError(t, agents.Mkdir("claude", 0o755))
 	home, err := agents.OpenRoot("claude")
 	require.NoError(t, err)
 	defer home.Close()
-	require.NoError(t, os.Symlink(hostFile, filepath.Join(dir, "claude", "CLAUDE.md")))
+	require.NoError(t, home.Symlink(filepath.Join(tmp.Name(), "host", "CLAUDE.md"), "CLAUDE.md"))
 	_, _, err = untrusted.ReadFile(home, "CLAUDE.md", maxFileSize)
 	assert.Error(t, err, "the read after Lstat")
 
-	data, err := os.ReadFile(hostFile)
-	require.NoError(t, err)
-	assert.Equal(t, "host", string(data), "host file untouched")
-	entries, err := os.ReadDir(host)
-	require.NoError(t, err)
-	assert.Len(t, entries, 1, "no temporary file on the host")
+	hostUntouched(t, tmp)
 }
 
 func TestWriteRefusesHugeFiles(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "agents")
-	require.NoError(t, EnsureHomes(dir))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "pi", "AGENTS.md"), make([]byte, maxFileSize+1), 0o644))
-	assert.ErrorContains(t, Write(dir), "larger than")
+	_, agents := agentsDir(t)
+	require.NoError(t, EnsureHomes(agents))
+	require.NoError(t, agents.WriteFile("pi/AGENTS.md", make([]byte, maxFileSize+1), 0o644))
+	assert.ErrorContains(t, Write(agents), "larger than")
 }

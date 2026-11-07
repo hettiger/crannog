@@ -2,11 +2,10 @@ package crannog
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/hettiger/crannog/internal/git"
+	"github.com/hettiger/crannog/internal/hostfs"
 	"github.com/hettiger/crannog/internal/setup"
 )
 
@@ -161,18 +160,18 @@ func (m *Manager) latestApproved() setup.Setup {
 // showDiff prints the difference between two setups with git diff
 // --no-index. A nil base shows everything as new.
 func (m *Manager) showDiff(base, next setup.Setup) error {
-	tmp, err := os.MkdirTemp("", "crannog-diff-")
+	tmp, err := hostfs.NewTempDir("diff")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmp)
+	defer tmp.Remove()
 	if base == nil {
 		base = setup.Setup{}
 	}
-	if err := base.Write(filepath.Join(tmp, "approved")); err != nil {
+	if err := base.Write(tmp.Root, "approved"); err != nil {
 		return err
 	}
-	if err := next.Write(filepath.Join(tmp, setup.Dir)); err != nil {
+	if err := next.Write(tmp.Root, setup.Dir); err != nil {
 		return err
 	}
 
@@ -181,7 +180,7 @@ func (m *Manager) showDiff(base, next setup.Setup) error {
 		args = append(args, "--no-pager")
 	}
 	args = append(args, "diff", "--no-index", "--no-prefix", "--", "approved", setup.Dir)
-	cmd := git.Command(tmp, args...)
+	cmd := git.Command(tmp.Dir, args...)
 	cmd.Stdout = m.UI.Out
 	cmd.Stderr = m.UI.Out
 	if err := cmd.Run(); err != nil && git.ExitCode(err) != 1 {

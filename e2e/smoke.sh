@@ -25,7 +25,15 @@ export PATH="$BIN:$PATH"
 
 PASS=0
 FAIL=0
-WORK="$(cd "$(mktemp -d -t crannog-smoke)" && pwd -P)"
+# The cleanup deletes $WORK: it must be the directory mktemp created. Bash
+# 3.2 treats `cd ""` as `cd .`, so a failed mktemp must stop the script.
+WORK="$(mktemp -d -t crannog-smoke)" || { echo "error: mktemp failed" >&2; exit 1; }
+[ -n "$WORK" ] && [ -d "$WORK" ] || { echo "error: mktemp returned '$WORK'" >&2; exit 1; }
+WORK="$(cd -P -- "$WORK" && pwd -P)" || exit 1
+case "$WORK" in
+  */crannog-smoke.*) ;;
+  *) echo "error: unexpected temporary directory '$WORK'" >&2; exit 1 ;;
+esac
 REPO="$WORK/code/smoke-app"
 
 say()  { printf '\n\033[1m== %s\033[0m\n' "$*"; }
@@ -89,7 +97,10 @@ cleanup() {
     return
   fi
   for b in main feature/smoke; do cn destroy --yes "$b" >/dev/null 2>&1; done
-  [ -n "${ID:-}" ] && rm -rf "$HOME/.crannog/repositories/$ID"
+  case "${ID:-}" in
+    *[!0-9a-f]*) ;;
+    ????????????????????????????????????????????????????????????????) rm -rf "$HOME/.crannog/repositories/$ID" ;;
+  esac
   rm -rf "$WORK"
 }
 trap cleanup EXIT

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,6 +16,8 @@ import (
 
 	"github.com/hettiger/crannog/internal/config"
 	"github.com/hettiger/crannog/internal/git"
+	"github.com/hettiger/crannog/internal/home"
+	"github.com/hettiger/crannog/internal/hostfs"
 	"github.com/hettiger/crannog/internal/instructions"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
@@ -62,10 +63,8 @@ func (m *Manager) create(t *target, hash string) (err error) {
 	if err != nil {
 		return err
 	}
-	for _, d := range []string{t.dir.ProxyDir(), filepath.Join(t.dir.ProxyDir(), "secrets"), t.dir.CADir(), t.dir.SessionsDir()} {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			return err
-		}
+	if err := t.dir.mkdirs(proxyDir+"/secrets", caDir, sessionsDir); err != nil {
+		return err
 	}
 	if err := m.prepareHost(cfg); err != nil {
 		return err
@@ -129,12 +128,19 @@ func (m *Manager) create(t *target, hash string) (err error) {
 // prepareHost creates the directories crannog provides on the host and
 // writes the managed instructions block (ADR 0013).
 func (m *Manager) prepareHost(cfg *config.Config) error {
-	if err := instructions.Write(m.Home.AgentsDir()); err != nil {
+	agents, err := m.Home.OpenDir(home.Agents, true)
+	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(m.Home.CacheDir(), 0o755); err != nil {
+	defer agents.Close()
+	if err := instructions.Write(agents); err != nil {
 		return err
 	}
+	if err := hostfs.MkdirAll(m.Home.Root, home.Cache); err != nil {
+		return err
+	}
+	// The only access outside the anchors (ADR 0032): approved mount
+	// sources are checked to exist, the runtime mounts them.
 	for _, mt := range cfg.Mounts {
 		if _, err := os.Stat(mt.Source); err != nil {
 			return fmt.Errorf("mount source %s: %w", mt.Source, err)
@@ -153,7 +159,7 @@ func (m *Manager) prepareImages(approved setup.Setup, hash string, cfg *config.C
 	}
 	if !ok {
 		m.UI.Printf("Building image %s\n", image)
-		ctx := filepath.Join(m.store().Path(hash), setup.ContainerDir)
+		ctx := m.Home.Abs(home.ApprovedPath(m.Repo.ID) + "/" + hash + "/" + setup.ContainerDir)
 		if err := m.Runtime.Build(image, ctx); err != nil {
 			return err
 		}
@@ -214,7 +220,7 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 // directory. The proxy image wrote these files, so they are opened within
 // an os.Root (ADR 0031).
 func publishCA(t *target) error {
-	proxy, err := os.OpenRoot(t.dir.ProxyDir())
+	proxy, err := t.dir.open(proxyDir, false)
 	if err != nil {
 		return err
 	}
@@ -234,7 +240,12 @@ func publishCA(t *target) error {
 	if err := key.Chmod(0o600); err != nil {
 		return err
 	}
-	return renameio.WriteFile(filepath.Join(t.dir.CADir(), caCertFile), crt, 0o644)
+	ca, err := t.dir.open(caDir, false)
+	if err != nil {
+		return err
+	}
+	defer ca.Close()
+	return renameio.WriteFile(caCertFile, crt, 0o644, renameio.WithRoot(ca))
 }
 
 // checkCACert checks that data is exactly one PEM-encoded CA certificate.
@@ -264,7 +275,7 @@ func (m *Manager) writeProxyConfig(t *target, approved setup.Setup) error {
 // readProxyFile and writeProxyFile access the proxy's iron-proxy.yaml
 // within an os.Root: generate-ca could have left symlinks (ADR 0031).
 func readProxyFile(t *target) ([]byte, error) {
-	proxy, err := os.OpenRoot(t.dir.ProxyDir())
+	proxy, err := t.dir.open(proxyDir, false)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +285,7 @@ func readProxyFile(t *target) ([]byte, error) {
 }
 
 func writeProxyFile(t *target, data []byte) error {
-	proxy, err := os.OpenRoot(t.dir.ProxyDir())
+	proxy, err := t.dir.open(proxyDir, false)
 	if err != nil {
 		return err
 	}

@@ -3,14 +3,11 @@ package crannog
 import (
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/runtime"
-	"github.com/hettiger/crannog/internal/session"
 )
 
 // losses is what destroying a crannog would lose.
@@ -43,7 +40,11 @@ func (m *Manager) Destroy(branchArg string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(t.dir.Dir); errors.Is(err, fs.ErrNotExist) {
+	exists, err := t.dir.exists()
+	if err != nil {
+		return err
+	}
+	if !exists {
 		return fmt.Errorf("there is no crannog for %s", branch)
 	}
 	if err := checkHelper(); err != nil {
@@ -57,7 +58,7 @@ func (m *Manager) Destroy(branchArg string) error {
 	}
 	defer lock.Unlock()
 
-	sessions, err := session.Count(t.dir.SessionsDir(), true)
+	sessions, err := t.dir.sessions(true)
 	if err != nil {
 		return err
 	}
@@ -86,7 +87,7 @@ func (m *Manager) Destroy(branchArg string) error {
 	if err := m.remove(t); err != nil {
 		return err
 	}
-	return os.RemoveAll(t.dir.Dir)
+	return t.dir.removeAll()
 }
 
 // tempRefs is the namespace destroy fetches the crannog's branches into.

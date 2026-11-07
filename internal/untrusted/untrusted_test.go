@@ -8,40 +8,43 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hettiger/crannog/internal/testfs"
 )
 
 func TestReadFile(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "a"), []byte("hello"), 0o600))
-	require.NoError(t, os.Symlink("a", filepath.Join(dir, "inside")))
-	secret := filepath.Join(t.TempDir(), "secret")
-	require.NoError(t, os.WriteFile(secret, []byte("secret"), 0o600))
-	require.NoError(t, os.Symlink(secret, filepath.Join(dir, "absolute")))
-	require.NoError(t, os.Symlink("../"+filepath.Base(filepath.Dir(secret))+"/secret", filepath.Join(dir, "relative")))
-	require.NoError(t, syscall.Mkfifo(filepath.Join(dir, "fifo"), 0o600))
-	require.NoError(t, os.Mkdir(filepath.Join(dir, "dir"), 0o755))
-
-	root, err := os.OpenRoot(dir)
+	tmp, _ := testfs.TempRoot(t)
+	require.NoError(t, tmp.Mkdir("dir", 0o755))
+	require.NoError(t, tmp.Mkdir("outside", 0o755))
+	testfs.WriteFile(t, tmp, "outside/secret", "secret", 0o600)
+	dir, err := tmp.OpenRoot("dir")
 	require.NoError(t, err)
-	defer root.Close()
+	defer dir.Close()
 
-	data, info, err := ReadFile(root, "a", 5)
+	testfs.WriteFile(t, dir, "a", "hello", 0o600)
+	require.NoError(t, dir.Symlink("a", "inside"))
+	require.NoError(t, dir.Symlink(filepath.Join(tmp.Name(), "outside", "secret"), "absolute"))
+	require.NoError(t, dir.Symlink("../outside/secret", "relative"))
+	require.NoError(t, syscall.Mkfifo(filepath.Join(dir.Name(), "fifo"), 0o600))
+	require.NoError(t, dir.Mkdir("dir", 0o755))
+
+	data, info, err := ReadFile(dir, "a", 5)
 	require.NoError(t, err)
 	assert.Equal(t, "hello", string(data))
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 
-	data, _, err = ReadFile(root, "inside", 5)
+	data, _, err = ReadFile(dir, "inside", 5)
 	require.NoError(t, err, "a symlink within the root")
 	assert.Equal(t, "hello", string(data))
 
-	_, _, err = ReadFile(root, "a", 4)
+	_, _, err = ReadFile(dir, "a", 4)
 	assert.ErrorContains(t, err, "larger than 4 bytes")
 	for _, name := range []string{"absolute", "relative"} {
-		_, _, err = ReadFile(root, name, 100)
+		_, _, err = ReadFile(dir, name, 100)
 		assert.Error(t, err, name)
 	}
 	for _, name := range []string{"fifo", "dir"} {
-		_, _, err = ReadFile(root, name, 100)
+		_, _, err = ReadFile(dir, name, 100)
 		assert.ErrorContains(t, err, "not a regular file", name)
 	}
 }

@@ -1,14 +1,17 @@
 package setup
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hettiger/crannog/internal/testfs"
 	"github.com/hettiger/crannog/internal/testgit"
 )
 
@@ -147,7 +150,7 @@ func TestReadWorktreeUncommitted(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, changed)
 
-	require.NoError(t, os.Remove(filepath.Join(dir, Dir, "container/run.sh")))
+	require.NoError(t, testfs.Root(t, dir).Remove(Dir+"/container/run.sh"))
 	testgit.WriteFile(t, dir, ".crannog/new.txt", "new", 0o644)
 	s, err := ReadWorktree(dir)
 	require.NoError(t, err)
@@ -172,7 +175,8 @@ func TestReadMissingSetup(t *testing.T) {
 func TestSymlinksAreAnError(t *testing.T) {
 	dir := testgit.Init(t)
 	writeSample(t, dir)
-	require.NoError(t, os.Symlink("/etc/passwd", filepath.Join(dir, Dir, "link")))
+	wt := testfs.Root(t, dir)
+	require.NoError(t, wt.Symlink("/etc/passwd", Dir+"/link"))
 	_, err := ReadWorktree(dir)
 	assert.ErrorContains(t, err, "symlink")
 
@@ -181,18 +185,58 @@ func TestSymlinksAreAnError(t *testing.T) {
 	_, err = ReadCommit(dir, "HEAD")
 	assert.ErrorContains(t, err, "not a regular file")
 
-	_, err = ReadDir(filepath.Join(dir, Dir))
+	_, err = ReadDir(wt, Dir)
 	assert.ErrorContains(t, err, "symlink")
 }
 
+// A symlinked .crannog/ or directory in it never leads out of the
+// worktree's .crannog/ (ADR 0032).
+func TestReadWorktreeStaysInTheSetup(t *testing.T) {
+	dir := testgit.Init(t)
+	writeSample(t, dir)
+	testgit.Git(t, dir, "add", ".")
+	testgit.Git(t, dir, "commit", "-q", "-m", "setup")
+	wt := testfs.Root(t, dir)
+	testfs.WriteFile(t, wt, "elsewhere/Dockerfile", "secret", 0o644)
+
+	// Tracked files below a directory that became an ignored symlink: git
+	// lists the tracked files only.
+	require.NoError(t, wt.RemoveAll(Dir+"/container"))
+	require.NoError(t, wt.Symlink("../elsewhere", Dir+"/container"))
+	testfs.WriteFile(t, wt, ".git/info/exclude", "/.crannog/container\n", 0o644)
+	_, err := ReadWorktree(dir)
+	assert.ErrorContains(t, err, "escapes")
+
+	// .crannog/ itself replaced by a symlink.
+	require.NoError(t, wt.Rename(Dir, "moved"))
+	require.NoError(t, wt.Symlink("moved", Dir))
+	_, err = ReadWorktree(dir)
+	assert.ErrorContains(t, err, "not a directory")
+}
+
 func TestWriteAndReadDir(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "copy")
-	require.NoError(t, sample().Write(dir))
-	s, err := ReadDir(dir)
+	root, _ := testfs.TempRoot(t)
+	require.NoError(t, sample().Write(root, "copy"))
+	s, err := ReadDir(root, "copy")
 	require.NoError(t, err)
 	assert.Equal(t, sample().Hash(), s.Hash())
+	info, err := root.Stat("copy/container/run.sh")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o755), info.Mode().Perm())
 
-	assert.Error(t, Setup{"../x": {}}.Write(filepath.Join(t.TempDir(), "bad")))
+	assert.Error(t, Setup{"../x": {}}.Write(root, "bad"))
+	assert.False(t, testfs.Exists(t, root, "x"))
+}
+
+func TestPresent(t *testing.T) {
+	dir := testgit.Init(t)
+	ok, err := Present(dir)
+	require.NoError(t, err)
+	assert.False(t, ok)
+	writeSample(t, dir)
+	ok, err = Present(dir)
+	require.NoError(t, err)
+	assert.True(t, ok)
 }
 
 func TestReadFS(t *testing.T) {
@@ -209,7 +253,8 @@ func TestReadFS(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	st := Store{Dir: filepath.Join(t.TempDir(), "approved")}
+	root, _ := testfs.TempRoot(t)
+	st := Store{Root: root, Dir: "repositories/1/approved"}
 
 	latest, err := st.Latest()
 	require.NoError(t, err)
@@ -234,11 +279,33 @@ func TestStore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, hash, latest)
 
-	entries, err := os.ReadDir(st.Dir)
+	entries, err := fs.ReadDir(root.FS(), st.Dir)
 	require.NoError(t, err)
 	assert.Len(t, entries, 2, "no temporary dirs left")
 
-	require.NoError(t, os.WriteFile(filepath.Join(st.Path(hash), "config.yml"), []byte("tampered"), 0o644))
+	testfs.WriteFile(t, root, st.Dir+"/"+hash+"/config.yml", "tampered", 0o644)
 	_, err = st.Get(hash)
 	assert.ErrorContains(t, err, "was changed")
+
+	for _, bad := range []string{"../x", "", strings.Repeat("A", 64)} {
+		_, err = st.Get(bad)
+		assert.ErrorContains(t, err, "invalid setup hash", bad)
+		_, err = st.Has(bad)
+		assert.ErrorContains(t, err, "invalid setup hash", bad)
+	}
+}
+
+// A symlink on the way to the store is refused (ADR 0032).
+func TestStoreRefusesSymlinks(t *testing.T) {
+	root, _ := testfs.TempRoot(t)
+	require.NoError(t, root.Mkdir("elsewhere", 0o755))
+	require.NoError(t, root.Mkdir("repositories", 0o755))
+	require.NoError(t, root.Symlink("../elsewhere", "repositories/1"))
+	st := Store{Root: root, Dir: "repositories/1/approved"}
+	_, err := st.Add(sample())
+	assert.ErrorContains(t, err, "not a directory")
+	assert.ErrorContains(t, st.SetLatest(sample().Hash()), "not a directory")
+	entries, err := fs.ReadDir(root.FS(), "elsewhere")
+	require.NoError(t, err)
+	assert.Empty(t, entries)
 }

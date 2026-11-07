@@ -15,6 +15,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hettiger/crannog/internal/testfs"
 )
 
 func testCert(t *testing.T, isCA bool) []byte {
@@ -35,28 +37,24 @@ func testCert(t *testing.T, isCA bool) []byte {
 
 // generatedCA sets up a target whose proxy directory holds what
 // generate-ca wrote.
-func generatedCA(t *testing.T, crt []byte) *target {
+func generatedCA(t *testing.T, crt []byte) (*fixture, *target) {
 	f := newFixture(t)
 	tg := f.target("main")
-	for _, d := range []string{tg.dir.ProxyDir(), tg.dir.CADir()} {
-		require.NoError(t, os.MkdirAll(d, 0o755))
-	}
+	require.NoError(t, tg.dir.mkdirs(proxyDir, caDir))
 	if crt != nil {
-		require.NoError(t, os.WriteFile(filepath.Join(tg.dir.ProxyDir(), caCertFile), crt, 0o644))
+		testfs.WriteFile(t, f.m.Home.Root, tg.dir.path+"/proxy/"+caCertFile, string(crt), 0o644)
 	}
-	require.NoError(t, os.WriteFile(filepath.Join(tg.dir.ProxyDir(), caKeyFile), []byte("key"), 0o644))
-	return tg
+	testfs.WriteFile(t, f.m.Home.Root, tg.dir.path+"/proxy/"+caKeyFile, "key", 0o644)
+	return f, tg
 }
 
 func TestPublishCA(t *testing.T) {
 	crt := testCert(t, true)
-	tg := generatedCA(t, crt)
+	f, tg := generatedCA(t, crt)
 	require.NoError(t, publishCA(tg))
 
-	published, err := os.ReadFile(filepath.Join(tg.dir.CADir(), caCertFile))
-	require.NoError(t, err)
-	assert.Equal(t, crt, published)
-	info, err := os.Stat(filepath.Join(tg.dir.ProxyDir(), caKeyFile))
+	assert.Equal(t, string(crt), testfs.ReadFile(t, f.m.Home.Root, tg.dir.path+"/ca/"+caCertFile))
+	info, err := f.m.Home.Root.Stat(tg.dir.path + "/proxy/" + caKeyFile)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
@@ -69,32 +67,31 @@ func TestPublishCARefusesInvalidCertificates(t *testing.T) {
 		"did not generate a CA": nil,
 	}
 	for want, crt := range tests {
-		tg := generatedCA(t, crt)
+		f, tg := generatedCA(t, crt)
 		assert.ErrorContains(t, publishCA(tg), want)
-		assert.NoFileExists(t, filepath.Join(tg.dir.CADir(), caCertFile), want)
+		assert.False(t, testfs.Exists(t, f.m.Home.Root, tg.dir.path+"/ca/"+caCertFile), want)
 	}
 }
 
 // A malicious proxy image can leave symlinks to host files in the proxy
 // directory. crannog must neither publish nor chmod their targets.
 func TestPublishCARefusesSymlinks(t *testing.T) {
-	host := t.TempDir()
-	secret := filepath.Join(host, "secret")
-	require.NoError(t, os.WriteFile(secret, testCert(t, true), 0o600))
-	executable := filepath.Join(host, "tool")
-	require.NoError(t, os.WriteFile(executable, nil, 0o755))
-
-	tg := generatedCA(t, nil)
-	require.NoError(t, os.Symlink(secret, filepath.Join(tg.dir.ProxyDir(), caCertFile)))
+	f, tg := generatedCA(t, nil)
+	user := f.userRoot()
+	testfs.WriteFile(t, user, "secret", string(testCert(t, true)), 0o600)
+	proxy := testfs.Root(t, tg.dir.ProxyDir())
+	require.NoError(t, proxy.Symlink(filepath.Join(user.Name(), "secret"), caCertFile))
 	assert.Error(t, publishCA(tg))
-	assert.NoFileExists(t, filepath.Join(tg.dir.CADir(), caCertFile))
+	assert.False(t, testfs.Exists(t, f.m.Home.Root, tg.dir.path+"/ca/"+caCertFile))
 
-	tg = generatedCA(t, testCert(t, true))
-	key := filepath.Join(tg.dir.ProxyDir(), caKeyFile)
-	require.NoError(t, os.Remove(key))
-	require.NoError(t, os.Symlink(executable, key))
+	f, tg = generatedCA(t, testCert(t, true))
+	user = f.userRoot()
+	testfs.WriteFile(t, user, "tool", "", 0o755)
+	proxy = testfs.Root(t, tg.dir.ProxyDir())
+	require.NoError(t, proxy.Remove(caKeyFile))
+	require.NoError(t, proxy.Symlink(filepath.Join(user.Name(), "tool"), caKeyFile))
 	assert.Error(t, publishCA(tg))
-	info, err := os.Stat(executable)
+	info, err := user.Stat("tool")
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o755), info.Mode().Perm(), "mode unchanged")
 }
@@ -103,19 +100,17 @@ func TestProxyConfigReplacesSymlinks(t *testing.T) {
 	f := newFixture(t)
 	s := defaultSetup(t)
 	tg := f.existing("main", s)
-	hostFile := filepath.Join(t.TempDir(), "host")
-	require.NoError(t, os.WriteFile(hostFile, []byte("host"), 0o644))
-	p := filepath.Join(tg.dir.ProxyDir(), proxyConfigFile)
-	require.NoError(t, os.Remove(p))
-	require.NoError(t, os.Symlink(hostFile, p))
+	user := f.userRoot()
+	testfs.WriteFile(t, user, "host", "host", 0o644)
+	proxy := testfs.Root(t, tg.dir.ProxyDir())
+	require.NoError(t, proxy.Remove(proxyConfigFile))
+	require.NoError(t, proxy.Symlink(filepath.Join(user.Name(), "host"), proxyConfigFile))
 
 	_, err := readProxyFile(tg)
 	assert.Error(t, err)
 	require.NoError(t, f.m.writeProxyConfig(tg, s))
-	data, err := os.ReadFile(hostFile)
-	require.NoError(t, err)
-	assert.Equal(t, "host", string(data), "host file untouched")
-	info, err := os.Lstat(p)
+	assert.Equal(t, "host", testfs.ReadFile(t, user, "host"), "host file untouched")
+	info, err := proxy.Lstat(proxyConfigFile)
 	require.NoError(t, err)
 	assert.True(t, info.Mode().IsRegular(), "the symlink is replaced")
 }

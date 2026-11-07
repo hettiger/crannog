@@ -6,47 +6,66 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/hettiger/crannog/internal/hostfs"
 )
 
 // Home is crannog's directory on the host, ~/.crannog.
 type Home struct {
+	// Dir is the absolute path, for mounts and messages.
 	Dir string
+	// Root is the anchor all access to ~/.crannog goes through (ADR 0032).
+	Root *os.Root
 }
 
-// Default returns ~/.crannog of the current user.
+// Default opens ~/.crannog of the current user, creating it if needed.
 func Default() (Home, error) {
 	h, err := os.UserHomeDir()
 	if err != nil {
 		return Home{}, fmt.Errorf("cannot find the home directory: %w", err)
 	}
-	return Home{Dir: filepath.Join(h, ".crannog")}, nil
+	return Open(filepath.Join(h, ".crannog"))
 }
 
-// AgentsDir holds the agent homes shared by all crannogs.
-func (h Home) AgentsDir() string { return filepath.Join(h.Dir, "agents") }
-
-// CacheDir holds the package caches shared by all crannogs.
-func (h Home) CacheDir() string { return filepath.Join(h.Dir, "cache") }
-
-// PresetsDir holds the user's presets.
-func (h Home) PresetsDir() string { return filepath.Join(h.Dir, "presets") }
-
-// RepositoryDir holds crannog's state about one repository.
-func (h Home) RepositoryDir(id string) string {
-	return filepath.Join(h.Dir, "repositories", id)
+// Open opens dir as crannog's directory, creating it if needed.
+func Open(dir string) (Home, error) {
+	root, err := hostfs.OpenAnchor(dir, true)
+	if err != nil {
+		return Home{}, err
+	}
+	return Home{Dir: dir, Root: root}, nil
 }
 
-// CrannogsDir holds the host directories of a repository's crannogs.
-func (h Home) CrannogsDir(id string) string {
-	return filepath.Join(h.RepositoryDir(id), "crannogs")
-}
+// Close closes the root.
+func (h Home) Close() error { return h.Root.Close() }
 
-// CrannogDir is the host directory of one crannog.
-func (h Home) CrannogDir(id, slug string) string {
-	return filepath.Join(h.CrannogsDir(id), slug)
-}
+// Paths within ~/.crannog, slash-separated.
+const (
+	// Agents holds the agent homes shared by all crannogs.
+	Agents = "agents"
+	// Cache holds the package caches shared by all crannogs.
+	Cache = "cache"
+	// Presets holds the user's presets.
+	Presets = "presets"
+)
 
-// ApprovedDir holds a repository's approved setups.
-func (h Home) ApprovedDir(id string) string {
-	return filepath.Join(h.RepositoryDir(id), "approved")
+// RepositoryPath holds crannog's state about one repository.
+func RepositoryPath(id string) string { return "repositories/" + id }
+
+// CrannogsPath holds the host directories of a repository's crannogs.
+func CrannogsPath(id string) string { return RepositoryPath(id) + "/crannogs" }
+
+// CrannogPath is the host directory of one crannog.
+func CrannogPath(id, slug string) string { return CrannogsPath(id) + "/" + slug }
+
+// ApprovedPath holds a repository's approved setups.
+func ApprovedPath(id string) string { return RepositoryPath(id) + "/approved" }
+
+// Abs returns the absolute path of a path within ~/.crannog.
+func (h Home) Abs(p string) string { return filepath.Join(h.Dir, filepath.FromSlash(p)) }
+
+// OpenDir opens a directory within ~/.crannog as a root, see
+// hostfs.OpenDir.
+func (h Home) OpenDir(p string, create bool) (*os.Root, error) {
+	return hostfs.OpenDir(h.Root, p, create)
 }
