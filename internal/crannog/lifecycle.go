@@ -113,7 +113,15 @@ func (m *Manager) create(t *target, hash string) (err error) {
 	}
 	// All branches arrive as origin/* and only the start branch as a local
 	// branch, like in a fresh clone (ADR 0010).
-	push := git.Command(m.Repo.Dir, "push", "--quiet", t.names.Remote,
+	if err := m.transferRepository(t); err != nil {
+		return err
+	}
+	return t.dir.WriteHash(hash)
+}
+
+// transferRepository pushes directly to the crannog, not a configured push URL.
+func (m *Manager) transferRepository(t *target) error {
+	push := git.Command(m.Repo.Dir, "push", "--quiet", t.names.URL,
 		"refs/heads/*:refs/remotes/origin/*",
 		"refs/tags/*:refs/tags/*",
 		"refs/heads/"+t.branch+":refs/heads/"+t.branch)
@@ -122,7 +130,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 	if err := push.Run(); err != nil {
 		return fmt.Errorf("initial transfer of the repository: %w", err)
 	}
-	return t.dir.WriteHash(hash)
+	return nil
 }
 
 // prepareHost creates the directories crannog provides on the host and

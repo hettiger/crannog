@@ -29,7 +29,9 @@ confirmations, never setup approvals.
    preset `default`. Prints the source and a note if uncommitted changes in
    this worktree are not used. An invalid `config.yml` is an error, as is a
    `config.yml` or `iron-proxy.yaml` that is not plain UTF-8 text (control
-   or format characters, other encodings).
+   or format characters, other encodings). A `.crannog` file or symlink is
+   an error; a directory deleted in the working tree counts as missing,
+   even if its files are still in the index.
 3. Takes the crannog's lock, waiting for other crannog commands.
 4. New crannog: asks for approval of content not approved before (diff to
    the most recent approval; presets need none), builds the image if
@@ -37,7 +39,8 @@ confirmations, never setup approvals.
    one PEM CA certificate in `ca.crt`), creates network, volumes, proxy and
    crannog, starts them, adds the remote
    `crannog-<slug>`, initializes the repository at `/work/<host path>` and
-   pushes all branches as `origin/*`, all tags and the start branch. On
+   pushes all branches as `origin/*`, all tags and the start branch directly
+   to the crannog URL, ignoring a remote's separate `pushurl`. On
    failure, everything created is removed again.
 5. Existing crannog: if `.crannog/` differs from the crannog's copy, asks
    for approval (new content) or confirmation (a rebuild that ends running
@@ -54,9 +57,18 @@ confirmations, never setup approvals.
 8. When the session ends: if no other session runs, stops crannog and proxy
    and removes the remote. Exits with the session's exit code.
 
+The crannog remote is temporary. Removing it also removes Git's upstream
+configuration for local branches tracking that remote; their local branches
+and commits remain. Starting another session recreates the remote, not those
+upstream settings.
+
 The managed instructions block is written into each agent home on every
 build and rebuild. A symlinked agent home or instruction file and an
 instruction file larger than 1 MiB are errors. The proxy mounts its
 directory read-only. A symlinked directory in crannog's state in
 `~/.crannog` is an error, never followed. The approval diff is built in a
 temporary directory `crannog-diff-*` in `$TMPDIR`.
+
+A lock removed or replaced while checkout waits is an error with a retry
+hint. Remote cleanup refuses changed fetch mappings rather than deleting
+unrelated refs ([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).

@@ -21,12 +21,24 @@ longer exists.
 
 1. Takes the crannog's lock and starts the crannog if it is stopped.
 2. Fetches the crannog's branches directly via `crannog::<slug>` into
-   temporary refs and lists branches with commits not reachable from the
+   fresh temporary refs and lists branches with commits not reachable from the
    user's own refs, and worktrees in the crannog with uncommitted changes.
-   If that fails, says that it cannot check what would be lost.
+   If that fails, says that it cannot check what would be lost. The check
+   leaves existing refs and tags alone, disables pruning and automatic
+   maintenance, and cleans up only its own temporary refs, even on failure
+   or declined confirmation.
 3. Says how many running sessions end, then asks for confirmation
    (`--yes` answers it; without a terminal and `--yes` it is an error).
    Declining stops the crannog again if no session runs.
-4. Deletes proxy and crannog, the network, both volumes, the remote, the
-   temporary refs and the host directory. The image stays. A host
+4. Deletes proxy and crannog, the network, both volumes, the remote and the
+   host directory. The image stays. A host
    directory that is a symlink is an error, its target stays.
+
+Cleanup refuses a remote with changed fetch mappings. A command waiting
+on a lock removed by destroy fails with a retry hint rather than continuing
+with an obsolete lock ([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).
+
+Cleanup is not transactional: when remote removal fails, containers and
+volumes may already be deleted, while the remote and a host directory with
+its lock remain. Repeating destroy does not resolve changed fetch mappings;
+the remote configuration needs to be corrected first.

@@ -278,10 +278,32 @@ func Present(dir string) (bool, error) {
 	return err == nil, err
 }
 
+// checkDirectory fails if the worktree at dir has a .crannog that exists
+// and is not a directory, symlinks included. A missing one is fine.
+func checkDirectory(dir string) error {
+	wt, err := hostfs.OpenAnchor(dir, false)
+	if err != nil {
+		return err
+	}
+	defer wt.Close()
+	info, err := wt.Lstat(Dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", Dir)
+	}
+	return nil
+}
+
 // ReadWorktree reads .crannog/ from the working tree of the worktree at
 // dir, uncommitted changes included. Only files git lists as tracked or
 // untracked and not ignored count; files deleted in the working tree do
-// not. Symlinks are an error. A missing .crannog/ gives an empty setup.
+// not. Symlinks are an error, and so is a .crannog that is a file or a
+// symlink. A missing .crannog/ gives an empty setup.
 func ReadWorktree(dir string) (Setup, error) {
 	out, err := git.Output(dir, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", Dir)
 	if err != nil {
@@ -295,12 +317,24 @@ func ReadWorktree(dir string) (Setup, error) {
 			continue
 		}
 		seen[name] = true
+		if name == Dir {
+			// A file or symlink named .crannog, not a directory.
+			if err := checkDirectory(dir); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		rel, ok := strings.CutPrefix(name, Dir+"/")
 		if !ok {
 			continue
 		}
 		if root == nil {
-			if root, err = OpenWorktree(dir); err != nil {
+			root, err = OpenWorktree(dir)
+			if errors.Is(err, fs.ErrNotExist) {
+				// .crannog/ was deleted in the working tree.
+				return s, nil
+			}
+			if err != nil {
 				return nil, err
 			}
 			defer root.Close()
@@ -328,7 +362,8 @@ func ReadWorktree(dir string) (Setup, error) {
 }
 
 // ReadCommit reads .crannog/ from a commit of the repository at dir.
-// Symlinks and submodules are an error. A missing .crannog/ gives an empty
+// Symlinks and submodules are an error, and so is a .crannog that is not a
+// directory. A missing .crannog/ gives an empty
 // setup.
 func ReadCommit(dir, rev string) (Setup, error) {
 	out, err := git.Output(dir, "ls-tree", "-r", "-z", "--full-tree", rev, "--", Dir)
@@ -344,6 +379,9 @@ func ReadCommit(dir, rev string) (Setup, error) {
 		fields := strings.Fields(meta)
 		if !ok || len(fields) != 3 {
 			return nil, fmt.Errorf("unexpected git ls-tree output: %q", entry)
+		}
+		if name == Dir {
+			return nil, fmt.Errorf("%s in %s is not a directory (mode %s)", name, rev, fields[0])
 		}
 		rel, ok := strings.CutPrefix(name, Dir+"/")
 		if !ok {

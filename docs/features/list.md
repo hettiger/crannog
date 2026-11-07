@@ -23,3 +23,7 @@ sorted by start branch. Status is the runtime's state (`running`,
 `sessions/<pid>` files that a running session holds locked. Only
 directories named like a branch slug count as crannogs. Without crannogs it
 says so on stderr.
+
+Remote cleanup requires the generated fetch mapping as well as the matching
+name and URL. Unexpected mappings are reported and left untouched
+([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).

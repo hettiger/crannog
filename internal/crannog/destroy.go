@@ -1,6 +1,8 @@
 package crannog
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -63,9 +65,6 @@ func (m *Manager) Destroy(branchArg string) error {
 		return err
 	}
 	l, checkErr := m.losses(t)
-	refs := tempRefs(t)
-	defer m.deleteRefs(refs)
-
 	if checkErr != nil {
 		m.UI.Printf("Warning: cannot check what would be lost: %v\n", checkErr)
 		m.UI.Printf("Unmerged commits and uncommitted changes in the crannog may be lost.\n")
@@ -90,9 +89,6 @@ func (m *Manager) Destroy(branchArg string) error {
 	return t.dir.removeAll()
 }
 
-// tempRefs is the namespace destroy fetches the crannog's branches into.
-func tempRefs(t *target) string { return "refs/crannog/destroy/" + t.names.Slug + "/" }
-
 // losses starts the crannog if needed, fetches its branches directly via
 // its URL and finds what would be lost (ADR 0014).
 func (m *Manager) losses(t *target) (losses, error) {
@@ -110,8 +106,20 @@ func (m *Manager) losses(t *target) (losses, error) {
 		}
 	}
 
-	refs := tempRefs(t)
-	if _, err := m.Repo.Git("fetch", "--quiet", "--no-write-fetch-head", t.names.URL,
+	random := make([]byte, 16)
+	if _, err := rand.Read(random); err != nil {
+		return l, err
+	}
+	refs := "refs/crannog/destroy/" + t.names.Slug + "/" + hex.EncodeToString(random) + "/"
+	existing, err := m.Repo.Git("for-each-ref", "--format=%(refname)", refs)
+	if err != nil {
+		return l, err
+	}
+	if existing != "" {
+		return l, fmt.Errorf("temporary ref namespace %s is not empty", refs)
+	}
+	defer m.deleteRefs(refs)
+	if _, err := m.Repo.Git("fetch", "--quiet", "--no-write-fetch-head", "--no-tags", "--no-prune", "--no-prune-tags", "--no-auto-maintenance", t.names.URL,
 		"+refs/heads/*:"+refs+"*"); err != nil {
 		return l, err
 	}
@@ -175,7 +183,7 @@ func (m *Manager) deleteRefs(prefix string) {
 	if err != nil || list == "" {
 		return
 	}
-	cmd := git.Command(m.Repo.Dir, "update-ref", "--stdin")
+	cmd := git.Command(m.Repo.Dir, "update-ref", "--no-deref", "--stdin")
 	cmd.Stdin = strings.NewReader(list + "\n")
 	_ = cmd.Run()
 }

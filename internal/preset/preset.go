@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -116,10 +118,21 @@ func Find(h home.Home, name string) (Preset, error) {
 	return Preset{}, fmt.Errorf("no preset named %q (see crannog preset list)", name)
 }
 
+// rename moves oldname to newname within root; tests replace it to make a
+// step fail.
+var rename = func(root *os.Root, oldname, newname string) error {
+	return root.Rename(oldname, newname)
+}
+
 // Publish writes a setup to .crannog/ in the worktree at dir, replacing an
-// existing one. The new content is written next to it first, so a failure
-// leaves the old .crannog/ in place. Only .crannog/ and its temporary
-// sibling are accessed in the worktree (ADR 0032).
+// existing one. The new content is written into a temporary sibling first.
+// An existing .crannog is then moved into that sibling as a backup, the new
+// one is moved into place and the backup is deleted. If installing fails,
+// the backup is moved back; if that fails too, the error names the backup,
+// which is kept. The replacement is not atomic: a crash between the two
+// moves leaves no .crannog, and the old one in .crannog.tmp-*/old. Only
+// .crannog/ and its temporary sibling are accessed in the worktree
+// (ADR 0032).
 func Publish(s setup.Setup, dir string) error {
 	wt, err := hostfs.OpenAnchor(dir, false)
 	if err != nil {
@@ -130,14 +143,35 @@ func Publish(s setup.Setup, dir string) error {
 	if err != nil {
 		return err
 	}
-	defer wt.RemoveAll(tmp)
-	if err := s.Write(wt, tmp+"/"+setup.Dir); err != nil {
+	keep := false
+	defer func() {
+		if !keep {
+			_ = wt.RemoveAll(tmp)
+		}
+	}()
+	next := tmp + "/" + setup.Dir
+	if err := s.Write(wt, next); err != nil {
 		return err
 	}
-	if err := wt.RemoveAll(setup.Dir); err != nil {
+
+	backup := tmp + "/old"
+	hadOld := true
+	if err := rename(wt, setup.Dir, backup); errors.Is(err, fs.ErrNotExist) {
+		hadOld = false
+	} else if err != nil {
 		return err
 	}
-	return wt.Rename(tmp+"/"+setup.Dir, setup.Dir)
+	if err := rename(wt, next, setup.Dir); err != nil {
+		if hadOld {
+			if rerr := rename(wt, backup, setup.Dir); rerr != nil {
+				keep = true
+				return fmt.Errorf("%w; restoring the old %s failed (%v), it is kept in %s",
+					err, setup.Dir, rerr, filepath.Join(wt.Name(), backup))
+			}
+		}
+		return err
+	}
+	return nil
 }
 
 // Load reads the content of a preset and checks that it is a complete

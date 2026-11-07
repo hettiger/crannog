@@ -1,8 +1,11 @@
 package preset
 
 import (
+	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -74,6 +77,82 @@ func TestPublishReplacesASymlink(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, info.IsDir())
 	assert.Equal(t, "keep", testfs.ReadFile(t, wt, "elsewhere/keep"))
+}
+
+func publishFixture(t *testing.T) (*os.Root, string, setup.Setup) {
+	wt, dir := testfs.TempRoot(t)
+	p, err := Find(tempHome(t), Default)
+	require.NoError(t, err)
+	s, err := p.Load()
+	require.NoError(t, err)
+	testfs.WriteFile(t, wt, ".crannog/old.txt", "old", 0o644)
+	return wt, dir, s
+}
+
+func TestPublishWithoutExistingSetup(t *testing.T) {
+	wt, dir := testfs.TempRoot(t)
+	p, err := Find(tempHome(t), Default)
+	require.NoError(t, err)
+	s, err := p.Load()
+	require.NoError(t, err)
+
+	require.NoError(t, Publish(s, dir))
+	got, err := setup.ReadDir(wt, ".crannog")
+	require.NoError(t, err)
+	assert.Equal(t, s.Hash(), got.Hash())
+	entries, err := fs.ReadDir(wt.FS(), ".")
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "no temporary dir left")
+}
+
+// The old .crannog stays until the new one is ready, and comes back if
+// installing the new one fails.
+func TestPublishRestoresTheOldSetup(t *testing.T) {
+	wt, dir, s := publishFixture(t)
+	orig := rename
+	t.Cleanup(func() { rename = orig })
+	failed := false
+	rename = func(root *os.Root, oldname, newname string) error {
+		// Only the first move into place fails, the restore works.
+		if newname == ".crannog" && strings.HasSuffix(oldname, "/.crannog") && !failed {
+			failed = true
+			return errors.New("injected rename failure")
+		}
+		return orig(root, oldname, newname)
+	}
+
+	err := Publish(s, dir)
+	require.ErrorContains(t, err, "injected rename failure")
+	assert.Equal(t, "old", testfs.ReadFile(t, wt, ".crannog/old.txt"))
+	entries, err := fs.ReadDir(wt.FS(), ".")
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "no temporary dir left")
+}
+
+// If the old setup cannot be restored either, the backup is kept and the
+// error says where.
+func TestPublishKeepsTheBackupIfRestoringFails(t *testing.T) {
+	wt, dir, s := publishFixture(t)
+	orig := rename
+	t.Cleanup(func() { rename = orig })
+	rename = func(root *os.Root, oldname, newname string) error {
+		// Moving the new setup into place and restoring the backup fail.
+		if newname == ".crannog" {
+			return errors.New("injected rename failure")
+		}
+		return orig(root, oldname, newname)
+	}
+
+	err := Publish(s, dir)
+	require.ErrorContains(t, err, "restoring the old .crannog failed")
+	assert.False(t, testfs.Exists(t, wt, ".crannog"))
+
+	entries, rerr := fs.ReadDir(wt.FS(), ".")
+	require.NoError(t, rerr)
+	require.Len(t, entries, 1)
+	tmp := entries[0].Name()
+	assert.Contains(t, err.Error(), filepath.Join(wt.Name(), tmp, "old"))
+	assert.Equal(t, "old", testfs.ReadFile(t, wt, tmp+"/old/old.txt"))
 }
 
 func TestUserPresets(t *testing.T) {

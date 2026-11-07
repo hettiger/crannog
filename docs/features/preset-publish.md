@@ -19,5 +19,9 @@ crannog preset publish [name] [--yes]
 - Without a name, shows a picker of all presets; without a terminal that is
   an error.
 - If `.crannog/` exists, asks before replacing it (`--yes` answers it). The
-  new content is written next to it and replaces it completely.
+  new content is written next to it and replaces it completely. The old
+  setup is moved aside first and restored if installing the new one fails.
+  If restoring also fails, the error names the preserved backup. A crash
+  between moves can leave it at `.crannog.tmp-*/old`; directory replacement
+  is not atomic ([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).
 - Needs no container runtime. The written files are not committed.

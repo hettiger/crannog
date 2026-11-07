@@ -210,6 +210,14 @@ func (m *Manager) removeRemote(n naming.Names) error {
 	if err != nil || url != n.URL {
 		return err
 	}
+	mappings, err := m.Repo.Git("config", "--get-all", "remote."+n.Remote+".fetch")
+	if err != nil && git.ExitCode(err) != 1 {
+		return err
+	}
+	want := "+refs/heads/*:refs/remotes/" + n.Remote + "/*"
+	if err != nil || mappings != want {
+		return fmt.Errorf("refusing to remove remote %s: unexpected fetch mappings", n.Remote)
+	}
 	_, err = m.Repo.Git("remote", "remove", n.Remote)
 	return err
 }

@@ -189,6 +189,54 @@ func TestSymlinksAreAnError(t *testing.T) {
 	assert.ErrorContains(t, err, "symlink")
 }
 
+// .crannog/ deleted in the working tree, but still in the index, is
+// missing: the setup is empty.
+func TestReadWorktreeDeletedSetup(t *testing.T) {
+	dir := testgit.Init(t)
+	writeSample(t, dir)
+	testgit.Git(t, dir, "add", ".")
+	testgit.Git(t, dir, "commit", "-q", "-m", "setup")
+	require.NoError(t, testfs.Root(t, dir).RemoveAll(Dir))
+
+	s, err := ReadWorktree(dir)
+	require.NoError(t, err)
+	assert.Empty(t, s)
+}
+
+// A .crannog that is a file or a symlink is an error, not a missing setup.
+func TestNonDirectorySetupIsAnError(t *testing.T) {
+	for name, create := range map[string]func(t *testing.T, dir string){
+		"file": func(t *testing.T, dir string) {
+			testgit.WriteFile(t, dir, Dir, "x", 0o644)
+		},
+		"symlink": func(t *testing.T, dir string) {
+			require.NoError(t, testfs.Root(t, dir).Symlink("elsewhere", Dir))
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := testgit.Init(t)
+			create(t, dir)
+
+			_, err := ReadWorktree(dir) // untracked
+			assert.ErrorContains(t, err, "not a directory")
+
+			testgit.Git(t, dir, "add", ".")
+			_, err = ReadWorktree(dir) // tracked
+			assert.ErrorContains(t, err, "not a directory")
+
+			testgit.Git(t, dir, "commit", "-q", "-m", "setup")
+			_, err = ReadCommit(dir, "HEAD")
+			assert.ErrorContains(t, err, "not a directory")
+
+			// Deleted in the working tree: nothing to read.
+			require.NoError(t, testfs.Root(t, dir).Remove(Dir))
+			s, err := ReadWorktree(dir)
+			require.NoError(t, err)
+			assert.Empty(t, s)
+		})
+	}
+}
+
 // A symlinked .crannog/ or directory in it never leads out of the
 // worktree's .crannog/ (ADR 0032).
 func TestReadWorktreeStaysInTheSetup(t *testing.T) {

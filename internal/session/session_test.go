@@ -58,6 +58,76 @@ func TestLockRefusesSymlinks(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// setAfterLock replaces the lock file in the test hook between the flock
+// and the check.
+func setAfterLock(t *testing.T, f func(dir *os.Root, name string)) {
+	t.Cleanup(func() { afterLock = func(*os.Root, string) {} })
+	afterLock = f
+}
+
+func TestLockRefusesARemovedOrReplacedFile(t *testing.T) {
+	for _, recreate := range []bool{false, true} {
+		dir, _ := testfs.TempRoot(t)
+		setAfterLock(t, func(dir *os.Root, name string) {
+			require.NoError(t, dir.Remove(name))
+			if recreate {
+				testfs.WriteFile(t, dir, name, "", 0o644)
+			}
+		})
+		_, err := TryLock(dir, "lock")
+		assert.ErrorIs(t, err, ErrReplaced, "recreate %v", recreate)
+
+		// The stale lock was released; the current file can be locked.
+		afterLock = func(*os.Root, string) {}
+		l, err := TryLock(dir, "lock")
+		require.NoError(t, err)
+		require.NoError(t, l.Unlock())
+	}
+}
+
+// A process waiting for the lock opened the lock file before destroy
+// removed the crannog's directory with it. Another process then locks the
+// recreated file. The waiter must not hold the lock on the old file too.
+func TestLockWaiterAfterDirectoryRemoval(t *testing.T) {
+	parent, _ := testfs.TempRoot(t)
+	require.NoError(t, parent.Mkdir("crannog", 0o755))
+	old := testfs.Root(t, parent.Name()+"/crannog")
+	holder, err := TryLock(old, "lock")
+	require.NoError(t, err)
+	waiter, err := open(old, "lock", true)
+	require.NoError(t, err)
+
+	require.NoError(t, parent.RemoveAll("crannog"))
+	require.NoError(t, holder.Unlock())
+	require.NoError(t, parent.Mkdir("crannog", 0o755))
+	current := testfs.Root(t, parent.Name()+"/crannog")
+	other, err := TryLock(current, "lock")
+	require.NoError(t, err)
+	defer other.Unlock()
+
+	// flock succeeds on the removed file although another process holds
+	// the lock on the current one.
+	require.NoError(t, flockRetry(waiter))
+	assert.ErrorIs(t, checkLocked(old, "lock", waiter), ErrReplaced)
+	assert.ErrorIs(t, waiter.Close(), os.ErrClosed, "closed by the check")
+}
+
+func TestCountSkipsRemovedSessionFiles(t *testing.T) {
+	dir, _ := testfs.TempRoot(t)
+	testfs.WriteFile(t, dir, "99999999", "", 0o644)
+	// The session ends and removes its file while Count looks at it.
+	setAfterLock(t, func(dir *os.Root, name string) { require.NoError(t, dir.Remove(name)) })
+	n, err := Count(dir, false)
+	require.NoError(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, testfs.Exists(t, dir, "99999999"))
+
+	// A session file removed before Count opens it is not recreated.
+	_, err = tryLock(dir, "99999999", false)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+	assert.False(t, testfs.Exists(t, dir, "99999999"))
+}
+
 func TestRegisterAndCount(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
 

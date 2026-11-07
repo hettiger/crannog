@@ -6,8 +6,8 @@
 # causeway, apply (reload and rebuild), list, destroy and self-repair.
 #
 # Uses the real ~/.crannog: the managed instructions blocks land in your
-# agent homes, as with any crannog. The temporary repository's state in
-# ~/.crannog/repositories/ is removed afterwards; images are kept.
+# agent homes, as with any crannog. Crannogs are destroyed afterwards;
+# approved setups and images are kept, as with crannog destroy.
 #
 # Run it in a terminal: some steps ask for a setup approval (answer Yes).
 #
@@ -61,7 +61,7 @@ probe() {
 # crannog without a terminal on stdin: never asks.
 cn() { (cd "$REPO" && crannog "$@" </dev/null); }
 # A command in a session of the crannog of main, without a terminal.
-in_main() { cn checkout main -- sh -c "$1"; }
+in_main() { cn checkout main -- sh -c "$@"; }
 g() { git -C "$REPO" "$@"; }
 # has <pattern> <command...>: the command's output (stdout and stderr)
 # contains pattern.
@@ -72,6 +72,15 @@ remotes() { g remote | grep '^crannog-' || true; }
 
 # status_of <branch>: status and sessions from crannog list.
 status_of() { cn list 2>/dev/null | awk -v b="$1" '$1 == b { print $2, $3 }'; }
+has_sessions() { [ "$(status_of "$1" | awk '{ print $2 }')" -ge 1 ]; }
+is_stopped() { [ "$(status_of "$1")" = 'stopped 0' ]; }
+has_remote() { g remote | grep -Fxq -- "$1"; }
+fetched_branches() {
+  [ "$(g for-each-ref --format='%(refname:short)' "refs/remotes/$1/" | sort | tr '\n' ' ')" = "$1/agent-exp $1/main " ]
+}
+foreign_remote_checkout() {
+  g remote add "$1" https://example.com/x.git && cn checkout -- true
+}
 
 wait_until() {
   i=0
@@ -85,23 +94,19 @@ start_bg() {
     'touch /tmp/bg-started; while [ ! -e /tmp/bg-stop ]; do sleep 1; done; rm -f /tmp/bg-stop' \
     </dev/null >"$WORK/bg.log" 2>&1) &
   BG=$!
-  wait_until sh -c "[ \"\$(cd '$REPO' && crannog list </dev/null 2>/dev/null | awk -v b='$1' '\$1 == b { print \$3 }')\" -ge 1 ]"
+  wait_until has_sessions "$1"
 }
 stop_bg() { cn checkout "$1" -- touch /tmp/bg-stop >/dev/null 2>&1; wait "$BG" 2>/dev/null; }
 
 cleanup() {
   if [ "$KEEP" = 1 ]; then
     say "Kept. Clean up with:"
-    echo "   cd $REPO && crannog destroy --yes main; crannog destroy --yes feature/smoke"
-    echo "   rm -rf ~/.crannog/repositories/$ID $WORK"
+    printf '   (cd -- %q && crannog destroy --yes main && crannog destroy --yes feature/smoke)\n' "$REPO"
+    printf '   rm -rf -- %q\n' "$WORK"
     return
   fi
   for b in main feature/smoke; do cn destroy --yes "$b" >/dev/null 2>&1; done
-  case "${ID:-}" in
-    *[!0-9a-f]*) ;;
-    ????????????????????????????????????????????????????????????????) rm -rf "$HOME/.crannog/repositories/$ID" ;;
-  esac
-  rm -rf "$WORK"
+  rm -rf -- "$WORK"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -154,7 +159,7 @@ say "2. Inside the crannog"
 SECONDS=0
 check "warm start and session" ok in_main true
 info "warm checkout took ${SECONDS}s"
-check "session runs in /work/<host path>" ok in_main "[ \"\$(pwd)\" = '$REPO_IN' ]"
+check "session runs in /work/<host path>" ok in_main '[ "$(pwd)" = "$1" ]' sh "$REPO_IN"
 check "session runs as agent" ok in_main '[ "$(id -un)" = agent ]'
 check "agent's login shell is zsh" ok in_main '[ "$(getent passwd agent | cut -d: -f7)" = /bin/zsh ]'
 check "start branch main checked out" ok in_main '[ "$(git symbolic-ref --short HEAD)" = main ]'
@@ -191,8 +196,7 @@ check "agent commits on main and on a new branch in a worktree" ok in_main \
    git worktree add -q -b agent-exp ../agent-exp origin/main &&
    cd ../agent-exp && echo exp >exp.txt && git add exp.txt && git commit -qm Experiment'
 check "git fetch from the crannog" ok g fetch -q "$REMOTE"
-check "fetched main and agent-exp" ok sh -c \
-  "[ \"\$(git -C '$REPO' for-each-ref --format='%(refname:short)' 'refs/remotes/$REMOTE/' | sort | tr '\n' ' ')\" = '$REMOTE/agent-exp $REMOTE/main ' ]"
+check "fetched main and agent-exp" ok fetched_branches "$REMOTE"
 check "no remote HEAD tracked" fail g rev-parse -q --verify "refs/remotes/$REMOTE/HEAD"
 g merge -q --ff-only "$REMOTE/main"
 echo user >"$REPO/user.txt"; g add user.txt; g commit -qm "User change"
@@ -214,16 +218,15 @@ sleep 1
 check "the session keeps running without the crannog process" ok [ "$(status_of main)" = "running 1" ]
 cn checkout main -- touch /tmp/bg-stop >/dev/null 2>&1
 wait_until sh -c "! pgrep -f 'bg-starte[d]' >/dev/null"
-check "next crannog call stops the crannog without sessions" ok wait_until sh -c "[ \"\$(cd '$REPO' && crannog list </dev/null 2>/dev/null | awk '\$1 == \"main\" {print \$2}')\" = stopped ]"
+check "next crannog call stops the crannog without sessions" ok wait_until is_stopped main
 check "and removes its remote" ok [ -z "$(remotes)" ]
 g remote add "$REMOTE" "crannog::${REMOTE#crannog-}"
 g remote add crannog-mine https://example.com/mine.git
 cn list >/dev/null 2>&1
-check "stale crannog remote removed" ok sh -c "! git -C '$REPO' remote | grep -qx '$REMOTE'"
-check "user's crannog-* remote with another URL kept" ok sh -c "git -C '$REPO' remote | grep -qx crannog-mine"
+check "stale crannog remote removed" fail has_remote "$REMOTE"
+check "user's crannog-* remote with another URL kept" ok has_remote crannog-mine
 g remote remove crannog-mine
-check "checkout refuses a foreign remote of the crannog's name" fail sh -c \
-  "git -C '$REPO' remote add '$REMOTE' https://example.com/x.git && cd '$REPO' && crannog checkout -- true </dev/null"
+check "checkout refuses a foreign remote of the crannog's name" fail foreign_remote_checkout "$REMOTE"
 g remote remove "$REMOTE"
 
 # --- 5. Setup changes ---------------------------------------------------------
@@ -284,9 +287,9 @@ cn destroy --yes main >"$WORK/destroy.log" 2>&1
 check "destroy reports the unmerged branch" ok grep -q 'lost (1 commit)' "$WORK/destroy.log"
 check "destroy reports the dirty worktree" ok grep -q "$REPO_IN" "$WORK/destroy.log"
 NAME="crannog-${ID:0:8}-${REMOTE#crannog-}"
-check "containers deleted" fail sh -c "container list --all --quiet | grep -q '^$NAME'"
-check "volumes deleted" fail sh -c "container volume list --quiet | grep -q '^$NAME'"
-check "network deleted" fail sh -c "container network list --quiet | grep -q '^$NAME'"
+check "containers deleted" fail has "^$NAME" container list --all --quiet
+check "volumes deleted" fail has "^$NAME" container volume list --quiet
+check "network deleted" fail has "^$NAME" container network list --quiet
 check "host directory deleted" fail test -d "$HOME/.crannog/repositories/$ID/crannogs/${REMOTE#crannog-}"
 check "no temporary refs left" ok [ -z "$(g for-each-ref refs/crannog/)" ]
 check "destroy of a missing crannog fails" fail cn destroy --yes main
