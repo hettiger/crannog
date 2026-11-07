@@ -20,7 +20,7 @@ Used automatically. `crannog preset publish default` writes it to
   CPUs, 4G, iron-proxy 0.54.0 pinned by digest; proxy variables via
   `CRANNOG_PROXY_URL`, `NODE_USE_ENV_PROXY`, the CA for Node and Codex, the
   agent homes of Claude Code, Codex, OpenCode and Pi, Codex's and
-  OpenCode's state in `/state`, npm, Composer and Playwright caches; mounts
+  OpenCode's state in `/state`, npm and Playwright caches; mounts
   of the CA, the agent homes and the caches. It reads nothing from the
   host's environment.
 - **`iron-proxy.yaml`:** tunnel listener `:8080`, TLS interception with the

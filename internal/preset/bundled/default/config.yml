@@ -59,7 +59,6 @@ env:
 
   # Package and tool caches, shared by all crannogs.
   NPM_CONFIG_CACHE: /home/agent/.crannog/cache/npm
-  COMPOSER_CACHE_DIR: /home/agent/.crannog/cache/composer
   PLAYWRIGHT_BROWSERS_PATH: /home/agent/.crannog/cache/ms-playwright
   # Without this, one crannog removes browsers another one uses.
   PLAYWRIGHT_SKIP_BROWSER_GC: "1"
