@@ -23,16 +23,19 @@ on one of three **anchors**:
 - **`.crannog/` in a worktree.** The worktree's root is opened only to
   read, replace or check `.crannog/` and its temporary sibling
   `.crannog.tmp-*` (packages `internal/setup` and `internal/preset`).
-- **Temporary directories crannog creates** with `os.MkdirTemp` in the
-  user's temporary directory (`$TMPDIR` on macOS), named
-  `crannog-<purpose>-*`. macOS removes leftovers after a crash.
+- **Temporary directories crannog creates** in the user's temporary
+  directory (`$TMPDIR` on macOS), named `crannog-<purpose>-*`. They are
+  created and removed through a root on the temporary directory, opened
+  once. macOS removes leftovers after a crash.
 
 The rules:
 
 - Package `internal/hostfs` opens anchors. Everything else works with
   paths relative to a root.
 - No directory on the way from an anchor to a crannog's state may be a
-  symlink, even one that stays within the anchor (`hostfs.OpenDir`).
+  symlink, even one that stays within the anchor (`hostfs.OpenDir`). Each
+  opened directory must be the one checked, so a replacement in between
+  is refused.
   Directories a guest can write to get their own root (ADR 0031).
 - Names read back from elsewhere are validated before they name a
   directory: branch slugs from remote URLs and directory entries, setup

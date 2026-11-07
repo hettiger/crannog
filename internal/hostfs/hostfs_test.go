@@ -78,6 +78,22 @@ func TestOpenDirRefusesSymlinks(t *testing.T) {
 	assert.Empty(t, entries, "nothing created through a symlink")
 }
 
+// A directory replaced by a symlink between the check and the open is
+// refused, even if the symlink stays within the root.
+func TestOpenDirRefusesAReplacedDirectory(t *testing.T) {
+	root, _ := testfs.TempRoot(t)
+	testfs.WriteFile(t, root, "a/file", "a", 0o644)
+	testfs.WriteFile(t, root, "b/file", "b", 0o644)
+	beforeOpen = func(dir *os.Root, name string) {
+		require.NoError(t, dir.Rename(name, name+"-moved"))
+		require.NoError(t, dir.Symlink("b", name))
+	}
+	t.Cleanup(func() { beforeOpen = func(*os.Root, string) {} })
+
+	_, err := OpenDir(root, "a", false)
+	assert.ErrorContains(t, err, "replaced")
+}
+
 func TestMkdirTemp(t *testing.T) {
 	tmp, _ := testfs.TempRoot(t)
 	a, err := MkdirTemp(tmp, ".tmp-")
@@ -97,10 +113,32 @@ func TestTempDir(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(filepath.Base(tmp.Dir), "crannog-diff-"), tmp.Dir)
 	assert.Equal(t, os.TempDir(), filepath.Dir(tmp.Dir))
+	info, err := tmp.Stat(".")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), info.Mode().Perm())
 	testfs.WriteFile(t, tmp.Root, "a/b", "x", 0o644)
 
 	require.NoError(t, tmp.Remove())
 	entries, err := fs.ReadDir(testfs.Root(t, os.TempDir()).FS(), ".")
 	require.NoError(t, err)
 	assert.Empty(t, entries, "removed")
+}
+
+// Remove deletes in the directory the temporary directory was created in,
+// even if the path of the user's temporary directory leads elsewhere by
+// then.
+func TestTempDirRemoveStaysInItsParent(t *testing.T) {
+	outer, dir := testfs.TempRoot(t)
+	require.NoError(t, outer.Mkdir("tmp", 0o700))
+	t.Setenv("TMPDIR", filepath.Join(dir, "tmp"))
+	tmp, err := NewTempDir("diff")
+	require.NoError(t, err)
+	name := filepath.Base(tmp.Dir)
+
+	require.NoError(t, outer.Rename("tmp", "tmp-moved"))
+	testfs.WriteFile(t, outer, "tmp/"+name+"/keep", "keep", 0o644)
+
+	require.NoError(t, tmp.Remove())
+	assert.Equal(t, "keep", testfs.ReadFile(t, outer, "tmp/"+name+"/keep"), "the other directory is untouched")
+	assert.False(t, testfs.Exists(t, outer, "tmp-moved/"+name), "removed where it was created")
 }

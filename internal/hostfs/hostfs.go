@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -64,8 +65,27 @@ func openComponent(dir *os.Root, name string, create bool) (*os.Root, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", name)
 	}
-	return dir.OpenRoot(name)
+	beforeOpen(dir, name)
+	// OpenRoot follows a symlink within dir, and name can be replaced by
+	// one after the Lstat. The opened directory must be the one checked.
+	r, err := dir.OpenRoot(name)
+	if err != nil {
+		return nil, err
+	}
+	opened, err := r.Stat(".")
+	if err != nil {
+		r.Close()
+		return nil, err
+	}
+	if !os.SameFile(info, opened) {
+		r.Close()
+		return nil, fmt.Errorf("%s was replaced while opening it", name)
+	}
+	return r, nil
 }
+
+// beforeOpen lets tests replace a directory between the check and the open.
+var beforeOpen = func(dir *os.Root, name string) {}
 
 // MkdirAll creates the directory name within root, see OpenDir.
 func MkdirAll(root *os.Root, name string) error {
@@ -104,23 +124,33 @@ type TempDir struct {
 	*os.Root
 	// Dir is the directory's absolute path, e.g. to run a command in it.
 	Dir string
+	// parent is the user's temporary directory, opened once, so Remove
+	// deletes in the directory the temporary directory was created in.
+	parent *os.Root
+	name   string
 }
 
 // NewTempDir creates a temporary directory named crannog-<name>-<random>.
 func NewTempDir(name string) (*TempDir, error) {
-	dir, err := os.MkdirTemp("", "crannog-"+name+"-")
+	parent, err := OpenAnchor(os.TempDir(), false)
 	if err != nil {
 		return nil, err
 	}
-	root, err := os.OpenRoot(dir)
+	dir, err := MkdirTemp(parent, "crannog-"+name+"-")
 	if err != nil {
-		_ = os.Remove(dir)
+		parent.Close()
 		return nil, err
 	}
-	return &TempDir{Root: root, Dir: dir}, nil
+	root, err := OpenDir(parent, dir, false)
+	if err != nil {
+		_ = parent.Remove(dir)
+		parent.Close()
+		return nil, err
+	}
+	return &TempDir{Root: root, Dir: filepath.Join(parent.Name(), dir), parent: parent, name: dir}, nil
 }
 
 // Remove closes and deletes the temporary directory.
 func (t *TempDir) Remove() error {
-	return errors.Join(t.Root.Close(), os.RemoveAll(t.Dir))
+	return errors.Join(t.Root.Close(), t.parent.RemoveAll(t.name), t.parent.Close())
 }
