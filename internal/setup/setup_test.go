@@ -80,6 +80,44 @@ func TestValidate(t *testing.T) {
 	assert.ErrorContains(t, sample().Without(ConfigFile, DockerfileFile).Validate(), "config.yml, container/Dockerfile")
 }
 
+// The approval diff must show the configuration as crannog reads it.
+func TestValidateRefusesUnreviewableConfiguration(t *testing.T) {
+	ok := []string{
+		"a: b\n",
+		"a: b\r\nc: d\r\n",
+		"a:\t\"ä ✓ 🦫\"\n",
+	}
+	for _, data := range ok {
+		s := sample()
+		s[ConfigFile] = File{Data: []byte(data)}
+		assert.NoError(t, s.Validate(), "%q", data)
+	}
+
+	bad := map[string]string{
+		// UTF-16LE with BOM: YAML parsers accept it, git diff shows binary.
+		"\xff\xfea\x00:\x00 \x00b\x00\n\x00": "not valid UTF-8",
+		"\xef\xbb\xbfa: b\n":                 "U+FEFF",
+		"a: b\x00\n":                         "U+0000",
+		"a: b\n\x1b[8mc: d\x1b[0m\n":         "line 2: control or format character U+001B",
+		"a: evil\rb: good\n":                 "U+000D",
+		"a: \u202eb\n":                       "U+202E",
+		"a: \u0085b\n":                       "U+0085",
+	}
+	for data, want := range bad {
+		for _, p := range []string{ConfigFile, ProxyFile} {
+			s := sample()
+			s[p] = File{Data: []byte(data)}
+			err := s.Validate()
+			assert.ErrorContains(t, err, want, "%s %q", p, data)
+			assert.ErrorContains(t, err, p, "%q", data)
+		}
+	}
+
+	s := sample()
+	s["container/logo.png"] = File{Data: []byte("\x89PNG\r\n\x1a\n\x00")}
+	assert.NoError(t, s.Validate(), "container/ may hold binary files")
+}
+
 func TestWorktreeAndCommitHaveTheSameHash(t *testing.T) {
 	dir := testgit.Init(t)
 	writeSample(t, dir)

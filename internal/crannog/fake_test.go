@@ -20,11 +20,12 @@ import (
 type fakeRuntime struct {
 	containers map[string]*runtime.Container
 	images     map[string]bool
+	specs      map[string]runtime.Spec
 	calls      []string
 }
 
 func newFakeRuntime() *fakeRuntime {
-	return &fakeRuntime{containers: map[string]*runtime.Container{}, images: map[string]bool{}}
+	return &fakeRuntime{containers: map[string]*runtime.Container{}, images: map[string]bool{}, specs: map[string]runtime.Spec{}}
 }
 
 func (f *fakeRuntime) record(format string, args ...any) {
@@ -73,6 +74,7 @@ func (f *fakeRuntime) Create(s runtime.Spec) error {
 		c.Networks = append(c.Networks, runtime.Attachment{Network: n, IPv4: fmt.Sprintf("192.168.70.%d", i+2)})
 	}
 	f.containers[s.Name] = c
+	f.specs[s.Name] = s
 	return nil
 }
 

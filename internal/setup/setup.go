@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/hettiger/crannog/internal/git"
 )
@@ -98,7 +100,8 @@ func (s Setup) Equal(o Setup) bool {
 	return true
 }
 
-// Validate checks that the setup has the files crannog needs.
+// Validate checks that the setup has the files crannog needs and that its
+// configuration shows in the approval diff as crannog reads it.
 func (s Setup) Validate() error {
 	var missing []string
 	for _, p := range []string{ConfigFile, ProxyFile, DockerfileFile} {
@@ -108,6 +111,32 @@ func (s Setup) Validate() error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("%s/ lacks %s", Dir, strings.Join(missing, ", "))
+	}
+	for _, p := range []string{ConfigFile, ProxyFile} {
+		if err := reviewable(s[p].Data); err != nil {
+			return fmt.Errorf("%s/%s: %w", Dir, p, err)
+		}
+	}
+	return nil
+}
+
+// reviewable checks that data is plain UTF-8 text (ADR 0031). Other
+// encodings show as binary in the diff, control characters can hide or
+// rewrite lines in the terminal, format characters such as bidi overrides
+// or a byte order mark can reorder or hide text. Line breaks are \n or
+// \r\n, tabs are allowed.
+func reviewable(data []byte) error {
+	if !utf8.Valid(data) {
+		return errors.New("not valid UTF-8")
+	}
+	for i, r := range string(data) {
+		switch {
+		case r == '\t', r == '\n':
+		case r == '\r' && i+1 < len(data) && data[i+1] == '\n':
+		case unicode.IsControl(r), unicode.Is(unicode.Cf, r):
+			line := bytes.Count(data[:i], []byte("\n")) + 1
+			return fmt.Errorf("line %d: control or format character %U", line, r)
+		}
 	}
 	return nil
 }

@@ -9,7 +9,8 @@ in and out are causeways you control:
 - **git:** code enters through plain git remotes, and the agent's commits
   come back the same way. Nothing else of your repository or your machine
   is inside.
-- **a network proxy:** the crannog reaches only the domains you allow.
+- **a network proxy:** the crannog reaches only the domains you allow,
+  plus services on your Mac that listen on all interfaces (`0.0.0.0`).
 - **mounts**, optionally, for what you decide to share.
 
 Claude Code, Codex, OpenCode and Pi come preinstalled, share their logins

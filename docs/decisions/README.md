@@ -34,3 +34,4 @@ Architecture Decision Records. New ADRs use [template.md](template.md).
 | [0028](0028-cobra-commands-in-a-subpackage.md)   | Cobra commands in a subpackage                           | Accepted                                           |
 | [0029](0029-poc-lifecycle-details.md)            | Lifecycle details of the PoC                             | Accepted                                           |
 | [0030](0030-poc-implementation-conventions.md)   | Implementation conventions of the PoC                    | Proposed                                           |
+| [0031](0031-crannog-writable-paths.md)           | Crannog-writable paths and reviewable configuration      | Accepted                                           |

@@ -1,8 +1,11 @@
 package crannog
 
 import (
+	"bytes"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -17,6 +20,7 @@ import (
 	"github.com/hettiger/crannog/internal/instructions"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
+	"github.com/hettiger/crannog/internal/untrusted"
 )
 
 // Conventions of the proxy causeway that crannog relies on; the default
@@ -32,6 +36,14 @@ const (
 	readyTimeout     = 60 * time.Second
 	pollInterval     = 250 * time.Millisecond
 	managementKeyEnv = "IRON_MANAGEMENT_API_KEY"
+	caCertFile       = "ca.crt"
+	caKeyFile        = "ca.key"
+)
+
+// Size limits for files crannog reads from the proxy directory.
+const (
+	maxCASize          = 64 << 10
+	maxProxyConfigSize = 16 << 20
 )
 
 // create builds a new crannog from an approved setup and starts it. On
@@ -70,14 +82,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 	}); err != nil {
 		return err
 	}
-	crt, err := os.ReadFile(filepath.Join(t.dir.ProxyDir(), "ca.crt"))
-	if err != nil {
-		return fmt.Errorf("the proxy image did not generate a CA: %w", err)
-	}
-	if err := os.Chmod(filepath.Join(t.dir.ProxyDir(), "ca.key"), 0o600); err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(t.dir.CADir(), "ca.crt"), crt, 0o644); err != nil {
+	if err := publishCA(t); err != nil {
 		return err
 	}
 	if err := m.writeProxyConfig(t, approved); err != nil {
@@ -175,7 +180,8 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 		Image:    cfg.Proxy.Image,
 		Memory:   proxyMemory,
 		Networks: []string{"default", t.names.Network},
-		Mounts:   []runtime.Mount{{Source: t.dir.ProxyDir(), Target: proxyDirInProxy}},
+		// The proxy only reads its directory; only generate-ca writes it.
+		Mounts: []runtime.Mount{{Source: t.dir.ProxyDir(), Target: proxyDirInProxy, ReadOnly: true}},
 		// The management API listens on loopback in the proxy only;
 		// crannog reads the key from the proxy's environment when it
 		// reloads, so it is not stored anywhere else.
@@ -203,9 +209,77 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 	})
 }
 
+// publishCA checks the CA that generate-ca wrote into the proxy directory,
+// restricts its key to the user and copies its certificate into the CA
+// directory. The proxy image wrote these files, so they are opened within
+// an os.Root (ADR 0031).
+func publishCA(t *target) error {
+	proxy, err := os.OpenRoot(t.dir.ProxyDir())
+	if err != nil {
+		return err
+	}
+	defer proxy.Close()
+	crt, _, err := untrusted.ReadFile(proxy, caCertFile, maxCASize)
+	if err != nil {
+		return fmt.Errorf("the proxy image did not generate a CA: %w", err)
+	}
+	if err := checkCACert(crt); err != nil {
+		return fmt.Errorf("the proxy image generated an invalid %s: %w", caCertFile, err)
+	}
+	key, _, err := untrusted.Open(proxy, caKeyFile)
+	if err != nil {
+		return fmt.Errorf("the proxy image did not generate a CA: %w", err)
+	}
+	defer key.Close()
+	if err := key.Chmod(0o600); err != nil {
+		return err
+	}
+	return renameio.WriteFile(filepath.Join(t.dir.CADir(), caCertFile), crt, 0o644)
+}
+
+// checkCACert checks that data is exactly one PEM-encoded CA certificate.
+func checkCACert(data []byte) error {
+	block, rest := pem.Decode(data)
+	if block == nil || block.Type != "CERTIFICATE" {
+		return errors.New("no PEM certificate")
+	}
+	if len(bytes.TrimSpace(rest)) > 0 {
+		return errors.New("more than one PEM block")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return err
+	}
+	if !cert.IsCA {
+		return errors.New("not a CA certificate")
+	}
+	return nil
+}
+
 // writeProxyConfig gives the proxy its copy of iron-proxy.yaml.
 func (m *Manager) writeProxyConfig(t *target, approved setup.Setup) error {
-	return renameio.WriteFile(filepath.Join(t.dir.ProxyDir(), proxyConfigFile), approved[setup.ProxyFile].Data, 0o644)
+	return writeProxyFile(t, approved[setup.ProxyFile].Data)
+}
+
+// readProxyFile and writeProxyFile access the proxy's iron-proxy.yaml
+// within an os.Root: generate-ca could have left symlinks (ADR 0031).
+func readProxyFile(t *target) ([]byte, error) {
+	proxy, err := os.OpenRoot(t.dir.ProxyDir())
+	if err != nil {
+		return nil, err
+	}
+	defer proxy.Close()
+	data, _, err := untrusted.ReadFile(proxy, proxyConfigFile, maxProxyConfigSize)
+	return data, err
+}
+
+func writeProxyFile(t *target, data []byte) error {
+	proxy, err := os.OpenRoot(t.dir.ProxyDir())
+	if err != nil {
+		return err
+	}
+	defer proxy.Close()
+	return renameio.WriteFile(proxyConfigFile, data, 0o644, renameio.WithRoot(proxy))
 }
 
 // start starts the proxy and the crannog if they are not running, waits
@@ -357,8 +431,7 @@ func (m *Manager) reload(t *target, hash string) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(t.dir.ProxyDir(), proxyConfigFile)
-	old, err := os.ReadFile(path)
+	old, err := readProxyFile(t)
 	if err != nil {
 		return err
 	}
@@ -372,7 +445,7 @@ func (m *Manager) reload(t *target, hash string) error {
 	if st.proxyRunning() {
 		m.UI.Printf("Reloading the proxy of %s\n", t.branch)
 		if err := m.reloadProxy(t); err != nil {
-			if rerr := renameio.WriteFile(path, old, 0o644); rerr == nil {
+			if rerr := writeProxyFile(t, old); rerr == nil {
 				_ = m.reloadProxy(t)
 			}
 			return fmt.Errorf("the proxy rejected the new %s, the old one stays: %w", setup.ProxyFile, err)

@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hettiger/crannog/internal/untrusted"
 )
 
 func TestUpdate(t *testing.T) {
@@ -75,4 +77,49 @@ func TestWriteRefusesSymlinks(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir2, 0o755))
 	require.NoError(t, os.Symlink(t.TempDir(), filepath.Join(dir2, "pi")))
 	assert.ErrorContains(t, EnsureHomes(dir2), "not a directory")
+}
+
+// A crannog can replace an agent home or an instruction file with a symlink
+// after EnsureHomes and Lstat checked them. The os.Root must still refuse
+// to leave the agent home.
+func TestWriteStaysInTheAgentHome(t *testing.T) {
+	host := t.TempDir()
+	hostFile := filepath.Join(host, "CLAUDE.md")
+	require.NoError(t, os.WriteFile(hostFile, []byte("host"), 0o600))
+
+	dir := filepath.Join(t.TempDir(), "agents")
+	require.NoError(t, EnsureHomes(dir))
+	agents, err := os.OpenRoot(dir)
+	require.NoError(t, err)
+	defer agents.Close()
+	claude := Agents[0]
+
+	// The agent home replaced by a symlink to a host directory.
+	require.NoError(t, os.Remove(filepath.Join(dir, "claude")))
+	require.NoError(t, os.Symlink(host, filepath.Join(dir, "claude")))
+	assert.Error(t, write(agents, claude))
+
+	// The instruction file replaced by a symlink to a host file.
+	require.NoError(t, os.Remove(filepath.Join(dir, "claude")))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "claude"), 0o755))
+	home, err := agents.OpenRoot("claude")
+	require.NoError(t, err)
+	defer home.Close()
+	require.NoError(t, os.Symlink(hostFile, filepath.Join(dir, "claude", "CLAUDE.md")))
+	_, _, err = untrusted.ReadFile(home, "CLAUDE.md", maxFileSize)
+	assert.Error(t, err, "the read after Lstat")
+
+	data, err := os.ReadFile(hostFile)
+	require.NoError(t, err)
+	assert.Equal(t, "host", string(data), "host file untouched")
+	entries, err := os.ReadDir(host)
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "no temporary file on the host")
+}
+
+func TestWriteRefusesHugeFiles(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "agents")
+	require.NoError(t, EnsureHomes(dir))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "pi", "AGENTS.md"), make([]byte, maxFileSize+1), 0o644))
+	assert.ErrorContains(t, Write(dir), "larger than")
 }

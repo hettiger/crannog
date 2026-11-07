@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/google/renameio/v2"
+
+	"github.com/hettiger/crannog/internal/untrusted"
 )
 
 // Markers of the managed instructions block.
@@ -110,41 +112,58 @@ func EnsureHomes(agentsDir string) error {
 	return nil
 }
 
+// maxFileSize limits how much of an instruction file crannog reads; a
+// crannog could make it arbitrarily large.
+const maxFileSize = 1 << 20
+
 // Write updates the managed instructions block in each agent's instruction
-// file. It writes atomically and never through a symlink.
+// file. It writes atomically and never through a symlink. Running crannogs
+// can change the agent homes concurrently, so every access is anchored in
+// an os.Root (ADR 0031).
 func Write(agentsDir string) error {
 	if err := EnsureHomes(agentsDir); err != nil {
 		return err
 	}
+	agents, err := os.OpenRoot(agentsDir)
+	if err != nil {
+		return err
+	}
+	defer agents.Close()
 	for _, a := range Agents {
-		p := filepath.Join(agentsDir, a.Name, a.File)
-		info, err := os.Lstat(p)
-		var content []byte
-		switch {
-		case errors.Is(err, fs.ErrNotExist):
-		case err != nil:
-			return err
-		case !info.Mode().IsRegular():
-			return fmt.Errorf("refusing to write %s: not a regular file", p)
-		default:
-			content, err = os.ReadFile(p)
-			if err != nil {
-				return err
-			}
-		}
-		updated := Update(string(content), ManagedBlock)
-		if updated == string(content) {
-			continue
-		}
-		mode := os.FileMode(0o644)
-		if info != nil {
-			mode = info.Mode().Perm()
-		}
-		if err := renameio.WriteFile(p, []byte(updated), mode); err != nil {
-			return err
+		if err := write(agents, a); err != nil {
+			return fmt.Errorf("%s: %w", filepath.Join(agentsDir, a.Name, a.File), err)
 		}
 	}
 	return nil
+}
+
+func write(agents *os.Root, a Agent) error {
+	home, err := agents.OpenRoot(a.Name)
+	if err != nil {
+		return err
+	}
+	defer home.Close()
+
+	var content []byte
+	info, err := home.Lstat(a.File)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+	case err != nil:
+		return err
+	case !info.Mode().IsRegular():
+		return errors.New("refusing to write: not a regular file")
+	default:
+		content, _, err = untrusted.ReadFile(home, a.File, maxFileSize)
+		if err != nil {
+			return err
+		}
+	}
+	updated := Update(string(content), ManagedBlock)
+	if updated == string(content) {
+		return nil
+	}
+	// renameio keeps the mode of an existing file.
+	return renameio.WriteFile(a.File, []byte(updated), 0o644, renameio.WithRoot(home))
 }
 
 // ensureDir creates dir if it is missing and checks that it is a directory
