@@ -57,17 +57,6 @@ func TestStartReadinessDeadline(t *testing.T) {
 	}
 }
 
-func TestReadinessRejectsLateSuccess(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		m := &Manager{}
-		err := m.waitFor("test", "readiness", func(ctx context.Context) bool {
-			<-ctx.Done()
-			return true
-		})
-		require.ErrorContains(t, err, "timed out")
-	})
-}
-
 func TestReadinessStopsPollingStoppedContainer(t *testing.T) {
 	f := newFixture(t)
 	synctest.Test(t, func(t *testing.T) {

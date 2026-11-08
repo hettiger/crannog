@@ -73,15 +73,11 @@ A lock removed or replaced while checkout waits is an error with a retry
 hint. Remote cleanup refuses changed fetch mappings rather than deleting
 unrelated refs ([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).
 
-Proxy-health and readiness-marker checks each have a 60-second deadline that
-also cancels blocked probes and status queries with SIGTERM, which
-`container exec` forwards to the probe in the container, and kills the CLI
-one second later if it has not exited. This bounds the CLI; a probe in the
-container that ignores SIGTERM can keep running. The deadline is not a
-timeout for the whole checkout.
+The 60-second deadline for the proxy health and the readiness marker
+([ADR 0024](../decisions/0024-readiness-marker.md)) also ends a probe that
+hangs. It is not a timeout for the whole checkout.
 
 If containers are missing, checkout explains that destroy deletes their work
 volume. When the selected setup requires a rebuild, it also suggests
 `crannog apply <branch>` with that setup, which recreates the containers
-while preserving the volumes
-([ADR 0034](../decisions/0034-bounded-readiness-and-recovery-guidance.md)).
+while preserving the volumes.

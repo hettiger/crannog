@@ -46,8 +46,7 @@ with the PoC.
 - **State of a crannog:** it exists once `crannogs/<slug>/crannog` holds a
   hash. A host directory without it is the remains of an interrupted build;
   `checkout` removes them and builds anew. A crannog whose containers are
-  missing is an error with recovery guidance
-  ([ADR 0034](0034-bounded-readiness-and-recovery-guidance.md)).
+  missing is an error with recovery guidance.
 - **Sessions:** a session runs
   `sh -c 'exec "$login_shell" -l -c "$1"'` as `agent` in
   `/work/<host path>`, with the login shell from `getent passwd` and

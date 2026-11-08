@@ -116,32 +116,3 @@ func TestReadinessCommandsCancelBlockedProcess(t *testing.T) {
 		})
 	}
 }
-
-func TestReadinessCommandsCancelWithSIGTERM(t *testing.T) {
-	dir := t.TempDir()
-	// container exec forwards SIGTERM, not SIGKILL, to the process in the
-	// container.
-	testfs.WriteFile(t, testfs.Root(t, dir), "container", `#!/bin/sh
-trap 'kill $! 2>/dev/null; echo "got TERM" >&2; exit 143' TERM
-sleep 30 >/dev/null 2>&1 &
-wait
-`, 0o755)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	_, err := (CLI{}).Exec(ctx, "test", ExecOptions{}, "true")
-	require.ErrorIs(t, err, context.DeadlineExceeded)
-	require.ErrorContains(t, err, "got TERM")
-}
-
-func TestReadinessCommandsKillAfterIgnoredSIGTERM(t *testing.T) {
-	dir := t.TempDir()
-	testfs.WriteFile(t, testfs.Root(t, dir), "container", "#!/bin/sh\ntrap '' TERM\nexec sleep 30\n", 0o755)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	started := time.Now()
-	_, err := (CLI{}).Exec(ctx, "test", ExecOptions{}, "true")
-	require.ErrorIs(t, err, context.DeadlineExceeded)
-	assert.Less(t, time.Since(started), 5*time.Second)
-}

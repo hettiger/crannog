@@ -319,8 +319,8 @@ func (m *Manager) start(t *target, st status) error {
 		}
 	}
 	if err := m.waitFor(t.names.Proxy, "the proxy to become healthy", func(ctx context.Context) bool {
-		// -T bounds the probe in the proxy even if cancellation does not
-		// reach it.
+		// -T ends the probe in the proxy, which keeps running when the
+		// deadline kills the CLI.
 		_, err := m.Runtime.Exec(ctx, t.names.Proxy, runtime.ExecOptions{}, "wget", "-q", "-T", "5", "-O", "/dev/null", proxyHealthURL)
 		return err == nil
 	}); err != nil {
@@ -348,32 +348,19 @@ func (m *Manager) start(t *target, st status) error {
 func (m *Manager) waitFor(container, what string, ready func(context.Context) bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), readyTimeout)
 	defer cancel()
-	timeout := func() error {
-		return fmt.Errorf("timed out after %s waiting for %s", readyTimeout, what)
-	}
 	for i := 0; ; i++ {
-		if ctx.Err() != nil {
-			return timeout()
-		}
-		ok := ready(ctx)
-		if ctx.Err() != nil {
-			return timeout()
-		}
-		if ok {
+		if ready(ctx) {
 			return nil
 		}
 		if i%8 == 7 {
 			list, err := m.Runtime.List(ctx, container)
-			if ctx.Err() != nil {
-				return timeout()
-			}
 			if err == nil && !hasRunning(list, container) {
 				return fmt.Errorf("%s stopped while waiting for %s; see container logs %s", container, what, container)
 			}
 		}
 		select {
 		case <-ctx.Done():
-			return timeout()
+			return fmt.Errorf("timed out after %s waiting for %s", readyTimeout, what)
 		case <-time.After(pollInterval):
 		}
 	}

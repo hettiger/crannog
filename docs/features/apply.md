@@ -37,5 +37,4 @@ that triggered the rebuild. If it still requires a rebuild relative to the
 recorded setup, apply recreates missing containers while preserving the work
 and state volumes. An unchanged or proxy-only setup does not recreate them;
 "up to date" describes the setup, not container health. Destroy deletes the
-volumes and is not a data-preserving recovery step
-([ADR 0034](../decisions/0034-bounded-readiness-and-recovery-guidance.md)).
+volumes and is not a data-preserving recovery step.
