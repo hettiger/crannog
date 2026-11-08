@@ -6,7 +6,7 @@ One file per feature (`short-name.md`), listed here.
 | --------------------------------------------- | ----------- | -------------------------------------------------- | ----------------------------------------------- |
 | [apply](apply.md)                             | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | Apply changes to `.crannog/` without a session  |
 | [checkout](checkout.md)                       | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | Open a session in the crannog of a branch       |
-| [default preset](default-preset.md)           | In progress | [autonomous-agent](../use-cases/autonomous-agent.md) | The bundled `.crannog/` for any repository      |
+| [default preset](default-preset.md)           | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | The bundled `.crannog/` for any repository      |
 | [destroy](destroy.md)                         | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | Destroy a crannog after showing what is lost    |
 | [git-remote-crannog](git-remote-crannog.md)   | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | git remote helper of the git causeway           |
 | [list](list.md)                               | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | List the repository's crannogs                  |

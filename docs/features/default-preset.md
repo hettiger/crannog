@@ -1,6 +1,6 @@
 # default preset
 
-- **Status:** In progress (PoC, content under review)
+- **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
 - **Decisions:** [0009](../decisions/0009-iron-proxy-proxy-causeway.md), [0011](../decisions/0011-agent-home.md), [0012](../decisions/0012-shared-package-caches.md), [0020](../decisions/0020-readiness-marker.md), [0026](../decisions/0026-presets.md), [0028](../decisions/0028-agents-in-the-default-image.md), [0029](../decisions/0029-managed-instructions-block.md)
 
