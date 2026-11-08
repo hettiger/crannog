@@ -29,6 +29,9 @@ type fakeRuntime struct {
 	calls      []string
 	// files are the instruction files in the crannogs, by path.
 	files map[string]string
+	// execHook, if set, can fail an Exec in a container, e.g. the proxy's
+	// reload.
+	execHook func(name string, args []string) error
 }
 
 func newFakeRuntime() *fakeRuntime {
@@ -118,6 +121,11 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 		return nil, fmt.Errorf("container %s is not running", name)
 	}
 	f.record("exec %s %s", name, args[0])
+	if f.execHook != nil {
+		if err := f.execHook(name, args); err != nil {
+			return nil, err
+		}
+	}
 	if len(args) == 5 && args[2] == readInstructionsScript {
 		return []byte(f.files[args[4]]), nil
 	}
@@ -196,4 +204,34 @@ func (f *fixture) target(branch string) *target {
 	t, err := f.m.target(branch)
 	require.NoError(f.t, err)
 	return t
+}
+
+// stubHelper puts a git-remote-crannog on PATH that fails, so checkHelper
+// passes and nothing reaches a real crannog.
+func stubHelper(t *testing.T) {
+	t.Helper()
+	helperDir := t.TempDir()
+	testfs.WriteFile(t, testfs.Root(t, helperDir), "git-remote-crannog", "#!/bin/sh\nexit 1\n", 0o755)
+	t.Setenv("PATH", helperDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// redirectURL makes git push and fetch to the crannog's URL go to a bare
+// repository instead, so the initial transfer and the destroy check work
+// without a crannog. It returns the bare repository.
+func (f *fixture) redirectURL(tg *target) string {
+	bare := filepath.Join(f.t.TempDir(), "bare.git")
+	testgit.Git(f.t, "", "init", "--bare", "-q", bare)
+	testgit.Git(f.t, f.dir, "config", "url."+bare+".insteadOf", tg.names.URL)
+	return bare
+}
+
+// calls returns the recorded runtime calls that start with prefix.
+func (f *fakeRuntime) callsWith(prefix string) []string {
+	var out []string
+	for _, c := range f.calls {
+		if strings.HasPrefix(c, prefix) {
+			out = append(out, c)
+		}
+	}
+	return out
 }

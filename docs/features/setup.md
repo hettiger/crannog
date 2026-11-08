@@ -22,6 +22,12 @@ and `container/`, and what crannog expects of them.
 All three are required. `crannog preset publish` writes a preset as a
 starting point.
 
+Symlinks in `.crannog/` are an error. Text files, which `git diff` shows in
+the approval diff, must not contain control characters other than tab and
+line breaks: escape sequences could hide lines in the terminal. A file with
+a NUL byte in its first 8000 bytes is binary, as for `git diff`, and may
+contain anything.
+
 ## Behavior
 
 ### `config.yml`

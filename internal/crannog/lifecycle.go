@@ -517,6 +517,8 @@ if [ "$4" = set ]; then git -C "$repo" config user.email "$5"; else git -C "$rep
 
 // remove deletes everything of a crannog except the image and the host
 // directory's lock: containers, network, volumes, remote and host state.
+// If a runtime object or the remote cannot be deleted, the host state
+// stays, so the next checkout tries again.
 func (m *Manager) remove(t *target) error {
 	var errs []error
 	st, err := m.status(t.names)
@@ -538,8 +540,10 @@ func (m *Manager) remove(t *target) error {
 		errs = append(errs, ignoreMissing(m.Runtime.DeleteVolume(v)))
 	}
 	errs = append(errs, m.removeRemote(t.names))
-	errs = append(errs, t.dir.clear())
-	return errors.Join(errs...)
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
+	return t.dir.clear()
 }
 
 // ignoreMissing ignores errors about objects that do not exist.

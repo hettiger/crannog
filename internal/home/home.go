@@ -49,6 +49,10 @@ const (
 	Presets = "presets"
 )
 
+// PathFile, in a repository's directory, holds the repository's git common
+// dir, from which its id is derived.
+const PathFile = "path"
+
 // RepositoryPath holds crannog's state about one repository.
 func RepositoryPath(id string) string { return filepath.Join("repositories", id) }
 

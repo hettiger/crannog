@@ -75,6 +75,11 @@ func TestStartBranch(t *testing.T) {
 
 	_, err = r.StartBranch("missing")
 	assert.ErrorContains(t, err, "not a local branch")
+	// Revision expressions resolve, but are no branches.
+	for _, expr := range []string{"main^", "main~0", "main@{0}", "main^{commit}", "refs/heads/main"} {
+		_, err = r.StartBranch(expr)
+		assert.ErrorContains(t, err, "not a local branch", expr)
+	}
 
 	testgit.Git(t, dir, "switch", "-q", "--detach")
 	_, err = r.StartBranch("")

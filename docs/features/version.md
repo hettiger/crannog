@@ -16,7 +16,10 @@ crannog version
 
 ## Behavior
 
-Prints the version string followed by a newline to stdout. The version is set
-at build time via
-`-ldflags "-X github.com/hettiger/crannog/crannog/cmd.version=..."` and
-defaults to `dev`.
+Prints the version string followed by a newline to stdout. The version is
+set at build time via
+`-ldflags "-X github.com/hettiger/crannog/crannog/cmd.version=..."`
+(`make build` uses `git describe`). Without it, crannog prints the module
+version Go recorded in the binary, which `go install` sets (a tag or a
+pseudo-version such as `v0.0.0-20261108120000-738f3ce1a2b3`), and `dev`
+for a plain `go build`.

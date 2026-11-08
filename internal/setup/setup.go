@@ -101,7 +101,7 @@ func (s Setup) Equal(o Setup) bool {
 }
 
 // Validate checks that the setup has the files crannog needs and that its
-// configuration shows in the approval diff as crannog reads it.
+// text files show in the approval diff as crannog reads them.
 func (s Setup) Validate() error {
 	var missing []string
 	for _, p := range []string{ConfigFile, ProxyFile, DockerfileFile} {
@@ -112,7 +112,10 @@ func (s Setup) Validate() error {
 	if len(missing) > 0 {
 		return fmt.Errorf("%s/ lacks %s", Dir, strings.Join(missing, ", "))
 	}
-	for _, p := range []string{ConfigFile, ProxyFile} {
+	for _, p := range s.paths() {
+		if isBinary(s[p].Data) {
+			continue
+		}
 		if err := checkControl(s[p].Data); err != nil {
 			return fmt.Errorf("%s/%s: %w", Dir, p, err)
 		}
@@ -120,8 +123,15 @@ func (s Setup) Validate() error {
 	return nil
 }
 
-// checkControl refuses control characters other than tab and line breaks:
-// escape sequences could hide lines of the approval diff in the terminal.
+// isBinary reports whether git diff shows data as binary rather than as
+// text: a NUL byte within the first 8000 bytes.
+func isBinary(data []byte) bool {
+	return bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0
+}
+
+// checkControl refuses control characters other than tab and line breaks
+// in a text file: escape sequences could hide lines of the approval diff
+// in the terminal.
 func checkControl(data []byte) error {
 	for i, b := range data {
 		if b < 0x20 && b != '\t' && b != '\n' && b != '\r' || b == 0x7f {
@@ -305,6 +315,7 @@ func ReadWorktree(dir string) (Setup, error) {
 	s := Setup{}
 	var root *os.Root
 	seen := map[string]bool{}
+	dirs := map[string]bool{}
 	for _, name := range strings.Split(string(out), "\x00") {
 		if name == "" || seen[name] {
 			continue
@@ -332,6 +343,9 @@ func ReadWorktree(dir string) (Setup, error) {
 			}
 			defer root.Close()
 		}
+		if err := checkDirs(root, rel, dirs); err != nil {
+			return nil, err
+		}
 		info, err := root.Lstat(rel)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
@@ -352,6 +366,26 @@ func ReadWorktree(dir string) (Setup, error) {
 		s[rel] = f
 	}
 	return s, nil
+}
+
+// checkDirs fails if a directory on the way to the file rel within root is
+// a symlink: an os.Root follows symlinks that stay within it. checked
+// remembers the directories already checked.
+func checkDirs(root *os.Root, rel string, checked map[string]bool) error {
+	for dir := path.Dir(rel); dir != "."; dir = path.Dir(dir) {
+		if checked[dir] {
+			return nil
+		}
+		info, err := root.Lstat(dir)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		if err == nil && info.Mode()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("%s/%s is a symlink", Dir, dir)
+		}
+		checked[dir] = true
+	}
+	return nil
 }
 
 // ReadCommit reads .crannog/ from a commit of the repository at dir.

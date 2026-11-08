@@ -1,7 +1,6 @@
 package crannog
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -155,9 +154,7 @@ func destroyFixture(t *testing.T) (f *fixture, tg *target, ref, head string) {
 	f = newFixture(t)
 	tg = f.target("main")
 	require.NoError(t, tg.dir.WriteBranch("main"))
-	helperDir := t.TempDir()
-	testfs.WriteFile(t, testfs.Root(t, helperDir), "git-remote-crannog", "#!/bin/sh\nexit 1\n", 0o755)
-	t.Setenv("PATH", helperDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	stubHelper(t)
 	head = testgit.Git(t, f.dir, "rev-parse", "HEAD")
 	ref = "refs/crannog/destroy/" + tg.names.Slug + "/old"
 	testgit.Git(t, f.dir, "update-ref", ref, head)

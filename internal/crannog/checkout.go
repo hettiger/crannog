@@ -40,6 +40,9 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	if err := m.recordPath(); err != nil {
+		return 0, err
+	}
 	lock, err := m.lock(t)
 	if err != nil {
 		return 0, err
@@ -107,9 +110,17 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 		return err
 	}
 	if hash == "" {
-		// Remains of an interrupted build, if any.
-		if err := m.remove(t); err != nil {
+		// A recorded branch without a hash: the remains of an interrupted
+		// build (ADR 0021). A fresh crannog has neither, and nothing to
+		// remove.
+		recorded, err := t.dir.Branch()
+		if err != nil {
 			return err
+		}
+		if recorded != "" {
+			if err := m.remove(t); err != nil {
+				return err
+			}
 		}
 		_, hash, err := m.review(t, src, nil, 0, true)
 		if err != nil {

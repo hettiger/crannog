@@ -17,10 +17,11 @@ import (
 )
 
 // OpenAnchor opens the directory dir as a root. With create, dir is
-// created if it is missing; its parent must exist.
+// created if it is missing, readable by the user only; its parent must
+// exist.
 func OpenAnchor(dir string, create bool) (*os.Root, error) {
 	if create {
-		if err := os.Mkdir(dir, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
+		if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, fs.ErrExist) {
 			return nil, err
 		}
 	}

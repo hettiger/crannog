@@ -90,7 +90,7 @@ func TestValidateRefusesControlCharacters(t *testing.T) {
 		s[ConfigFile] = File{Data: []byte(data)}
 		assert.NoError(t, s.Validate(), "%q", data)
 	}
-	for _, p := range []string{ConfigFile, ProxyFile} {
+	for _, p := range []string{ConfigFile, ProxyFile, DockerfileFile, "container/entrypoint.sh"} {
 		s := sample()
 		s[p] = File{Data: []byte("a: b\n\x1b[8mc: d\x1b[0m\n")}
 		err := s.Validate()
@@ -100,6 +100,12 @@ func TestValidateRefusesControlCharacters(t *testing.T) {
 	s := sample()
 	s["container/logo.png"] = File{Data: []byte("\x89PNG\r\n\x1a\n\x00")}
 	assert.NoError(t, s.Validate(), "container/ may hold binary files")
+
+	// git shows a file as text if its first 8000 bytes have no NUL byte;
+	// such a file must not hide anything either.
+	s = sample()
+	s["container/late-nul"] = File{Data: append([]byte(strings.Repeat("a\n", 4000)), "\x1b[8m\x00"...)}
+	assert.ErrorContains(t, s.Validate(), "container/late-nul: line 4001: control character 0x1b")
 }
 
 func TestWorktreeAndCommitHaveTheSameHash(t *testing.T) {
@@ -229,14 +235,24 @@ func TestReadWorktreeStaysInTheSetup(t *testing.T) {
 	testfs.WriteFile(t, wt, "elsewhere/Dockerfile", "secret", 0o644)
 
 	// Tracked files below a directory that became an ignored symlink: git
-	// lists the tracked files only.
+	// lists the tracked files only. The symlink is refused before the root
+	// would report the escape.
 	require.NoError(t, wt.RemoveAll(filepath.Join(Dir, "container")))
 	require.NoError(t, wt.Symlink("../elsewhere", filepath.Join(Dir, "container")))
 	testfs.WriteFile(t, wt, ".git/info/exclude", "/.crannog/container\n", 0o644)
 	_, err := ReadWorktree(dir)
-	assert.ErrorContains(t, err, "escapes")
+	assert.ErrorContains(t, err, ".crannog/container is a symlink")
+
+	// A symlink to a directory within .crannog/, which an os.Root would
+	// follow, is an error as well.
+	require.NoError(t, wt.Remove(filepath.Join(Dir, "container")))
+	testfs.WriteFile(t, wt, filepath.Join(Dir, "other", "Dockerfile"), "other", 0o644)
+	require.NoError(t, wt.Symlink("other", filepath.Join(Dir, "container")))
+	_, err = ReadWorktree(dir)
+	assert.ErrorContains(t, err, ".crannog/container is a symlink")
 
 	// .crannog/ itself replaced by a symlink.
+	require.NoError(t, wt.Remove(filepath.Join(Dir, "container")))
 	require.NoError(t, wt.Rename(Dir, "moved"))
 	require.NoError(t, wt.Symlink("moved", Dir))
 	_, err = ReadWorktree(dir)

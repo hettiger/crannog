@@ -28,20 +28,24 @@ confirmations, never setup approvals.
    the current worktree, otherwise from the branch's latest commit, else the
    preset `default`. Prints the source and a note if uncommitted changes in
    this worktree are not used. An invalid `config.yml` is an error, as is a
-   `config.yml` or `iron-proxy.yaml` with control characters other than tab
-   and line breaks, so escape sequences cannot hide lines of the approval
-   diff. A `.crannog` file or symlink is
-   an error; a directory deleted in the working tree counts as missing,
-   even if its files are still in the index.
-3. Takes the crannog's lock, waiting for other crannog commands.
-4. New crannog: asks for approval of content not approved before (diff to
-   the most recent approval; presets need none), builds the image if
-   missing, pulls the proxy image, generates the CA (ECDSA P-256, valid for
-   20 years), creates network, volumes, proxy and crannog, starts them, adds the remote
-   `crannog-<slug>`, initializes the repository at `/work/<host path>` and
-   pushes all branches as `origin/*`, all tags and the start branch directly
-   to the crannog URL, ignoring a remote's separate `pushurl`. On
-   failure, everything created is removed again.
+   text file with control characters other than tab and line breaks
+   ([setup](setup.md)), so escape sequences cannot hide lines of the
+   approval diff. A `.crannog` file or symlink is an error, as is a symlink
+   anywhere in `.crannog/`; a directory deleted in the working tree counts
+   as missing, even if its files are still in the index.
+3. Records the repository's git common dir in `repositories/<id>/path`
+   and takes the crannog's lock, waiting for other crannog commands.
+4. New crannog: removes the remains of an interrupted build first (a
+   recorded branch without a hash). Asks for approval of content not
+   approved before (diff to the most recent approval; presets need none),
+   builds the image if missing, pulls the proxy image, generates the CA
+   (ECDSA P-256, valid for 20 years), creates network, volumes, proxy and
+   crannog, starts them, adds the remote `crannog-<slug>`, initializes the
+   repository at `/work/<host path>` and pushes all branches as `origin/*`,
+   all tags and the start branch directly to the crannog URL, ignoring a
+   remote's separate `pushurl`. On failure, everything created is removed
+   again; if that fails in part, the host state stays and the next checkout
+   tries again.
 5. Existing crannog: if `.crannog/` differs from the crannog's copy, asks
    for approval (new content) or confirmation (a rebuild that ends running
    sessions), then reloads the proxy (only `iron-proxy.yaml` changed) or

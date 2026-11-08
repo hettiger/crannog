@@ -12,7 +12,8 @@ can be interrupted at any point.
 
 ## Decision
 
-- **Everything in `~/.crannog`:**
+- **Everything in `~/.crannog`**, created readable by the user only
+  (mode 0700):
 
   ```
   ~/.crannog/
@@ -20,7 +21,7 @@ can be interrupted at any point.
     cache/                      # package caches (ADR 0012)
     presets/<name>/             # user presets (ADR 0026)
     repositories/<id>/
-      path                      # repository path, for humans and cleanup
+      path                      # git common dir, for humans and cleanup
       approved/<sha256>/        # approved setups, by setup hash (ADR 0024)
       approved/latest           # hash of the most recent approval
       crannogs/<slug>/          # one per crannog (ADR 0017)
@@ -35,12 +36,15 @@ can be interrupted at any point.
 
 - **Repository id:** the sha256 in hex of the git common directory as
   `git rev-parse --path-format=absolute --git-common-dir` prints it, so all
-  worktrees of a repository share it.
-- **A crannog exists** once its `crannog` file holds a hash. A host directory
-  without it is the remains of an interrupted build; `checkout` removes them
-  and builds anew. If a first build fails, crannog removes everything it
-  created (containers, network, volumes, remote, host state except the
-  lock); the image stays.
+  worktrees of a repository share it. `checkout` records that directory in
+  `path`, since the id cannot be reversed.
+- **A crannog exists** once its `crannog` file holds a hash. A host
+  directory with a `branch` but no hash is the remains of an interrupted
+  build; `checkout` removes them and builds anew. A directory with neither
+  is new, and nothing is removed. If a first build fails, crannog removes
+  everything it created (containers, network, volumes, remote, host state
+  except the lock); the image stays. If a removal fails, the host state
+  stays so the next `checkout` tries again.
 - **Removal:** destroy removes `crannogs/<slug>/`; removing
   `repositories/<id>/` removes everything crannog knows about a repository.
 - Access to these files follows

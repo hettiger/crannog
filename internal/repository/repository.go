@@ -116,9 +116,11 @@ func (r *Repository) CurrentBranch() (string, error) {
 	return b, nil
 }
 
-// HasBranch reports whether branch is a local branch.
+// HasBranch reports whether branch is a local branch. show-ref takes the
+// name literally; rev-parse would also accept revision expressions such
+// as main^ or main@{1}.
 func (r *Repository) HasBranch(branch string) (bool, error) {
-	_, err := r.Git("rev-parse", "--verify", "--quiet", "refs/heads/"+branch)
+	_, err := r.Git("show-ref", "--verify", "--quiet", "refs/heads/"+branch)
 	if err != nil {
 		if git.ExitCode(err) == 1 {
 			return false, nil

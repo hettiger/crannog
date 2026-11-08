@@ -20,6 +20,9 @@ func TestOpenAnchor(t *testing.T) {
 
 	r, err := OpenAnchor(filepath.Join(dir, "home"), true)
 	require.NoError(t, err)
+	info, err := r.Stat(".")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), info.Mode().Perm(), "the user's only")
 	require.NoError(t, r.Close())
 	r, err = OpenAnchor(filepath.Join(dir, "home"), true)
 	require.NoError(t, err, "existing")

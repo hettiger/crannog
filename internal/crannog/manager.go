@@ -3,11 +3,14 @@
 package crannog
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/google/renameio/v2"
 
 	"github.com/hettiger/crannog/internal/config"
 	"github.com/hettiger/crannog/internal/git"
@@ -188,14 +191,32 @@ func (m *Manager) checkRemote(n naming.Names) error {
 	return nil
 }
 
-// addRemote adds the crannog's remote.
-func (m *Manager) addRemote(n naming.Names) error {
-	if err := m.checkRemote(n); err != nil {
+// recordPath writes the repository's git common dir, from which its id is
+// derived, to repositories/<id>/path (ADR 0021).
+func (m *Manager) recordPath() error {
+	r, err := m.Home.OpenDir(home.RepositoryPath(m.Repo.ID), true)
+	if err != nil {
 		return err
 	}
+	defer r.Close()
+	want := []byte(m.Repo.CommonDir + "\n")
+	if got, err := r.ReadFile(home.PathFile); err == nil && bytes.Equal(got, want) {
+		return nil
+	}
+	return renameio.WriteFile(home.PathFile, want, 0o644, renameio.WithRoot(r))
+}
+
+// addRemote adds the crannog's remote, unless it exists. A remote of that
+// name with another URL is the user's: an error, see checkRemote.
+func (m *Manager) addRemote(n naming.Names) error {
 	url, err := m.remoteURL(n.Remote)
-	if err != nil || url == n.URL {
+	switch {
+	case err != nil:
 		return err
+	case url == n.URL:
+		return nil
+	case url != "":
+		return fmt.Errorf("a remote named %s already exists (%s); rename or remove it", n.Remote, url)
 	}
 	if _, err := m.Repo.Git("remote", "add", n.Remote, n.URL); err != nil {
 		return err
