@@ -35,6 +35,14 @@ history.
 - **Not to be confused with:** the user's own agent configuration (e.g.
   `~/.claude` on the host), which crannog does not touch
 
+## Anchor
+
+A directory crannog opens as the root of all file access below it:
+`~/.crannog`, a worktree's `.crannog/`, or a temporary directory crannog
+created ([ADR 0031](decisions/0031-host-file-access.md)).
+
+- **In code:** package `hostfs`
+
 ## Approved setup
 
 A setup the user approved, or a preset crannog used, stored by its setup
