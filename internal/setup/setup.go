@@ -18,7 +18,6 @@ import (
 
 	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/hostfs"
-	"github.com/hettiger/crannog/internal/untrusted"
 )
 
 // Dir is the name of the setup directory in a repository.
@@ -227,13 +226,17 @@ func ReadFS(fsys fs.FS) (Setup, error) {
 	return s, err
 }
 
-// readFile reads the regular file name within root.
+// readFile reads the file name within root.
 func readFile(root *os.Root, name string) (File, error) {
-	f, info, err := untrusted.Open(root, name)
+	f, err := root.Open(name)
 	if err != nil {
 		return File{}, err
 	}
 	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return File{}, err
+	}
 	data, err := io.ReadAll(f)
 	if err != nil {
 		return File{}, err

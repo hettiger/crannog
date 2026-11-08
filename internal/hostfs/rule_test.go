@@ -44,9 +44,8 @@ var allowed = map[string]string{
 	// The anchor of the tests (ADR 0031).
 	"internal/testfs/testfs.go os.OpenRoot": "opens a test's temporary directory",
 	// Read-only checks outside the anchors.
-	"internal/crannog/lifecycle.go os.Stat":               "checks that approved mount sources exist",
-	"internal/testgit/testgit.go filepath.EvalSymlinks":   "resolves the test's temporary directory",
-	"internal/untrusted/untrusted_test.go syscall.Mkfifo": "os.Root cannot create a FIFO; within the test's directory",
+	"internal/crannog/lifecycle.go os.Stat":             "checks that approved mount sources exist",
+	"internal/testgit/testgit.go filepath.EvalSymlinks": "resolves the test's temporary directory",
 }
 
 // anchorUsers may open anchors with OpenAnchor.

@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0011](../decisions/0011-repository-configuration.md), [0013](../decisions/0013-agents-default-image.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0015](../decisions/0015-presets.md), [0016](../decisions/0016-cli-commands.md), [0018](../decisions/0018-rebuilds-with-running-sessions.md), [0019](../decisions/0019-configuration-schema.md), [0020](../decisions/0020-proxy-address.md), [0023](../decisions/0023-git-author-from-the-host.md), [0024](../decisions/0024-readiness-marker.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0030](../decisions/0030-poc-implementation-conventions.md), [0031](../decisions/0031-host-file-access.md)
+- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0011](../decisions/0011-repository-configuration.md), [0013](../decisions/0013-agents-default-image.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0015](../decisions/0015-presets.md), [0016](../decisions/0016-cli-commands.md), [0018](../decisions/0018-rebuilds-with-running-sessions.md), [0019](../decisions/0019-configuration-schema.md), [0020](../decisions/0020-proxy-address.md), [0023](../decisions/0023-git-author-from-the-host.md), [0024](../decisions/0024-readiness-marker.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0030](../decisions/0030-poc-implementation-conventions.md), [0031](../decisions/0031-host-file-access.md), [0032](../decisions/0032-host-stays-out-of-guest-writable-directories.md)
 
 ## Summary
 
@@ -49,8 +49,9 @@ confirmations, never setup approvals.
    asks before starting another session; without a terminal it only warns.
    Starts proxy and crannog if stopped, waits for the readiness marker and
    adds the remote. A foreign remote of that name is an error.
-6. Before the session: writes `crannog-proxy` to `/etc/hosts` and mirrors
-   `user.name` and `user.email` of the host repository.
+6. Before the session: writes `crannog-proxy` to `/etc/hosts`, mirrors
+   `user.name` and `user.email` of the host repository and updates the
+   managed instructions block in each agent home, from inside the crannog.
 7. Registers the session (`sessions/<pid>`, locked), releases the lock and
    runs the command as `agent` in the agent's login shell in the
    repository, with a terminal if stdin and stdout are terminals.
@@ -62,12 +63,13 @@ configuration for local branches tracking that remote; their local branches
 and commits remain. Starting another session recreates the remote, not those
 upstream settings.
 
-The managed instructions block is written into each agent home on every
-build and rebuild. A symlinked agent home or instruction file and an
-instruction file larger than 1 MiB are errors. The proxy mounts its
-directory read-only. A symlinked directory in crannog's state in
-`~/.crannog` is an error, never followed. The approval diff is built in a
-temporary directory `crannog-diff-*` in `$TMPDIR`.
+crannog generates the CA on the host. The host never touches the agent
+homes and caches, which crannogs can write to: the crannog creates the agent
+homes and writes the block itself, if the agent homes are mounted writable
+(`CRANNOG_AGENTS_DIR`). The proxy mounts its directory read-only. A
+symlinked directory in crannog's state in `~/.crannog` is an error, never
+followed. The approval diff is built in a temporary directory
+`crannog-diff-*` in `$TMPDIR`.
 
 A lock removed or replaced while checkout waits is an error with a retry
 hint. Remote cleanup refuses changed fetch mappings rather than deleting

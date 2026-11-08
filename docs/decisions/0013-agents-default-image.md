@@ -1,6 +1,6 @@
 # 0013. Agents in the default image
 
-- **Status:** Accepted, partially superseded by [0022](0022-default-image-packages-and-state.md) (default allowlist)
+- **Status:** Accepted, partially superseded by [0022](0022-default-image-packages-and-state.md) (default allowlist) and [0032](0032-host-stays-out-of-guest-writable-directories.md) (when the managed block is written)
 - **Date:** 2026-11-01
 
 ## Context

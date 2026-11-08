@@ -35,3 +35,4 @@ Architecture Decision Records. New ADRs use [template.md](template.md).
 | [0029](0029-poc-lifecycle-details.md)            | Lifecycle details of the PoC                             | Accepted                                           |
 | [0030](0030-poc-implementation-conventions.md)   | Implementation conventions of the PoC                    | Proposed                                           |
 | [0031](0031-host-file-access.md)                 | Host file access                                         | Accepted                                           |
+| [0032](0032-host-stays-out-of-guest-writable-directories.md) | Host stays out of guest-writable directories | Accepted                                   |

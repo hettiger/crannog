@@ -1,6 +1,6 @@
 # 0029. Lifecycle details of the PoC
 
-- **Status:** Accepted
+- **Status:** Accepted, partially superseded by [0032](0032-host-stays-out-of-guest-writable-directories.md) (who creates the agent homes)
 - **Date:** 2026-11-01
 
 ## Context

@@ -34,9 +34,8 @@ with the PoC.
   from the proxy's environment when it reloads, so it is stored nowhere
   else. If the proxy rejects a new configuration, crannog restores the old
   file. crannog creates an empty `proxy/secrets/`.
-- **CA:** generated with `iron-proxy generate-ca` in a throwaway container
-  of the proxy image, named `crannog <container name>`; `ca.key` gets mode
-  0600 on the host.
+- **CA:** generated on the host, named `crannog <container name>`: ECDSA
+  P-256, valid for 20 years, the key in PKCS #8 with mode 0600.
 - **Runtime:** the internal network is created with `--internal` and no
   fixed subnet. Containers are created with `container create` and started
   separately; mounts use `--volume source:target[:ro]`. Status and

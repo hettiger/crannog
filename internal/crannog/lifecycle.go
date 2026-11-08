@@ -21,7 +21,6 @@ import (
 	"github.com/hettiger/crannog/internal/instructions"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
-	"github.com/hettiger/crannog/internal/untrusted"
 )
 
 // Conventions of the proxy causeway that crannog relies on; the default
@@ -39,12 +38,6 @@ const (
 	managementKeyEnv = "IRON_MANAGEMENT_API_KEY"
 	caCertFile       = "ca.crt"
 	caKeyFile        = "ca.key"
-)
-
-// Size limits for files crannog reads from the proxy directory.
-const (
-	maxCASize          = 64 << 10
-	maxProxyConfigSize = 16 << 20
 )
 
 // create builds a new crannog from an approved setup and starts it. On
@@ -73,15 +66,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 		return err
 	}
 
-	m.UI.Printf("Generating the crannog's CA\n")
-	if err := m.Runtime.RunOnce(runtime.Spec{
-		Image:  cfg.Proxy.Image,
-		Mounts: []runtime.Mount{{Source: t.dir.ProxyDir(), Target: "/out"}},
-		Args:   []string{"generate-ca", "-outdir", "/out", "-name", "crannog " + t.names.Container},
-	}); err != nil {
-		return err
-	}
-	if err := publishCA(t); err != nil {
+	if err := writeCA(t); err != nil {
 		return err
 	}
 	if err := m.writeProxyConfig(t, approved); err != nil {
@@ -133,19 +118,13 @@ func (m *Manager) transferRepository(t *target) error {
 	return nil
 }
 
-// prepareHost creates the directories crannog provides on the host and
-// writes the managed instructions block (ADR 0013).
+// prepareHost creates the directories crannog provides on the host. It
+// never writes into them: crannogs can write there (ADR 0032).
 func (m *Manager) prepareHost(cfg *config.Config) error {
-	agents, err := m.Home.OpenDir(home.Agents, true)
-	if err != nil {
-		return err
-	}
-	defer agents.Close()
-	if err := instructions.Write(agents); err != nil {
-		return err
-	}
-	if err := hostfs.MkdirAll(m.Home.Root, home.Cache); err != nil {
-		return err
+	for _, d := range []string{home.Agents, home.Cache} {
+		if err := hostfs.MkdirAll(m.Home.Root, d); err != nil {
+			return err
+		}
 	}
 	// The only access outside the anchors (ADR 0031): approved mount
 	// sources are checked to exist, the runtime mounts them.
@@ -194,7 +173,7 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 		Image:    cfg.Proxy.Image,
 		Memory:   proxyMemory,
 		Networks: []string{"default", t.names.Network},
-		// The proxy only reads its directory; only generate-ca writes it.
+		// Only the host writes the proxy's directory (ADR 0032).
 		Mounts: []runtime.Mount{{Source: t.dir.ProxyDir(), Target: proxyDirInProxy, ReadOnly: true}},
 		// The management API listens on loopback in the proxy only;
 		// crannog reads the key from the proxy's environment when it
@@ -223,51 +202,19 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 	})
 }
 
-// publishCA restricts the key of the CA that generate-ca wrote into the
-// proxy directory to the user and copies its certificate into the CA
-// directory. The proxy image wrote these files, so they are opened within
-// an os.Root (ADR 0031).
-func publishCA(t *target) error {
-	proxy, err := t.dir.open(proxyDir, false)
-	if err != nil {
-		return err
-	}
-	defer proxy.Close()
-	crt, _, err := untrusted.ReadFile(proxy, caCertFile, maxCASize)
-	if err != nil {
-		return fmt.Errorf("the proxy image did not generate a CA: %w", err)
-	}
-	key, _, err := untrusted.Open(proxy, caKeyFile)
-	if err != nil {
-		return fmt.Errorf("the proxy image did not generate a CA: %w", err)
-	}
-	defer key.Close()
-	if err := key.Chmod(0o600); err != nil {
-		return err
-	}
-	ca, err := t.dir.open(caDir, false)
-	if err != nil {
-		return err
-	}
-	defer ca.Close()
-	return renameio.WriteFile(caCertFile, crt, 0o644, renameio.WithRoot(ca))
-}
-
 // writeProxyConfig gives the proxy its copy of iron-proxy.yaml.
 func (m *Manager) writeProxyConfig(t *target, approved setup.Setup) error {
 	return writeProxyFile(t, approved[setup.ProxyFile].Data)
 }
 
-// readProxyFile and writeProxyFile access the proxy's iron-proxy.yaml
-// within an os.Root: generate-ca could have left symlinks (ADR 0031).
+// readProxyFile and writeProxyFile access the proxy's iron-proxy.yaml.
 func readProxyFile(t *target) ([]byte, error) {
 	proxy, err := t.dir.open(proxyDir, false)
 	if err != nil {
 		return nil, err
 	}
 	defer proxy.Close()
-	data, _, err := untrusted.ReadFile(proxy, proxyConfigFile, maxProxyConfigSize)
-	return data, err
+	return proxy.ReadFile(proxyConfigFile)
 }
 
 func writeProxyFile(t *target, data []byte) error {
@@ -462,8 +409,9 @@ func (m *Manager) reloadProxy(t *target) error {
 }
 
 // prepareSession runs before every session: it maps crannog-proxy to the
-// proxy's current address in /etc/hosts (ADR 0020) and mirrors the git
-// author of the host repository (ADR 0023).
+// proxy's current address in /etc/hosts (ADR 0020), mirrors the git
+// author of the host repository (ADR 0023) and writes the managed
+// instructions block (ADR 0013).
 func (m *Manager) prepareSession(t *target) error {
 	st, err := m.status(t.names)
 	if err != nil {
@@ -496,8 +444,62 @@ func (m *Manager) prepareSession(t *target) error {
 	if _, err := m.Runtime.Exec(context.Background(), t.names.Container, runtime.ExecOptions{User: AgentUser}, args...); err != nil {
 		return fmt.Errorf("setting the git author: %w", err)
 	}
+	return m.writeInstructions(t)
+}
+
+// writeInstructions updates the managed instructions block in each agent's
+// instruction file. It runs in the crannog, so the host never writes into
+// the agent homes (ADR 0032). Without a writable mount of the agent homes
+// there is nothing to update.
+func (m *Manager) writeInstructions(t *target) error {
+	hash, err := t.dir.Hash()
+	if err != nil {
+		return err
+	}
+	_, cfg, err := m.loadApproved(t, hash)
+	if err != nil {
+		return err
+	}
+	dir := agentsMount(cfg, m.Home.Abs(home.Agents))
+	if dir == "" {
+		return nil
+	}
+	for _, a := range instructions.Agents {
+		file := path.Join(dir, a.Name, a.File)
+		o := runtime.ExecOptions{User: AgentUser}
+		content, err := m.Runtime.Exec(context.Background(), t.names.Container, o, "sh", "-c", readInstructionsScript, "sh", file)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", file, err)
+		}
+		updated := instructions.Update(string(content), instructions.ManagedBlock)
+		if updated == string(content) {
+			continue
+		}
+		o.Stdin = strings.NewReader(updated)
+		if _, err := m.Runtime.Exec(context.Background(), t.names.Container, o, "sh", "-c", writeInstructionsScript, "sh", file); err != nil {
+			return fmt.Errorf("writing %s: %w", file, err)
+		}
+	}
 	return nil
 }
+
+// agentsMount returns where the agent homes are mounted writable in the
+// crannog, or "".
+func agentsMount(cfg *config.Config, agents string) string {
+	for _, mt := range cfg.Mounts {
+		if filepath.Clean(mt.Source) == agents && !mt.ReadOnly {
+			return mt.Target
+		}
+	}
+	return ""
+}
+
+// readInstructionsScript creates the agent home and prints the instruction
+// file $1, if it exists.
+const readInstructionsScript = `mkdir -p "${1%/*}" && if [ -e "$1" ]; then cat "$1"; fi`
+
+// writeInstructionsScript replaces the instruction file $1 with stdin.
+const writeInstructionsScript = `cat > "$1.crannog-tmp" && mv -f "$1.crannog-tmp" "$1"`
 
 // hostsScript writes "<ip> <name>" to /etc/hosts if it is missing or
 // differs. It rewrites the file in place: the runtime provides it.

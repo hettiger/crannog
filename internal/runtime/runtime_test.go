@@ -78,7 +78,7 @@ func TestSpecArgs(t *testing.T) {
 	}, s.args())
 
 	assert.Equal(t, []string{"--name", "x", "img"}, Spec{Name: "x", Image: "img"}.args())
-	assert.Equal(t, []string{"img", "generate-ca"}, Spec{Image: "img", Args: []string{"generate-ca"}}.args())
+	assert.Equal(t, []string{"img", "-config", "x"}, Spec{Image: "img", Args: []string{"-config", "x"}}.args())
 }
 
 func TestExecArgs(t *testing.T) {

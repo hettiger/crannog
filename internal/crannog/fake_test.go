@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,10 +27,12 @@ type fakeRuntime struct {
 	images     map[string]bool
 	specs      map[string]runtime.Spec
 	calls      []string
+	// files are the instruction files in the crannogs, by path.
+	files map[string]string
 }
 
 func newFakeRuntime() *fakeRuntime {
-	return &fakeRuntime{containers: map[string]*runtime.Container{}, images: map[string]bool{}, specs: map[string]runtime.Spec{}}
+	return &fakeRuntime{containers: map[string]*runtime.Container{}, images: map[string]bool{}, specs: map[string]runtime.Spec{}, files: map[string]string{}}
 }
 
 func (f *fakeRuntime) record(format string, args ...any) {
@@ -85,11 +88,6 @@ func (f *fakeRuntime) Create(s runtime.Spec) error {
 	return nil
 }
 
-func (f *fakeRuntime) RunOnce(s runtime.Spec) error {
-	f.record("run %s", strings.Join(s.Args, " "))
-	return nil
-}
-
 func (f *fakeRuntime) Start(name string) error {
 	f.record("start %s", name)
 	f.containers[name].State = runtime.StateRunning
@@ -120,6 +118,14 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 		return nil, fmt.Errorf("container %s is not running", name)
 	}
 	f.record("exec %s %s", name, args[0])
+	if len(args) == 5 && args[2] == readInstructionsScript {
+		return []byte(f.files[args[4]]), nil
+	}
+	if len(args) == 5 && args[2] == writeInstructionsScript {
+		data, err := io.ReadAll(o.Stdin)
+		f.files[args[4]] = string(data)
+		return nil, err
+	}
 	return nil, nil
 }
 

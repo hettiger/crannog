@@ -95,7 +95,7 @@ The causeway through which code enters a crannog and the agent's results
 
 The block between `<!-- crannog:begin -->` and `<!-- crannog:end -->` in each
 agent's global instruction file in the agent home. It explains the crannog
-to the agent; crannog replaces it on every build.
+to the agent; crannog replaces it whenever a session starts.
 
 - **Not to be confused with:** the rest of the instruction file, which is
   the user's and which crannog leaves alone

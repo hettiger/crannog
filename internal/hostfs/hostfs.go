@@ -65,27 +65,8 @@ func openComponent(dir *os.Root, name string, create bool) (*os.Root, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", name)
 	}
-	beforeOpen(dir, name)
-	// OpenRoot follows a symlink within dir, and name can be replaced by
-	// one after the Lstat. The opened directory must be the one checked.
-	r, err := dir.OpenRoot(name)
-	if err != nil {
-		return nil, err
-	}
-	opened, err := r.Stat(".")
-	if err != nil {
-		r.Close()
-		return nil, err
-	}
-	if !os.SameFile(info, opened) {
-		r.Close()
-		return nil, fmt.Errorf("%s was replaced while opening it", name)
-	}
-	return r, nil
+	return dir.OpenRoot(name)
 }
-
-// beforeOpen lets tests replace a directory between the check and the open.
-var beforeOpen = func(dir *os.Root, name string) {}
 
 // MkdirAll creates the directory name within root, see OpenDir.
 func MkdirAll(root *os.Root, name string) error {

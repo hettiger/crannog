@@ -1,21 +1,8 @@
-// Package instructions keeps crannog's managed instructions block in each
-// agent's global instruction file in the agent home (ADR 0013), and creates
-// the agent homes.
+// Package instructions defines crannog's managed instructions block in each
+// agent's global instruction file in the agent home (ADR 0013).
 package instructions
 
-import (
-	"errors"
-	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"strings"
-
-	"github.com/google/renameio/v2"
-
-	"github.com/hettiger/crannog/internal/hostfs"
-	"github.com/hettiger/crannog/internal/untrusted"
-)
+import "strings"
 
 // Markers of the managed instructions block.
 const (
@@ -45,7 +32,7 @@ const ManagedBlock = Begin + `
 
 You are working inside a crannog: an isolated sandbox with its own Linux VM
 that crannog built for this repository. crannog manages this block and
-replaces it on every build; edits to it have no lasting effect.
+replaces it whenever a session starts; edits to it have no lasting effect.
 
 - **Return results as commits.** The user fetches this repository's
   branches with git and decides what to keep. Uncommitted changes and files
@@ -96,65 +83,4 @@ func Update(content, block string) string {
 		content += "\n\n"
 	}
 	return content + block + "\n"
-}
-
-// EnsureHomes creates one agent home per agent in the agents directory.
-// Symlinks are refused: a crannog can create symlinks in the agent home
-// that point to host paths (ADR 0008).
-func EnsureHomes(agents *os.Root) error {
-	for _, a := range Agents {
-		if err := hostfs.MkdirAll(agents, a.Name); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// maxFileSize limits how much of an instruction file crannog reads; a
-// crannog could make it arbitrarily large.
-const maxFileSize = 1 << 20
-
-// Write updates the managed instructions block in each agent's instruction
-// file. It writes atomically and never through a symlink. Running crannogs
-// can change the agent homes concurrently, so every access is anchored in
-// an os.Root (ADR 0031).
-func Write(agents *os.Root) error {
-	if err := EnsureHomes(agents); err != nil {
-		return err
-	}
-	for _, a := range Agents {
-		if err := write(agents, a); err != nil {
-			return fmt.Errorf("%s: %w", filepath.Join(agents.Name(), a.Name, a.File), err)
-		}
-	}
-	return nil
-}
-
-func write(agents *os.Root, a Agent) error {
-	home, err := hostfs.OpenDir(agents, a.Name, false)
-	if err != nil {
-		return err
-	}
-	defer home.Close()
-
-	var content []byte
-	info, err := home.Lstat(a.File)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-	case err != nil:
-		return err
-	case !info.Mode().IsRegular():
-		return errors.New("refusing to write: not a regular file")
-	default:
-		content, _, err = untrusted.ReadFile(home, a.File, maxFileSize)
-		if err != nil {
-			return err
-		}
-	}
-	updated := Update(string(content), ManagedBlock)
-	if updated == string(content) {
-		return nil
-	}
-	// renameio keeps the mode of an existing file.
-	return renameio.WriteFile(a.File, []byte(updated), 0o644, renameio.WithRoot(home))
 }

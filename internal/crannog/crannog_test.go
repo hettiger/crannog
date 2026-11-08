@@ -1,6 +1,7 @@
 package crannog
 
 import (
+	"io/fs"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hettiger/crannog/internal/home"
+	"github.com/hettiger/crannog/internal/hostfs"
+	"github.com/hettiger/crannog/internal/instructions"
 	"github.com/hettiger/crannog/internal/preset"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
@@ -390,4 +393,27 @@ func TestExitCode(t *testing.T) {
 	assert.Equal(t, 0, code)
 	_, err = exitCode(exec.Command("/nonexistent").Run())
 	assert.Error(t, err)
+}
+
+// The managed instructions block is written in the crannog, not on the host.
+func TestWriteInstructions(t *testing.T) {
+	f := newFixture(t)
+	tg := f.existing("main", defaultSetup(t))
+	f.rt.containers[tg.names.Container].State = runtime.StateRunning
+	claude := "/home/agent/.crannog/agents/claude/CLAUDE.md"
+	f.rt.files[claude] = "# mine\n"
+	require.NoError(t, hostfs.MkdirAll(f.m.Home.Root, home.Agents))
+
+	require.NoError(t, f.m.writeInstructions(tg))
+	assert.Equal(t, "# mine\n\n"+instructions.ManagedBlock+"\n", f.rt.files[claude])
+	for _, a := range instructions.Agents {
+		assert.Contains(t, f.rt.files["/home/agent/.crannog/agents/"+a.Name+"/"+a.File], instructions.ManagedBlock)
+	}
+	entries, err := fs.ReadDir(f.m.Home.Root.FS(), home.Agents)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "the host does not write into the agent homes")
+
+	f.rt.calls = nil
+	require.NoError(t, f.m.writeInstructions(tg))
+	assert.Len(t, f.rt.calls, len(instructions.Agents), "up to date: reads only")
 }

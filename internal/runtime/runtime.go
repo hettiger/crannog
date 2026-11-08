@@ -99,11 +99,14 @@ type ExecOptions struct {
 	Interactive bool
 	TTY         bool
 	Env         []string
+	// Stdin is passed to the command by Exec, which then implies
+	// Interactive.
+	Stdin io.Reader
 }
 
 func (o ExecOptions) args() []string {
 	var a []string
-	if o.Interactive {
+	if o.Interactive || o.Stdin != nil {
 		a = append(a, "--interactive")
 	}
 	if o.TTY {
@@ -136,8 +139,6 @@ type Runtime interface {
 	DeleteVolume(name string) error
 	// Create creates a container without starting it.
 	Create(s Spec) error
-	// RunOnce runs a container in the foreground and removes it.
-	RunOnce(s Spec) error
 	Start(name string) error
 	Stop(names ...string) error
 	// Delete removes containers, running or not.
@@ -192,8 +193,13 @@ func (c CLI) run(args ...string) ([]byte, error) {
 	return c.runContext(context.Background(), args...)
 }
 
-func (CLI) runContext(ctx context.Context, args ...string) ([]byte, error) {
+func (c CLI) runContext(ctx context.Context, args ...string) ([]byte, error) {
+	return c.runInput(ctx, nil, args...)
+}
+
+func (CLI) runInput(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "container", args...)
+	cmd.Stdin = stdin
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
@@ -323,11 +329,6 @@ func (c CLI) Create(s Spec) error {
 	return err
 }
 
-func (c CLI) RunOnce(s Spec) error {
-	_, err := c.run(append([]string{"run", "--rm"}, s.args()...)...)
-	return err
-}
-
 func (c CLI) Start(name string) error {
 	_, err := c.run("start", name)
 	return err
@@ -346,7 +347,7 @@ func (c CLI) Delete(names ...string) error {
 func (c CLI) Exec(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error) {
 	a := append([]string{"exec"}, o.args()...)
 	a = append(a, name)
-	return c.runContext(ctx, append(a, args...)...)
+	return c.runInput(ctx, o.Stdin, append(a, args...)...)
 }
 
 func (CLI) ExecCommand(name string, o ExecOptions, args ...string) *exec.Cmd {

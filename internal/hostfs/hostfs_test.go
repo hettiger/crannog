@@ -78,22 +78,6 @@ func TestOpenDirRefusesSymlinks(t *testing.T) {
 	assert.Empty(t, entries, "nothing created through a symlink")
 }
 
-// A directory replaced by a symlink between the check and the open is
-// refused, even if the symlink stays within the root.
-func TestOpenDirRefusesAReplacedDirectory(t *testing.T) {
-	root, _ := testfs.TempRoot(t)
-	testfs.WriteFile(t, root, "a/file", "a", 0o644)
-	testfs.WriteFile(t, root, "b/file", "b", 0o644)
-	beforeOpen = func(dir *os.Root, name string) {
-		require.NoError(t, dir.Rename(name, name+"-moved"))
-		require.NoError(t, dir.Symlink("b", name))
-	}
-	t.Cleanup(func() { beforeOpen = func(*os.Root, string) {} })
-
-	_, err := OpenDir(root, "a", false)
-	assert.ErrorContains(t, err, "replaced")
-}
-
 func TestMkdirTemp(t *testing.T) {
 	tmp, _ := testfs.TempRoot(t)
 	a, err := MkdirTemp(tmp, ".tmp-")
