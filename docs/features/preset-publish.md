@@ -23,5 +23,5 @@ crannog preset publish [name] [--yes]
   setup is moved aside first and restored if installing the new one fails.
   If restoring also fails, the error names the preserved backup. A crash
   between moves can leave it at `.crannog.tmp-*/old`; directory replacement
-  is not atomic ([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).
+  is not atomic.
 - Needs no container runtime. The written files are not committed.

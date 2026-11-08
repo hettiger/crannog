@@ -71,7 +71,7 @@ temporary directory `crannog-diff-*` in `$TMPDIR`.
 
 A lock removed or replaced while checkout waits is an error with a retry
 hint. Remote cleanup refuses changed fetch mappings rather than deleting
-unrelated refs ([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).
+unrelated refs.
 
 The 60-second deadline for the proxy health and the readiness marker
 ([ADR 0024](../decisions/0024-readiness-marker.md)) also ends a probe that

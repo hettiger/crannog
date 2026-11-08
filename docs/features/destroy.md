@@ -38,7 +38,7 @@ longer exists.
 
 Cleanup refuses a remote with changed fetch mappings. A command waiting
 on a lock removed by destroy fails with a retry hint rather than continuing
-with an obsolete lock ([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).
+with an obsolete lock.
 
 Cleanup is not transactional: when remote removal fails, containers and
 volumes may already be deleted, while the remote and a host directory with

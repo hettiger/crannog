@@ -36,4 +36,3 @@ Architecture Decision Records. New ADRs use [template.md](template.md).
 | [0030](0030-poc-implementation-conventions.md)   | Implementation conventions of the PoC                    | Proposed                                           |
 | [0031](0031-crannog-writable-paths.md)           | Crannog-writable paths and reviewable configuration      | Accepted                                           |
 | [0032](0032-anchored-host-file-access.md)        | Anchored host file access                                | Accepted                                           |
-| [0033](0033-conservative-cleanup-and-replacement.md) | Conservative cleanup and replacement                | Accepted                                           |
