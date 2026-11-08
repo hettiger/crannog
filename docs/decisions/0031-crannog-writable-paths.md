@@ -14,8 +14,8 @@ or swap a directory for a symlink while crannog works on it. A security
 review used this to read, overwrite and chmod host files.
 
 The same review showed that the approval diff can hide configuration:
-YAML parsers accept UTF-16, which `git diff` shows as binary, and control
-or format characters can hide or reorder text in the terminal.
+escape sequences can hide lines in the terminal, and YAML parsers accept
+UTF-16, which `git diff` shows as binary.
 
 ## Decision
 
@@ -23,12 +23,10 @@ or format characters can hide or reorder text in the terminal.
   path out of them: it opens them as an `os.Root` and reads only regular
   files of limited size.
 - **The proxy mounts `proxy/` read-only.** Only the one-off `generate-ca`
-  container writes it, and crannog checks the CA certificate before it
-  uses it.
-- **`config.yml` and `iron-proxy.yaml` must be plain text,** so the
-  approval diff shows what is approved: UTF-8 without control characters
-  other than tab and line breaks, and without Unicode format characters.
-  Otherwise the setup is invalid. Files in `container/` may be binary.
+  container writes it.
+- **`config.yml` and `iron-proxy.yaml` must not contain control
+  characters** other than tab and line breaks, so no line of the approval
+  diff can be hidden. Otherwise the setup is invalid.
 
 ## Alternatives
 
@@ -36,13 +34,16 @@ or format characters can hide or reorder text in the terminal.
 - **Writing the managed instructions block from inside the crannog:**
   needs a running crannog, while `apply` builds stopped ones
   ([ADR 0029](0029-poc-lifecycle-details.md)).
-- **A decoded, semantic diff of the configuration:** a second view to
-  trust; requiring plain text keeps the diff faithful.
+- **Requiring plain UTF-8 text without Unicode format characters:** more
+  code for little gain. Other encodings show as `Binary files differ`, so
+  the user sees that something changed and can look closer.
+- **Checking the generated CA certificate:** the proxy image is part of the
+  approved setup; a malicious one generates a valid certificate anyway.
 
 ## Consequences
 
 - Symlinked agent homes and instruction files are errors.
 - Proxy images must not need to write their configuration directory while
   they run.
-- Configuration files with a byte order mark or emoji with zero-width
-  joiners are refused.
+- A configuration file in another encoding passes and shows as binary in
+  the approval diff.

@@ -15,8 +15,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/hostfs"
@@ -116,29 +114,21 @@ func (s Setup) Validate() error {
 		return fmt.Errorf("%s/ lacks %s", Dir, strings.Join(missing, ", "))
 	}
 	for _, p := range []string{ConfigFile, ProxyFile} {
-		if err := reviewable(s[p].Data); err != nil {
+		if err := checkControl(s[p].Data); err != nil {
 			return fmt.Errorf("%s/%s: %w", Dir, p, err)
 		}
 	}
 	return nil
 }
 
-// reviewable checks that data is plain UTF-8 text (ADR 0031). Other
-// encodings show as binary in the diff, control characters can hide or
-// rewrite lines in the terminal, format characters such as bidi overrides
-// or a byte order mark can reorder or hide text. Line breaks are \n or
-// \r\n, tabs are allowed.
-func reviewable(data []byte) error {
-	if !utf8.Valid(data) {
-		return errors.New("not valid UTF-8")
-	}
-	for i, r := range string(data) {
-		switch {
-		case r == '\t', r == '\n':
-		case r == '\r' && i+1 < len(data) && data[i+1] == '\n':
-		case unicode.IsControl(r), unicode.Is(unicode.Cf, r):
+// checkControl refuses control characters other than tab and line breaks:
+// escape sequences could hide lines of the approval diff in the terminal
+// (ADR 0031).
+func checkControl(data []byte) error {
+	for i, b := range data {
+		if b < 0x20 && b != '\t' && b != '\n' && b != '\r' || b == 0x7f {
 			line := bytes.Count(data[:i], []byte("\n")) + 1
-			return fmt.Errorf("line %d: control or format character %U", line, r)
+			return fmt.Errorf("line %d: control character %#02x", line, b)
 		}
 	}
 	return nil

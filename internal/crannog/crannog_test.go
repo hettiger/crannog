@@ -116,11 +116,6 @@ func TestReadSource(t *testing.T) {
 	writeSetup(t, f.dir, with(s, setup.ConfigFile, "unknown: 1"))
 	_, err = f.m.readSource("other")
 	assert.ErrorContains(t, err, "field unknown not found", "invalid config fails before any approval")
-
-	// UTF-16 parses as YAML, but the approval diff shows it as binary.
-	writeSetup(t, f.dir, with(s, setup.ConfigFile, "\xff\xfes\x00:\x00 \x001\x00\n\x00"))
-	_, err = f.m.readSource("other")
-	assert.ErrorContains(t, err, "not valid UTF-8", "unreviewable config fails before any approval")
 }
 
 func TestReviewApproval(t *testing.T) {

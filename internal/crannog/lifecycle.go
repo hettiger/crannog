@@ -1,12 +1,9 @@
 package crannog
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/x509"
 	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -226,8 +223,8 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 	})
 }
 
-// publishCA checks the CA that generate-ca wrote into the proxy directory,
-// restricts its key to the user and copies its certificate into the CA
+// publishCA restricts the key of the CA that generate-ca wrote into the
+// proxy directory to the user and copies its certificate into the CA
 // directory. The proxy image wrote these files, so they are opened within
 // an os.Root (ADR 0031).
 func publishCA(t *target) error {
@@ -239,9 +236,6 @@ func publishCA(t *target) error {
 	crt, _, err := untrusted.ReadFile(proxy, caCertFile, maxCASize)
 	if err != nil {
 		return fmt.Errorf("the proxy image did not generate a CA: %w", err)
-	}
-	if err := checkCACert(crt); err != nil {
-		return fmt.Errorf("the proxy image generated an invalid %s: %w", caCertFile, err)
 	}
 	key, _, err := untrusted.Open(proxy, caKeyFile)
 	if err != nil {
@@ -257,25 +251,6 @@ func publishCA(t *target) error {
 	}
 	defer ca.Close()
 	return renameio.WriteFile(caCertFile, crt, 0o644, renameio.WithRoot(ca))
-}
-
-// checkCACert checks that data is exactly one PEM-encoded CA certificate.
-func checkCACert(data []byte) error {
-	block, rest := pem.Decode(data)
-	if block == nil || block.Type != "CERTIFICATE" {
-		return errors.New("no PEM certificate")
-	}
-	if len(bytes.TrimSpace(rest)) > 0 {
-		return errors.New("more than one PEM block")
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return err
-	}
-	if !cert.IsCA {
-		return errors.New("not a CA certificate")
-	}
-	return nil
 }
 
 // writeProxyConfig gives the proxy its copy of iron-proxy.yaml.

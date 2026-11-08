@@ -28,15 +28,14 @@ confirmations, never setup approvals.
    the current worktree, otherwise from the branch's latest commit, else the
    preset `default`. Prints the source and a note if uncommitted changes in
    this worktree are not used. An invalid `config.yml` is an error, as is a
-   `config.yml` or `iron-proxy.yaml` that is not plain UTF-8 text (control
-   or format characters, other encodings). A `.crannog` file or symlink is
+   `config.yml` or `iron-proxy.yaml` with control characters other than tab
+   and line breaks. A `.crannog` file or symlink is
    an error; a directory deleted in the working tree counts as missing,
    even if its files are still in the index.
 3. Takes the crannog's lock, waiting for other crannog commands.
 4. New crannog: asks for approval of content not approved before (diff to
    the most recent approval; presets need none), builds the image if
-   missing, pulls the proxy image, generates the CA (refusing anything but
-   one PEM CA certificate in `ca.crt`), creates network, volumes, proxy and
+   missing, pulls the proxy image, generates the CA, creates network, volumes, proxy and
    crannog, starts them, adds the remote
    `crannog-<slug>`, initializes the repository at `/work/<host path>` and
    pushes all branches as `origin/*`, all tags and the start branch directly

@@ -1,17 +1,9 @@
 package crannog
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,66 +11,35 @@ import (
 	"github.com/hettiger/crannog/internal/testfs"
 )
 
-func testCert(t *testing.T, isCA bool) []byte {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
-	tmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: "test"},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(time.Hour),
-		IsCA:                  isCA,
-		BasicConstraintsValid: true,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
-	require.NoError(t, err)
-	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
-}
-
 // generatedCA sets up a target whose proxy directory holds what
 // generate-ca wrote.
-func generatedCA(t *testing.T, crt []byte) (*fixture, *target) {
+func generatedCA(t *testing.T, crt string) (*fixture, *target) {
 	f := newFixture(t)
 	tg := f.target("main")
 	require.NoError(t, tg.dir.mkdirs(proxyDir, caDir))
-	if crt != nil {
-		testfs.WriteFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, proxyDir, caCertFile), string(crt), 0o644)
+	if crt != "" {
+		testfs.WriteFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, proxyDir, caCertFile), crt, 0o644)
 	}
 	testfs.WriteFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, proxyDir, caKeyFile), "key", 0o644)
 	return f, tg
 }
 
 func TestPublishCA(t *testing.T) {
-	crt := testCert(t, true)
-	f, tg := generatedCA(t, crt)
+	f, tg := generatedCA(t, "cert")
 	require.NoError(t, publishCA(tg))
 
-	assert.Equal(t, string(crt), testfs.ReadFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, caDir, caCertFile)))
+	assert.Equal(t, "cert", testfs.ReadFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, caDir, caCertFile)))
 	info, err := f.m.Home.Root.Stat(filepath.Join(tg.dir.path, proxyDir, caKeyFile))
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
 
-func TestPublishCARefusesInvalidCertificates(t *testing.T) {
-	tests := map[string][]byte{
-		"no PEM certificate":    []byte("not a certificate"),
-		"more than one":         append(testCert(t, true), testCert(t, true)...),
-		"not a CA certificate":  testCert(t, false),
-		"did not generate a CA": nil,
-	}
-	for want, crt := range tests {
-		f, tg := generatedCA(t, crt)
-		assert.ErrorContains(t, publishCA(tg), want)
-		assert.False(t, testfs.Exists(t, f.m.Home.Root, filepath.Join(tg.dir.path, caDir, caCertFile)), want)
-	}
-}
-
 // A malicious proxy image can leave symlinks to host files in the proxy
 // directory. crannog must not publish their targets.
 func TestPublishCARefusesASymlinkedCertificate(t *testing.T) {
-	f, tg := generatedCA(t, nil)
+	f, tg := generatedCA(t, "")
 	user := f.userRoot()
-	testfs.WriteFile(t, user, "secret", string(testCert(t, true)), 0o600)
+	testfs.WriteFile(t, user, "secret", "secret", 0o600)
 	proxy := testfs.Root(t, tg.dir.ProxyDir())
 	require.NoError(t, proxy.Symlink(filepath.Join(user.Name(), "secret"), caCertFile))
 
@@ -88,7 +49,7 @@ func TestPublishCARefusesASymlinkedCertificate(t *testing.T) {
 
 // Nor may it chmod the target of a symlinked key.
 func TestPublishCARefusesASymlinkedKey(t *testing.T) {
-	f, tg := generatedCA(t, testCert(t, true))
+	f, tg := generatedCA(t, "cert")
 	user := f.userRoot()
 	testfs.WriteFile(t, user, "tool", "", 0o755)
 	proxy := testfs.Root(t, tg.dir.ProxyDir())
