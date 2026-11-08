@@ -190,6 +190,8 @@ func newFixture(t *testing.T) *fixture {
 }
 
 // userRoot is the user's home directory, outside ~/.crannog.
+// userRoot opens the user's home of the fixture, a t.TempDir() that holds
+// ~/.crannog.
 func (f *fixture) userRoot() *os.Root { return testfs.Root(f.t, f.m.UserHome) }
 
 func (f *fixture) target(branch string) *target {

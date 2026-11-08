@@ -15,7 +15,8 @@ import (
 )
 
 // unrelated creates a directory with files that look like a crannog's
-// state, in the user's home outside ~/.crannog. Nothing may change it.
+// state, in the user's home outside ~/.crannog. Nothing may change it. Like
+// all fixture directories, the user's home is a t.TempDir().
 func (f *fixture) unrelated() (user *os.Root, check func()) {
 	user = f.userRoot()
 	for _, name := range []string{"Documents/unrelated.txt", "branch", "sessions/12345", "sessions/unrelated.txt"} {
@@ -37,48 +38,25 @@ func (f *fixture) unrelated() (user *os.Root, check func()) {
 	}
 }
 
-// A symlink in crannog's state never redirects a cleanup, a lock or a write
-// (ADR 0032): the crannog directory itself, a directory on the way to it
-// or one in it.
+// A symlinked crannog directory never redirects a cleanup, a lock or a
+// write (ADR 0032). That no directory on the way may be a symlink either is
+// tested in hostfs.
 func TestHostDirRefusesSymlinks(t *testing.T) {
-	// The symlink and its target, relative to the symlink.
-	links := map[string]func(f *fixture, tg *target) (string, string){
-		"crannog directory": func(f *fixture, tg *target) (string, string) {
-			return tg.dir.path, "../../../../unrelated"
-		},
-		"repository directory": func(f *fixture, tg *target) (string, string) {
-			return home.RepositoryPath(f.m.Repo.ID), "../../unrelated"
-		},
-		"sessions directory": func(f *fixture, tg *target) (string, string) {
-			return filepath.Join(tg.dir.path, sessionsDir), "../../../../../unrelated/sessions"
-		},
-	}
-	for name, link := range links {
-		t.Run(name, func(t *testing.T) {
-			f := newFixture(t)
-			tg := f.target("main")
-			require.NoError(t, tg.dir.mkdirs(caDir))
-			user, check := f.unrelated()
-			at, target := link(f, tg)
-			require.NoError(t, f.m.Home.Root.RemoveAll(at))
-			require.NoError(t, f.m.Home.Root.MkdirAll(filepath.Dir(at), 0o755))
-			require.NoError(t, f.m.Home.Root.Symlink(target, at))
-			info, err := user.Stat(filepath.Join(".crannog", at))
-			require.NoError(t, err)
-			require.True(t, info.IsDir(), "the symlink leads to the unrelated directory")
+	f := newFixture(t)
+	tg := f.target("main")
+	user, check := f.unrelated()
+	require.NoError(t, f.m.Home.Root.MkdirAll(tg.dir.crannogs, 0o755))
+	require.NoError(t, f.m.Home.Root.Symlink(filepath.Join(user.Name(), "unrelated"), tg.dir.path))
 
-			_ = tg.dir.clear()
-			_ = tg.dir.WriteBranch("main")
-			_, _ = tg.dir.sessions(true)
-			if l, err := tg.dir.lock(nil); err == nil {
-				l.Unlock()
-			}
-			_ = tg.dir.removeAll()
-			_, _ = f.m.List()
-			f.m.SelfRepair()
-			check()
-		})
-	}
+	assert.ErrorContains(t, tg.dir.clear(), "not a directory")
+	assert.ErrorContains(t, tg.dir.removeAll(), "not a directory")
+	assert.ErrorContains(t, tg.dir.WriteBranch("main"), "not a directory")
+	_, err := tg.dir.lock(nil)
+	assert.ErrorContains(t, err, "not a directory")
+	_, err = f.m.List()
+	require.NoError(t, err)
+	f.m.SelfRepair()
+	check()
 }
 
 // Symlinks within ~/.crannog are refused as well: a cleanup must not reach

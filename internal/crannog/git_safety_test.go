@@ -148,40 +148,42 @@ func TestRemoveRemotePreservesSymbolicRefTarget(t *testing.T) {
 	assert.Equal(t, head, testgit.Git(t, f.dir, "rev-parse", "refs/heads/precious"))
 }
 
-func TestDestroyPreservesExistingRefs(t *testing.T) {
-	for _, missing := range []bool{false, true} {
-		name := "declined after loss check"
-		if missing {
-			name = "declined with missing containers"
-		}
-		t.Run(name, func(t *testing.T) {
-			f := newFixture(t)
-			tg := f.target("main")
-			require.NoError(t, tg.dir.WriteBranch("main"))
-			helperDir := t.TempDir()
-			testfs.WriteFile(t, testfs.Root(t, helperDir), "git-remote-crannog", "#!/bin/sh\nexit 1\n", 0o755)
-			t.Setenv("PATH", helperDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			if !missing {
-				source := testgit.Init(t)
-				testgit.Git(t, f.dir, "config", "url."+source+".insteadOf", tg.names.URL)
-				f.rt.containers[tg.names.Container] = &runtime.Container{Name: tg.names.Container, State: runtime.StateRunning}
-				f.rt.containers[tg.names.Proxy] = &runtime.Container{Name: tg.names.Proxy, State: runtime.StateRunning}
-				sess, _, err := tg.dir.registerSession()
-				require.NoError(t, err)
-				defer sess.Unlock()
-			}
-			head := testgit.Git(t, f.dir, "rev-parse", "HEAD")
-			ref := "refs/crannog/destroy/" + tg.names.Slug + "/old"
-			testgit.Git(t, f.dir, "update-ref", ref, head)
-			f.prompt.terminal = true
-			err := f.m.Destroy("main")
-			assert.ErrorIs(t, err, ui.ErrDeclined)
-			if missing {
-				assert.Contains(t, f.out.String(), "containers are missing")
-			} else {
-				assert.NotContains(t, f.out.String(), "cannot check what would be lost")
-			}
-			assert.Equal(t, head, testgit.Git(t, f.dir, "rev-parse", ref))
-		})
-	}
+// destroyFixture sets up a crannog whose destroy will be declined, with a
+// ref from an earlier destroy that must survive. The git-remote-crannog on
+// PATH fails, so nothing reaches a real crannog.
+func destroyFixture(t *testing.T) (f *fixture, tg *target, ref, head string) {
+	f = newFixture(t)
+	tg = f.target("main")
+	require.NoError(t, tg.dir.WriteBranch("main"))
+	helperDir := t.TempDir()
+	testfs.WriteFile(t, testfs.Root(t, helperDir), "git-remote-crannog", "#!/bin/sh\nexit 1\n", 0o755)
+	t.Setenv("PATH", helperDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	head = testgit.Git(t, f.dir, "rev-parse", "HEAD")
+	ref = "refs/crannog/destroy/" + tg.names.Slug + "/old"
+	testgit.Git(t, f.dir, "update-ref", ref, head)
+	f.prompt.terminal = true
+	return f, tg, ref, head
+}
+
+func TestDeclinedDestroyPreservesExistingRefs(t *testing.T) {
+	f, tg, ref, head := destroyFixture(t)
+	source := testgit.Init(t)
+	testgit.Git(t, f.dir, "config", "url."+source+".insteadOf", tg.names.URL)
+	f.rt.containers[tg.names.Container] = &runtime.Container{Name: tg.names.Container, State: runtime.StateRunning}
+	f.rt.containers[tg.names.Proxy] = &runtime.Container{Name: tg.names.Proxy, State: runtime.StateRunning}
+	sess, _, err := tg.dir.registerSession()
+	require.NoError(t, err)
+	defer sess.Unlock()
+
+	assert.ErrorIs(t, f.m.Destroy("main"), ui.ErrDeclined)
+	assert.NotContains(t, f.out.String(), "cannot check what would be lost")
+	assert.Equal(t, head, testgit.Git(t, f.dir, "rev-parse", ref))
+}
+
+func TestDeclinedDestroyWithMissingContainersPreservesExistingRefs(t *testing.T) {
+	f, _, ref, head := destroyFixture(t)
+
+	assert.ErrorIs(t, f.m.Destroy("main"), ui.ErrDeclined)
+	assert.Contains(t, f.out.String(), "containers are missing")
+	assert.Equal(t, head, testgit.Git(t, f.dir, "rev-parse", ref))
 }

@@ -74,22 +74,27 @@ func TestPublishCARefusesInvalidCertificates(t *testing.T) {
 }
 
 // A malicious proxy image can leave symlinks to host files in the proxy
-// directory. crannog must neither publish nor chmod their targets.
-func TestPublishCARefusesSymlinks(t *testing.T) {
+// directory. crannog must not publish their targets.
+func TestPublishCARefusesASymlinkedCertificate(t *testing.T) {
 	f, tg := generatedCA(t, nil)
 	user := f.userRoot()
 	testfs.WriteFile(t, user, "secret", string(testCert(t, true)), 0o600)
 	proxy := testfs.Root(t, tg.dir.ProxyDir())
 	require.NoError(t, proxy.Symlink(filepath.Join(user.Name(), "secret"), caCertFile))
+
 	assert.Error(t, publishCA(tg))
 	assert.False(t, testfs.Exists(t, f.m.Home.Root, filepath.Join(tg.dir.path, caDir, caCertFile)))
+}
 
-	f, tg = generatedCA(t, testCert(t, true))
-	user = f.userRoot()
+// Nor may it chmod the target of a symlinked key.
+func TestPublishCARefusesASymlinkedKey(t *testing.T) {
+	f, tg := generatedCA(t, testCert(t, true))
+	user := f.userRoot()
 	testfs.WriteFile(t, user, "tool", "", 0o755)
-	proxy = testfs.Root(t, tg.dir.ProxyDir())
+	proxy := testfs.Root(t, tg.dir.ProxyDir())
 	require.NoError(t, proxy.Remove(caKeyFile))
 	require.NoError(t, proxy.Symlink(filepath.Join(user.Name(), "tool"), caKeyFile))
+
 	assert.Error(t, publishCA(tg))
 	info, err := user.Stat("tool")
 	require.NoError(t, err)
