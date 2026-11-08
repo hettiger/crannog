@@ -30,11 +30,13 @@ prompts: the crannog is the security boundary.
 
 ```sh
 go install github.com/hettiger/crannog/...@latest
+ln -s "$(go env GOPATH)/bin/git-remote-crannog" /usr/local/bin/git-remote-crannog
 ```
 
 This installs `crannog` and the git remote helper `git-remote-crannog`;
-both must be in `PATH`. From a checkout, `make build` builds both into
-`dist/`.
+both must be in `PATH`. The symlink makes the helper visible to git clients
+that do not load your shell's `PATH`, such as GUI apps. From a checkout,
+`make build` builds both into `dist/`.
 
 ## Usage
 

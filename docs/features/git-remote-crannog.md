@@ -11,8 +11,10 @@ URL `crannog::<slug>`.
 
 ## Usage
 
-Installed next to `crannog` in `PATH`; users never call it. Any git command
-that works with a remote works with a running crannog's remote:
+Installed next to `crannog` in `PATH`; users never call it. git clients that
+do not load the shell's `PATH` (GUI apps such as Fork) find it through a
+symlink in `/usr/local/bin`, see the README. Any git command that works
+with a remote works with a running crannog's remote:
 
 ```sh
 git fetch crannog-<slug>
