@@ -14,7 +14,7 @@ import (
 type Home struct {
 	// Dir is the absolute path, for mounts and messages.
 	Dir string
-	// Root is the anchor all access to ~/.crannog goes through (ADR 0032).
+	// Root is the anchor all access to ~/.crannog goes through (ADR 0031).
 	Root *os.Root
 }
 

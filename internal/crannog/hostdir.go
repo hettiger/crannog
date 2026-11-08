@@ -28,7 +28,7 @@ const (
 // HostDir is a crannog's directory on the host,
 // ~/.crannog/repositories/<id>/crannogs/<slug>/ (ADR 0014, ADR 0025). All
 // access goes through the root of ~/.crannog; no directory on the way may
-// be a symlink (ADR 0032).
+// be a symlink (ADR 0031).
 type HostDir struct {
 	home home.Home
 	// crannogs is the repository's crannogs directory within ~/.crannog.

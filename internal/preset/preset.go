@@ -133,7 +133,7 @@ var rename = func(root *os.Root, oldname, newname string) error {
 // which is kept. The replacement is not atomic: a crash between the two
 // moves leaves no .crannog, and the old one in .crannog.tmp-*/old. Only
 // .crannog/ and its temporary sibling are accessed in the worktree
-// (ADR 0032).
+// (ADR 0031).
 func Publish(s setup.Setup, dir string) error {
 	wt, err := hostfs.OpenAnchor(dir, false)
 	if err != nil {

@@ -147,7 +147,7 @@ func (m *Manager) prepareHost(cfg *config.Config) error {
 	if err := hostfs.MkdirAll(m.Home.Root, home.Cache); err != nil {
 		return err
 	}
-	// The only access outside the anchors (ADR 0032): approved mount
+	// The only access outside the anchors (ADR 0031): approved mount
 	// sources are checked to exist, the runtime mounts them.
 	for _, mt := range cfg.Mounts {
 		if _, err := os.Stat(mt.Source); err != nil {

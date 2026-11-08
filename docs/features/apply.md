@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0011](../decisions/0011-repository-configuration.md), [0015](../decisions/0015-presets.md), [0016](../decisions/0016-cli-commands.md), [0018](../decisions/0018-rebuilds-with-running-sessions.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0031](../decisions/0031-crannog-writable-paths.md), [0032](../decisions/0032-anchored-host-file-access.md)
+- **Decisions:** [0011](../decisions/0011-repository-configuration.md), [0015](../decisions/0015-presets.md), [0016](../decisions/0016-cli-commands.md), [0018](../decisions/0018-rebuilds-with-running-sessions.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0031](../decisions/0031-host-file-access.md)
 
 ## Summary
 

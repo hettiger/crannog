@@ -243,7 +243,7 @@ func readFile(root *os.Root, name string) (File, error) {
 
 // OpenWorktree opens .crannog/ in the worktree at dir as a root. Only
 // .crannog/ and its siblings named .crannog.tmp-* are accessed through
-// the worktree's root (ADR 0032).
+// the worktree's root (ADR 0031).
 func OpenWorktree(dir string) (*os.Root, error) {
 	wt, err := hostfs.OpenAnchor(dir, false)
 	if err != nil {

@@ -1,7 +1,7 @@
 // Package session implements the crannog lock and the session files with
 // flock (ADR 0014, ADR 0025). The kernel releases a lock when the last
 // process holding its file descriptor ends, so locks never stay behind.
-// Lock and session files are accessed within an os.Root (ADR 0032).
+// Lock and session files are accessed within an os.Root (ADR 0031).
 package session
 
 import (

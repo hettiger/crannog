@@ -1,5 +1,5 @@
 // Package testfs gives tests a root to work in, so tests access the file
-// system like crannog does (ADR 0032).
+// system like crannog does (ADR 0031).
 package testfs
 
 import (

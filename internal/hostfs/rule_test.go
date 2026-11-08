@@ -18,7 +18,7 @@ import (
 )
 
 // pathFuncs are the functions that access the file system by path. Code
-// must use an os.Root instead (ADR 0032).
+// must use an os.Root instead (ADR 0031).
 var pathFuncs = map[string][]string{
 	"os": {"Chdir", "Chmod", "Chown", "Chtimes", "CopyFS", "Create", "CreateTemp", "DirFS",
 		"Lchown", "Link", "Lstat", "Mkdir", "MkdirAll", "MkdirTemp", "Open", "OpenFile",
@@ -41,7 +41,7 @@ const renameio = "github.com/google/renameio/v2"
 // allowed are the uses of path functions outside this package, by file
 // and function, with the reason.
 var allowed = map[string]string{
-	// The anchor of the tests (ADR 0032).
+	// The anchor of the tests (ADR 0031).
 	"internal/testfs/testfs.go os.OpenRoot": "opens a test's temporary directory",
 	// Read-only checks outside the anchors.
 	"internal/crannog/lifecycle.go os.Stat":               "checks that approved mount sources exist",
@@ -84,7 +84,7 @@ func TestFileSystemAccessIsAnchored(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	assert.Empty(t, violations, "use an os.Root (ADR 0032)")
+	assert.Empty(t, violations, "use an os.Root (ADR 0031)")
 }
 
 func check(t *testing.T, name string, src []byte) []string {

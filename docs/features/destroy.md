@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0030](../decisions/0030-poc-implementation-conventions.md), [0032](../decisions/0032-anchored-host-file-access.md)
+- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0030](../decisions/0030-poc-implementation-conventions.md), [0031](../decisions/0031-host-file-access.md)
 
 ## Summary
 
