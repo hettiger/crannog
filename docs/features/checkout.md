@@ -72,3 +72,13 @@ temporary directory `crannog-diff-*` in `$TMPDIR`.
 A lock removed or replaced while checkout waits is an error with a retry
 hint. Remote cleanup refuses changed fetch mappings rather than deleting
 unrelated refs ([ADR 0033](../decisions/0033-conservative-cleanup-and-replacement.md)).
+
+Proxy-health and readiness-marker checks each have a 60-second deadline that
+also cancels blocked probes and status queries. Process output cleanup can
+take up to one additional second; this is not a timeout for the whole checkout.
+
+If containers are missing, checkout explains that destroy deletes their work
+volume. When the selected setup requires a rebuild, it instead suggests
+resolving the failure and retrying `crannog apply <branch>` with that setup
+to recreate the containers while preserving the volumes
+([ADR 0034](../decisions/0034-bounded-readiness-and-recovery-guidance.md)).

@@ -73,6 +73,7 @@ func (m *Manager) Destroy(branchArg string) error {
 	}
 	if sessions > 0 {
 		m.UI.Printf("%s running in this crannog end.\n", plural(sessions, "session", "sessions"))
+		m.UI.Printf("Running sessions can create more work after this check; that work will also be deleted.\n")
 	}
 	if err := m.UI.AskConfirmation(fmt.Sprintf("Destroy the crannog of %s?", branch)); err != nil {
 		// The check may have started the crannog.
@@ -160,7 +161,7 @@ true`
 
 func printLosses(m *Manager, t *target, l losses) {
 	if len(l.branches) == 0 && len(l.worktrees) == 0 {
-		m.UI.Printf("Nothing would be lost: all branches of the crannog of %s are in your repository.\n", t.branch)
+		m.UI.Printf("At the time of this check, all branch commits of the crannog of %s were in your repository and no uncommitted changes were found.\n", t.branch)
 		return
 	}
 	if len(l.branches) > 0 {

@@ -29,7 +29,10 @@ longer exists.
    or declined confirmation.
 3. Says how many running sessions end, then asks for confirmation
    (`--yes` answers it; without a terminal and `--yes` it is an error).
-   Declining stops the crannog again if no session runs.
+   Declining stops the crannog again if no session runs. The loss report is a
+   point-in-time check; when sessions run, the output explains that work created
+   after the check is deleted too. Sessions continue during confirmation
+   ([ADR 0034](../decisions/0034-bounded-readiness-and-recovery-guidance.md)).
 4. Deletes proxy and crannog, the network, both volumes, the remote and the
    host directory. The image stays. A host
    directory that is a symlink is an error, its target stays.

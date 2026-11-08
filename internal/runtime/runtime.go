@@ -3,6 +3,7 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Container states as reported by container list.
@@ -126,6 +128,8 @@ type Runtime interface {
 	// List returns all containers, running or not, whose names start with
 	// prefix.
 	List(prefix string) ([]Container, error)
+	// ListContext is List with cancellation, used while waiting for readiness.
+	ListContext(ctx context.Context, prefix string) ([]Container, error)
 	ImageExists(name string) (bool, error)
 	Build(tag, contextDir string) error
 	Pull(ref string) error
@@ -143,6 +147,8 @@ type Runtime interface {
 	Delete(names ...string) error
 	// Exec runs a command in a running container and returns its stdout.
 	Exec(name string, o ExecOptions, args ...string) ([]byte, error)
+	// ExecContext is Exec with cancellation, used for readiness probes.
+	ExecContext(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error)
 	// ExecCommand returns a command that runs args in a container, for
 	// sessions and the remote helper.
 	ExecCommand(name string, o ExecOptions, args ...string) *exec.Cmd
@@ -187,11 +193,22 @@ func (c CLI) progress() io.Writer {
 	return c.Progress
 }
 
-func (CLI) run(args ...string) ([]byte, error) {
-	cmd := exec.Command("container", args...)
+func (c CLI) run(args ...string) ([]byte, error) {
+	return c.runContext(context.Background(), args...)
+}
+
+func (CLI) runContext(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "container", args...)
+	if ctx.Done() != nil {
+		// A child retaining an output pipe must not defeat cancellation.
+		cmd.WaitDelay = time.Second
+	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
+	if ctx.Err() != nil {
+		err = ctx.Err()
+	}
 	if err != nil {
 		return out, &Error{Args: args, Stderr: cleanStderr(stderr.String()), Err: err}
 	}
@@ -223,7 +240,11 @@ func cleanStderr(s string) string {
 }
 
 func (c CLI) List(prefix string) ([]Container, error) {
-	out, err := c.run("list", "--all", "--format", "json")
+	return c.ListContext(context.Background(), prefix)
+}
+
+func (c CLI) ListContext(ctx context.Context, prefix string) ([]Container, error) {
+	out, err := c.runContext(ctx, "list", "--all", "--format", "json")
 	if err != nil {
 		return nil, err
 	}
@@ -336,9 +357,13 @@ func (c CLI) Delete(names ...string) error {
 }
 
 func (c CLI) Exec(name string, o ExecOptions, args ...string) ([]byte, error) {
+	return c.ExecContext(context.Background(), name, o, args...)
+}
+
+func (c CLI) ExecContext(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error) {
 	a := append([]string{"exec"}, o.args()...)
 	a = append(a, name)
-	return c.run(append(a, args...)...)
+	return c.runContext(ctx, append(a, args...)...)
 }
 
 func (CLI) ExecCommand(name string, o ExecOptions, args ...string) *exec.Cmd {

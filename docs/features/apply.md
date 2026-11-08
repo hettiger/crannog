@@ -31,3 +31,11 @@ crannog apply [branch] [--yes]
   With running sessions and approved content, asks for confirmation first
   (`--yes` answers it). The rebuilt crannog stays stopped until the next
   session.
+
+After an interrupted rebuild, resolve its cause and retry apply with the setup
+that triggered the rebuild. If it still requires a rebuild relative to the
+recorded setup, apply recreates missing containers while preserving the work
+and state volumes. An unchanged or proxy-only setup does not recreate them;
+"up to date" describes the setup, not container health. Destroy deletes the
+volumes and is not a data-preserving recovery step
+([ADR 0034](../decisions/0034-bounded-readiness-and-recovery-guidance.md)).

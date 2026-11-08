@@ -1,7 +1,12 @@
 package runtime
 
 import (
+	"context"
+	"os"
 	"testing"
+	"time"
+
+	"github.com/hettiger/crannog/internal/testfs"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -87,4 +92,27 @@ func TestExecArgs(t *testing.T) {
 
 func TestCleanStderr(t *testing.T) {
 	assert.Equal(t, "Error: not found; hint", cleanStderr("[0/6] [0s]\nError: not found\n\n hint \n"))
+}
+
+func TestReadinessCommandsCancelBlockedProcess(t *testing.T) {
+	dir := t.TempDir()
+	// exec keeps sleep in the CLI process, so cancellation must reap it.
+	testfs.WriteFile(t, testfs.Root(t, dir), "container", "#!/bin/sh\necho 'probe started' >&2\nexec sleep 30\n", 0o755)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, command := range []string{"exec", "list"} {
+		t.Run(command, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			started := time.Now()
+			var err error
+			if command == "exec" {
+				_, err = (CLI{}).ExecContext(ctx, "test", ExecOptions{}, "true")
+			} else {
+				_, err = (CLI{}).ListContext(ctx, "test")
+			}
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+			require.ErrorContains(t, err, "probe started")
+			assert.Less(t, time.Since(started), 5*time.Second)
+		})
+	}
 }

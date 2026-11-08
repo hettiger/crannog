@@ -2,6 +2,7 @@ package crannog
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -43,6 +44,13 @@ func (f *fakeRuntime) List(prefix string) ([]runtime.Container, error) {
 		}
 	}
 	return list, nil
+}
+
+func (f *fakeRuntime) ListContext(ctx context.Context, prefix string) ([]runtime.Container, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return f.List(prefix)
 }
 
 func (f *fakeRuntime) ImageExists(name string) (bool, error) { return f.images[name], nil }
@@ -114,6 +122,13 @@ func (f *fakeRuntime) Exec(name string, o runtime.ExecOptions, args ...string) (
 	}
 	f.record("exec %s %s", name, args[0])
 	return nil, nil
+}
+
+func (f *fakeRuntime) ExecContext(ctx context.Context, name string, o runtime.ExecOptions, args ...string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return f.Exec(name, o, args...)
 }
 
 func (f *fakeRuntime) ExecCommand(name string, o runtime.ExecOptions, args ...string) *exec.Cmd {

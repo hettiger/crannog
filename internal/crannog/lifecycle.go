@@ -2,6 +2,7 @@ package crannog
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/hex"
@@ -315,8 +316,8 @@ func (m *Manager) start(t *target, st status) error {
 			return err
 		}
 	}
-	if err := m.waitFor(t.names.Proxy, "the proxy to become healthy", func() bool {
-		_, err := m.Runtime.Exec(t.names.Proxy, runtime.ExecOptions{}, "wget", "-q", "-O", "/dev/null", proxyHealthURL)
+	if err := m.waitFor(t.names.Proxy, "the proxy to become healthy", func(ctx context.Context) bool {
+		_, err := m.Runtime.ExecContext(ctx, t.names.Proxy, runtime.ExecOptions{}, "wget", "-q", "-O", "/dev/null", proxyHealthURL)
 		return err == nil
 	}); err != nil {
 		return err
@@ -328,8 +329,8 @@ func (m *Manager) start(t *target, st status) error {
 	}
 	// The entrypoint writes the boot id once the crannog is prepared
 	// (ADR 0024).
-	if err := m.waitFor(t.names.Container, "the readiness marker "+readyMarker+" with the current boot id", func() bool {
-		_, err := m.Runtime.Exec(t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c",
+	if err := m.waitFor(t.names.Container, "the readiness marker "+readyMarker+" with the current boot id", func(ctx context.Context) bool {
+		_, err := m.Runtime.ExecContext(ctx, t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c",
 			`[ "$(cat `+readyMarker+` 2>/dev/null)" = "$(cat /proc/sys/kernel/random/boot_id)" ]`)
 		return err == nil
 	}); err != nil {
@@ -340,22 +341,37 @@ func (m *Manager) start(t *target, st status) error {
 
 // waitFor polls ready until it holds, the container stopped or the
 // timeout passed.
-func (m *Manager) waitFor(container, what string, ready func() bool) error {
-	deadline := time.Now().Add(readyTimeout)
+func (m *Manager) waitFor(container, what string, ready func(context.Context) bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), readyTimeout)
+	defer cancel()
+	timeout := func() error {
+		return fmt.Errorf("timed out after %s waiting for %s", readyTimeout, what)
+	}
 	for i := 0; ; i++ {
-		if ready() {
+		if ctx.Err() != nil {
+			return timeout()
+		}
+		ok := ready(ctx)
+		if ctx.Err() != nil {
+			return timeout()
+		}
+		if ok {
 			return nil
 		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timed out after %s waiting for %s", readyTimeout, what)
-		}
 		if i%8 == 7 {
-			list, err := m.Runtime.List(container)
+			list, err := m.Runtime.ListContext(ctx, container)
+			if ctx.Err() != nil {
+				return timeout()
+			}
 			if err == nil && !hasRunning(list, container) {
 				return fmt.Errorf("%s stopped while waiting for %s; see container logs %s", container, what, container)
 			}
 		}
-		time.Sleep(pollInterval)
+		select {
+		case <-ctx.Done():
+			return timeout()
+		case <-time.After(pollInterval):
+		}
 	}
 }
 
