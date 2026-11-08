@@ -1,5 +1,5 @@
 // Package setup reads, hashes and stores the content of a .crannog/
-// directory (ADR 0011, ADR 0015, ADR 0019).
+// directory (ADR 0023, ADR 0025, ADR 0026).
 package setup
 
 import (
@@ -246,7 +246,7 @@ func readFile(root *os.Root, name string) (File, error) {
 
 // OpenWorktree opens .crannog/ in the worktree at dir as a root. Only
 // .crannog/ and its siblings named .crannog.tmp-* are accessed through
-// the worktree's root (ADR 0031).
+// the worktree's root (ADR 0013).
 func OpenWorktree(dir string) (*os.Root, error) {
 	wt, err := hostfs.OpenAnchor(dir, false)
 	if err != nil {

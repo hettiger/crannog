@@ -1,5 +1,5 @@
 // Package instructions defines crannog's managed instructions block in each
-// agent's global instruction file in the agent home (ADR 0013).
+// agent's global instruction file in the agent home (ADR 0029).
 package instructions
 
 import "strings"

@@ -12,7 +12,6 @@ Definition in one or two sentences.
 
 - **Not to be confused with:** related term (optional)
 - **In code:** identifier(s) used for this concept (optional)
-- **In earlier ADRs:** names used before the term was agreed (optional)
 -->
 
 ## ADR
@@ -39,7 +38,7 @@ history.
 
 A directory crannog opens as the root of all file access below it:
 `~/.crannog`, a worktree's `.crannog/`, or a temporary directory crannog
-created ([ADR 0031](decisions/0031-host-file-access.md)).
+created ([ADR 0013](decisions/0013-host-file-access.md)).
 
 - **In code:** package `hostfs`
 
@@ -52,7 +51,6 @@ only from approved setups.
 - **Not to be confused with:** setup approval, the user's agreement that
   makes a setup an approved setup
 - **In code:** `setup.Store`
-- **In earlier ADRs:** approved copy (ADR 0011, 0014, 0015, 0019)
 
 ## Branch slug
 
@@ -100,7 +98,6 @@ to the agent; crannog replaces it whenever a session starts.
 - **Not to be confused with:** the rest of the instruction file, which is
   the user's and which crannog leaves alone
 - **In code:** `instructions.ManagedBlock`
-- **In earlier ADRs:** marked block, managed block (ADR 0013, 0015, 0029)
 
 ## Mount causeway
 
@@ -177,7 +174,6 @@ identifies approved setups. The image name uses the same hash computed over
 `container/` alone (`crannog-<hash12>`).
 
 - **In code:** `Setup.Hash`
-- **In earlier ADRs:** content hash (ADR 0019)
 
 ## Start branch
 

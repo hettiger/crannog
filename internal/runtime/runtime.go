@@ -1,4 +1,4 @@
-// Package runtime calls Apple Containers' container CLI (ADR 0006).
+// Package runtime calls Apple Containers' container CLI (ADR 0008).
 package runtime
 
 import (

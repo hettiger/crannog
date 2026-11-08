@@ -1,5 +1,5 @@
 // Package home lays out crannog's state on the host in ~/.crannog
-// (ADR 0008, 0009, 0011, 0014, 0015, 0025).
+// (ADR 0021).
 package home
 
 import (
@@ -14,7 +14,7 @@ import (
 type Home struct {
 	// Dir is the absolute path, for mounts and messages.
 	Dir string
-	// Root is the anchor all access to ~/.crannog goes through (ADR 0031).
+	// Root is the anchor all access to ~/.crannog goes through (ADR 0013).
 	Root *os.Root
 }
 

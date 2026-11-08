@@ -151,7 +151,7 @@ func TestReviewApproval(t *testing.T) {
 	assert.Equal(t, hash, latest)
 	assert.Contains(t, f.out.String(), "+++ .crannog/container/extra", "first build shows everything")
 
-	// Approved once, approved always (ADR 0018).
+	// Approved once, approved always (ADR 0024).
 	f.prompt.asked = nil
 	_, _, err = f.m.review(f.target("other"), src, nil, 0, true)
 	require.NoError(t, err)

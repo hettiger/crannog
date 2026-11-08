@@ -1,5 +1,5 @@
 // Package ui asks the user questions: confirmations, setup approvals and
-// pickers (ADR 0016).
+// pickers (ADR 0027).
 package ui
 
 import (

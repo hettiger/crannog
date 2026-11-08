@@ -15,12 +15,12 @@ import (
 )
 
 // sessionScript starts the session command in the agent user's login
-// shell (ADR 0019).
+// shell (ADR 0025).
 const sessionScript = `shell=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
 exec "${shell:-/bin/sh}" -l -c "$1"`
 
 // Checkout opens a session in the crannog of a start branch, building or
-// starting the crannog as needed (ADR 0016). args replaces session.command.
+// starting the crannog as needed (ADR 0027). args replaces session.command.
 // It returns the session's exit code.
 func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 	if err := checkHelper(); err != nil {
@@ -58,7 +58,7 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 	var name string
 	if err == nil {
 		// The session file stays locked while the session runs, also by
-		// the container CLI if crannog is killed (ADR 0025).
+		// the container CLI if crannog is killed (ADR 0019).
 		sess, name, err = t.dir.registerSession()
 	}
 	if err != nil {
@@ -218,7 +218,7 @@ func exitCode(err error) (int, error) {
 	return exitErr.ExitCode(), nil
 }
 
-// endSession stops the crannog when the last session ended (ADR 0014).
+// endSession stops the crannog when the last session ended (ADR 0019).
 func (m *Manager) endSession(t *target) error {
 	lock, err := m.lock(t)
 	if err != nil {

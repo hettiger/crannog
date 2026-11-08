@@ -8,7 +8,7 @@ import (
 // Prefix of the variables crannog provides. They cannot be overridden.
 const Prefix = "CRANNOG_"
 
-// Names of the variables crannog provides (ADR 0019).
+// Names of the variables crannog provides (ADR 0025).
 const (
 	AgentsDir = "CRANNOG_AGENTS_DIR"
 	CacheDir  = "CRANNOG_CACHE_DIR"
@@ -17,7 +17,7 @@ const (
 	ProxyURL  = "CRANNOG_PROXY_URL"
 )
 
-// ProxyURLValue is the value of CRANNOG_PROXY_URL (ADR 0020).
+// ProxyURLValue is the value of CRANNOG_PROXY_URL (ADR 0010).
 const ProxyURLValue = "http://crannog-proxy:8080"
 
 // Vars are the variables available to interpolation.

@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0016](../decisions/0016-cli-commands.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0031](../decisions/0031-host-file-access.md)
+- **Decisions:** [0019](../decisions/0019-sessions-and-auto-stop.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0027](../decisions/0027-cli-commands.md)
 
 ## Summary
 

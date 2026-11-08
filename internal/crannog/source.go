@@ -17,14 +17,14 @@ type source struct {
 	// desc is printed, e.g. "from feature/x (commit a1b2c3d)".
 	desc string
 	// preset is set if the setup comes from a preset, which needs no
-	// approval (ADR 0015).
+	// approval (ADR 0026).
 	preset bool
 }
 
 // readSource reads the setup of a start branch: from the working tree if
 // the branch is checked out in the current worktree, otherwise from the
 // branch's latest commit, and the preset default if that has none
-// (ADR 0015). It prints the source.
+// (ADR 0023). It prints the source.
 func (m *Manager) readSource(branch string) (*source, error) {
 	current, err := m.Repo.CurrentBranch()
 	if err != nil && !errors.Is(err, repository.ErrDetached) {

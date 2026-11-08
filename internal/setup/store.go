@@ -17,7 +17,7 @@ import (
 const latestFile = "latest"
 
 // Store holds a repository's approved setups in
-// approved/<sha256>/ (ADR 0011).
+// approved/<sha256>/ (ADR 0024).
 type Store struct {
 	// Root is the root the store's directory is in.
 	Root *os.Root

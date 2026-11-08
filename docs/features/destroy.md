@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0030](../decisions/0030-poc-implementation-conventions.md), [0031](../decisions/0031-host-file-access.md)
+- **Decisions:** [0013](../decisions/0013-host-file-access.md), [0015](../decisions/0015-git-causeway.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0027](../decisions/0027-cli-commands.md)
 
 ## Summary
 
@@ -21,8 +21,10 @@ longer exists.
 
 1. Takes the crannog's lock and starts the crannog if it is stopped.
 2. Fetches the crannog's branches directly via `crannog::<slug>` into
-   fresh temporary refs and lists branches with commits not reachable from the
-   user's own refs, and worktrees in the crannog with uncommitted changes.
+   temporary refs `refs/crannog/destroy/<slug>/*`, without writing
+   `FETCH_HEAD`, and lists branches with commits not reachable from any ref
+   except `refs/crannog/*` and `refs/remotes/crannog-<slug>/*`, and
+   worktrees in the crannog with uncommitted changes.
    If that fails, says that it cannot check what would be lost. The check
    leaves existing refs and tags alone, disables pruning and automatic
    maintenance, and cleans up only its own temporary refs, even on failure

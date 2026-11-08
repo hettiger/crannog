@@ -1,5 +1,5 @@
-// Package repository finds the user's repository on the host (ADR 0011,
-// ADR 0012).
+// Package repository finds the user's repository on the host (ADR 0018,
+// ADR 0021).
 package repository
 
 import (
@@ -13,7 +13,7 @@ import (
 	"github.com/hettiger/crannog/internal/git"
 )
 
-// WorkDir is the mount point of a crannog's work volume (ADR 0012).
+// WorkDir is the mount point of a crannog's work volume (ADR 0018).
 const WorkDir = "/work"
 
 // ErrDetached is returned by CurrentBranch on a detached HEAD.

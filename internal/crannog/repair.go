@@ -12,9 +12,9 @@ import (
 )
 
 // SelfRepair stops the repository's running crannogs that have no session
-// and removes crannog remotes whose crannog is not running (ADR 0014,
-// ADR 0025). Crannogs whose lock is held are skipped. Problems are printed
-// as warnings.
+// and removes crannog remotes whose crannog is not running (ADR 0019).
+// Crannogs whose lock is held are skipped. Problems are printed as
+// warnings.
 func (m *Manager) SelfRepair() {
 	if err := m.selfRepair(); err != nil {
 		m.UI.Printf("Warning: self-repair: %v\n", err)

@@ -1,5 +1,5 @@
 // Package hostfs anchors crannog's file system access on the host
-// (ADR 0031). There are three anchors: ~/.crannog, .crannog/ in a worktree
+// (ADR 0013). There are three anchors: ~/.crannog, .crannog/ in a worktree
 // and temporary directories crannog creates. This package opens them as an
 // os.Root; all other code works within such a root, so a path can never
 // lead outside of an anchor.

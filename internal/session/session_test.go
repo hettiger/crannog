@@ -167,7 +167,7 @@ func TestRegisterAndCount(t *testing.T) {
 }
 
 // A child process that inherits the session file keeps the session
-// running after the parent released its descriptor (ADR 0025).
+// running after the parent released its descriptor (ADR 0019).
 func TestChildKeepsTheSession(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
 	l, _, err := Register(dir)

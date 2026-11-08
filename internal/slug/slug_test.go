@@ -13,7 +13,7 @@ func TestBranchSlug(t *testing.T) {
 		branch string
 		want   string
 	}{
-		// Examples from ADR 0021 and ADR 0026.
+		// Examples from ADR 0017.
 		{"feature/x", "feature-x-217d2bf5"},
 		{"feature-x", "feature-x-c791eb83"},
 		{"feature/JIRA-1234-implement-the-new-billing-export", "feature-jira-1234-implement-the-41ed7bc7"},
@@ -28,7 +28,7 @@ func TestBranchSlug(t *testing.T) {
 
 func TestClean(t *testing.T) {
 	tests := map[string]string{
-		"feature/Foo_bar": "feature-foo-bar", // ADR 0012
+		"feature/Foo_bar": "feature-foo-bar", // ADR 0017
 		"main":            "main",
 		"--a//b--":        "a-b",
 		"Ünïcode-ok":      "n-code-ok",

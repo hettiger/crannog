@@ -23,7 +23,7 @@ const (
 )
 
 // planChange compares the crannog's copy (nil for a new crannog) with the
-// new setup (ADR 0016).
+// new setup (ADR 0022, ADR 0024).
 func planChange(current, next setup.Setup) change {
 	switch {
 	case current == nil:
@@ -37,7 +37,7 @@ func planChange(current, next setup.Setup) change {
 	}
 }
 
-// question is the one question crannog asks before a change (ADR 0018).
+// question is the one question crannog asks before a change (ADR 0022).
 type question int
 
 const (

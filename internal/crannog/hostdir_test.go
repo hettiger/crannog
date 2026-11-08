@@ -39,7 +39,7 @@ func (f *fixture) unrelated() (user *os.Root, check func()) {
 }
 
 // A symlinked crannog directory never redirects a cleanup, a lock or a
-// write (ADR 0031). That no directory on the way may be a symlink either is
+// write (ADR 0013). That no directory on the way may be a symlink either is
 // tested in hostfs.
 func TestHostDirRefusesSymlinks(t *testing.T) {
 	f := newFixture(t)

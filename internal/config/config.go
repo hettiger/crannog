@@ -1,4 +1,4 @@
-// Package config parses a setup's config.yml (ADR 0019).
+// Package config parses a setup's config.yml (ADR 0025).
 package config
 
 import (

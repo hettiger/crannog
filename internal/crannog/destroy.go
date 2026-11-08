@@ -28,7 +28,7 @@ type lostBranch struct {
 }
 
 // Destroy destroys the crannog of a start branch after showing what would
-// be lost and asking for confirmation (ADR 0010, ADR 0014, ADR 0025). The
+// be lost and asking for confirmation (ADR 0015, ADR 0027). The
 // branch does not need to exist anymore.
 func (m *Manager) Destroy(branchArg string) error {
 	branch := branchArg
@@ -92,7 +92,7 @@ func (m *Manager) Destroy(branchArg string) error {
 }
 
 // losses starts the crannog if needed, fetches its branches directly via
-// its URL and finds what would be lost (ADR 0014).
+// its URL and finds what would be lost (ADR 0015).
 func (m *Manager) losses(t *target) (losses, error) {
 	var l losses
 	st, err := m.status(t.names)

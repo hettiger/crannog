@@ -219,7 +219,7 @@ func TestNonDirectorySetupIsAnError(t *testing.T) {
 }
 
 // A symlinked .crannog/ or directory in it never leads out of the
-// worktree's .crannog/ (ADR 0031).
+// worktree's .crannog/ (ADR 0013).
 func TestReadWorktreeStaysInTheSetup(t *testing.T) {
 	dir := testgit.Init(t)
 	writeSample(t, dir)
@@ -324,7 +324,7 @@ func TestStore(t *testing.T) {
 	}
 }
 
-// A symlink on the way to the store is refused (ADR 0031).
+// A symlink on the way to the store is refused (ADR 0013).
 func TestStoreRefusesSymlinks(t *testing.T) {
 	root, _ := testfs.TempRoot(t)
 	require.NoError(t, root.Mkdir("elsewhere", 0o755))

@@ -20,7 +20,7 @@ import (
 	"github.com/hettiger/crannog/internal/ui"
 )
 
-// AgentUser is the user agents and sessions run as (ADR 0019).
+// AgentUser is the user agents and sessions run as (ADR 0011).
 const AgentUser = "agent"
 
 // Manager handles the crannogs of one repository.
@@ -74,7 +74,7 @@ type target struct {
 }
 
 // target returns the crannog of branch. It refuses if the crannog's host
-// directory names another branch (ADR 0021).
+// directory names another branch (ADR 0017).
 func (m *Manager) target(branch string) (*target, error) {
 	s := slug.BranchSlug(branch)
 	t := &target{
@@ -176,7 +176,7 @@ func (m *Manager) remoteURL(name string) (string, error) {
 }
 
 // checkRemote fails if a remote with the crannog's remote name but another
-// URL exists: it is the user's, and crannog refuses to start (ADR 0014).
+// URL exists: it is the user's, and crannog refuses to start (ADR 0015).
 func (m *Manager) checkRemote(n naming.Names) error {
 	url, err := m.remoteURL(n.Remote)
 	if err != nil {

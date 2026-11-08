@@ -24,7 +24,7 @@ import (
 )
 
 // Conventions of the proxy causeway that crannog relies on; the default
-// preset's iron-proxy.yaml spells them out (ADR 0011).
+// preset's iron-proxy.yaml spells them out (ADR 0023).
 const (
 	proxyDirInProxy  = "/etc/iron-proxy"
 	proxyConfigFile  = "iron-proxy.yaml"
@@ -97,7 +97,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 		return err
 	}
 	// All branches arrive as origin/* and only the start branch as a local
-	// branch, like in a fresh clone (ADR 0010).
+	// branch, like in a fresh clone (ADR 0015).
 	if err := m.transferRepository(t); err != nil {
 		return err
 	}
@@ -119,14 +119,14 @@ func (m *Manager) transferRepository(t *target) error {
 }
 
 // prepareHost creates the directories crannog provides on the host. It
-// never writes into them: crannogs can write there (ADR 0032).
+// never writes into them: crannogs can write there (ADR 0014).
 func (m *Manager) prepareHost(cfg *config.Config) error {
 	for _, d := range []string{home.Agents, home.Cache} {
 		if err := hostfs.MkdirAll(m.Home.Root, d); err != nil {
 			return err
 		}
 	}
-	// The only access outside the anchors (ADR 0031): approved mount
+	// The only access outside the anchors (ADR 0013): approved mount
 	// sources are checked to exist, the runtime mounts them.
 	for _, mt := range cfg.Mounts {
 		if _, err := os.Stat(mt.Source); err != nil {
@@ -173,7 +173,7 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 		Image:    cfg.Proxy.Image,
 		Memory:   proxyMemory,
 		Networks: []string{"default", t.names.Network},
-		// Only the host writes the proxy's directory (ADR 0032).
+		// Only the host writes the proxy's directory (ADR 0014).
 		Mounts: []runtime.Mount{{Source: t.dir.ProxyDir(), Target: proxyDirInProxy, ReadOnly: true}},
 		// The management API listens on loopback in the proxy only;
 		// crannog reads the key from the proxy's environment when it
@@ -254,7 +254,7 @@ func (m *Manager) start(t *target, st status) error {
 		}
 	}
 	// The entrypoint writes the boot id once the crannog is prepared
-	// (ADR 0024).
+	// (ADR 0020).
 	if err := m.waitFor(t.names.Container, "the readiness marker "+readyMarker+" with the current boot id", func(ctx context.Context) bool {
 		_, err := m.Runtime.Exec(ctx, t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c",
 			`[ "$(cat `+readyMarker+` 2>/dev/null)" = "$(cat /proc/sys/kernel/random/boot_id)" ]`)
@@ -323,7 +323,7 @@ func (m *Manager) stop(t *target) error {
 // rebuild replaces the proxy and the crannog with containers from another
 // approved setup. Volumes, network, CA and the host directory stay. The new
 // image is built first; a failing build leaves the old containers in place
-// (ADR 0025). With start, the crannog is started afterwards; otherwise it
+// (ADR 0022). With start, the crannog is started afterwards; otherwise it
 // stays stopped until the next session.
 func (m *Manager) rebuild(t *target, hash string, start bool) error {
 	approved, cfg, err := m.loadApproved(t, hash)
@@ -409,9 +409,9 @@ func (m *Manager) reloadProxy(t *target) error {
 }
 
 // prepareSession runs before every session: it maps crannog-proxy to the
-// proxy's current address in /etc/hosts (ADR 0020), mirrors the git
-// author of the host repository (ADR 0023) and writes the managed
-// instructions block (ADR 0013).
+// proxy's current address in /etc/hosts (ADR 0010), mirrors the git
+// author of the host repository (ADR 0016) and writes the managed
+// instructions block (ADR 0029).
 func (m *Manager) prepareSession(t *target) error {
 	st, err := m.status(t.names)
 	if err != nil {
@@ -449,7 +449,7 @@ func (m *Manager) prepareSession(t *target) error {
 
 // writeInstructions updates the managed instructions block in each agent's
 // instruction file. It runs in the crannog, so the host never writes into
-// the agent homes (ADR 0032). Without a writable mount of the agent homes
+// the agent homes (ADR 0014). Without a writable mount of the agent homes
 // there is nothing to update.
 func (m *Manager) writeInstructions(t *target) error {
 	hash, err := t.dir.Hash()

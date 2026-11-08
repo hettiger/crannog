@@ -5,7 +5,7 @@ import (
 )
 
 // Apply applies changes to .crannog/ to the crannog of a start branch
-// without opening a session (ADR 0016). A rebuilt crannog stays stopped
+// without opening a session (ADR 0027). A rebuilt crannog stays stopped
 // until the next session.
 func (m *Manager) Apply(branchArg string) error {
 	branch, err := m.Repo.StartBranch(branchArg)

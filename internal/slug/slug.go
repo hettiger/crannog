@@ -1,4 +1,4 @@
-// Package slug derives branch slugs from start branches (ADR 0012, 0021, 0026).
+// Package slug derives branch slugs from start branches (ADR 0017).
 package slug
 
 import (

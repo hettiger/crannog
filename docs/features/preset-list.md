@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** –
-- **Decisions:** [0015](../decisions/0015-presets.md), [0016](../decisions/0016-cli-commands.md), [0031](../decisions/0031-host-file-access.md)
+- **Decisions:** [0013](../decisions/0013-host-file-access.md), [0026](../decisions/0026-presets.md), [0027](../decisions/0027-cli-commands.md)
 
 ## Summary
 

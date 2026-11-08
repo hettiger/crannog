@@ -1,8 +1,8 @@
 // git-remote-crannog is the git remote helper of the git causeway
-// (ADR 0010). git runs it for remotes with the URL crannog::<slug>. It
+// (ADR 0015). git runs it for remotes with the URL crannog::<slug>. It
 // supports only the connect capability and pipes git-upload-pack and
 // git-receive-pack through container exec. It never starts a crannog
-// (ADR 0014).
+// (ADR 0015).
 package main
 
 import (

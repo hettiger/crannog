@@ -12,6 +12,7 @@ One file per feature (`short-name.md`), listed here.
 | [list](list.md)                               | In progress | [autonomous-agent](../use-cases/autonomous-agent.md) | List the repository's crannogs                  |
 | [preset list](preset-list.md)                 | In progress | –                                                  | List bundled and user presets                   |
 | [preset publish](preset-publish.md)           | In progress | [autonomous-agent](../use-cases/autonomous-agent.md) | Write a preset to `.crannog/`                   |
+| [setup](setup.md)                             | In progress | [autonomous-agent](../use-cases/autonomous-agent.md) | Format of `.crannog/` and what crannog expects  |
 | [version](version.md)                         | Implemented | –                                                  | Print the crannog version                       |
 
 <!--

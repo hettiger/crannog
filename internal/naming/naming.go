@@ -1,5 +1,5 @@
 // Package naming derives the global runtime names, the remote and its URL
-// of a crannog (ADR 0012, ADR 0014, ADR 0021).
+// of a crannog (ADR 0017).
 package naming
 
 import (

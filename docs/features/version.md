@@ -2,7 +2,7 @@
 
 - **Status:** Implemented
 - **Use cases:** –
-- **Decisions:** [0001](../decisions/0001-go-and-cobra.md), [0027](../decisions/0027-repository-layout.md), [0028](../decisions/0028-cobra-commands-in-a-subpackage.md)
+- **Decisions:** [0001](../decisions/0001-go-and-cobra.md), [0006](../decisions/0006-repository-layout.md)
 
 ## Summary
 

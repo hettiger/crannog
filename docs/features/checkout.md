@@ -2,7 +2,7 @@
 
 - **Status:** In progress (PoC, not yet verified on a Mac)
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0010](../decisions/0010-git-causeway.md), [0011](../decisions/0011-repository-configuration.md), [0013](../decisions/0013-agents-default-image.md), [0014](../decisions/0014-one-crannog-per-start-branch.md), [0015](../decisions/0015-presets.md), [0016](../decisions/0016-cli-commands.md), [0018](../decisions/0018-rebuilds-with-running-sessions.md), [0019](../decisions/0019-configuration-schema.md), [0020](../decisions/0020-proxy-address.md), [0023](../decisions/0023-git-author-from-the-host.md), [0024](../decisions/0024-readiness-marker.md), [0025](../decisions/0025-session-locks-and-lifecycle.md), [0029](../decisions/0029-poc-lifecycle-details.md), [0030](../decisions/0030-poc-implementation-conventions.md), [0031](../decisions/0031-host-file-access.md), [0032](../decisions/0032-host-stays-out-of-guest-writable-directories.md)
+- **Decisions:** [0010](../decisions/0010-proxy-address.md), [0013](../decisions/0013-host-file-access.md), [0014](../decisions/0014-host-stays-out-of-guest-writable-directories.md), [0015](../decisions/0015-git-causeway.md), [0016](../decisions/0016-git-author-from-the-host.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0020](../decisions/0020-readiness-marker.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0022](../decisions/0022-rebuilds.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0026](../decisions/0026-presets.md), [0027](../decisions/0027-cli-commands.md), [0029](../decisions/0029-managed-instructions-block.md)
 
 ## Summary
 
@@ -36,8 +36,8 @@ confirmations, never setup approvals.
 3. Takes the crannog's lock, waiting for other crannog commands.
 4. New crannog: asks for approval of content not approved before (diff to
    the most recent approval; presets need none), builds the image if
-   missing, pulls the proxy image, generates the CA, creates network, volumes, proxy and
-   crannog, starts them, adds the remote
+   missing, pulls the proxy image, generates the CA (ECDSA P-256, valid for
+   20 years), creates network, volumes, proxy and crannog, starts them, adds the remote
    `crannog-<slug>`, initializes the repository at `/work/<host path>` and
    pushes all branches as `origin/*`, all tags and the start branch directly
    to the crannog URL, ignoring a remote's separate `pushurl`. On
@@ -54,7 +54,10 @@ confirmations, never setup approvals.
    managed instructions block in each agent home, from inside the crannog.
 7. Registers the session (`sessions/<pid>`, locked), releases the lock and
    runs the command as `agent` in the agent's login shell in the
-   repository, with a terminal if stdin and stdout are terminals.
+   repository, with a terminal if stdin and stdout are terminals. crannog
+   ignores Ctrl-C (the terminal passes it to the session) and passes
+   SIGTERM and SIGHUP on. A session killed by a signal gives exit code
+   128 + signal.
 8. When the session ends: if no other session runs, stops crannog and proxy
    and removes the remote. Exits with the session's exit code.
 
@@ -68,15 +71,17 @@ homes and caches, which crannogs can write to: the crannog creates the agent
 homes and writes the block itself, if the agent homes are mounted writable
 (`CRANNOG_AGENTS_DIR`). The proxy mounts its directory read-only. A
 symlinked directory in crannog's state in `~/.crannog` is an error, never
-followed. The approval diff is built in a temporary directory
-`crannog-diff-*` in `$TMPDIR`.
+followed. The approval diff is `git diff --no-index` between directories
+named `approved` and `.crannog`, built in a temporary directory
+`crannog-diff-*` in `$TMPDIR` and shown with git's pager in a terminal.
+crannog's own messages go to stderr.
 
 A lock removed or replaced while checkout waits is an error with a retry
 hint. Remote cleanup refuses changed fetch mappings rather than deleting
 unrelated refs.
 
 The 60-second deadline for the proxy health and the readiness marker
-([ADR 0024](../decisions/0024-readiness-marker.md)) also ends a probe that
+([ADR 0020](../decisions/0020-readiness-marker.md)) also ends a probe that
 hangs. It is not a timeout for the whole checkout.
 
 If containers are missing, checkout explains that destroy deletes their work
