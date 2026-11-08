@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -64,7 +66,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := t.dir.mkdirs(proxyDir+"/secrets", caDir, sessionsDir); err != nil {
+	if err := t.dir.mkdirs(filepath.Join(proxyDir, "secrets"), caDir, sessionsDir); err != nil {
 		return err
 	}
 	if err := m.prepareHost(cfg); err != nil {
@@ -168,7 +170,7 @@ func (m *Manager) prepareImages(approved setup.Setup, hash string, cfg *config.C
 	}
 	if !ok {
 		m.UI.Printf("Building image %s\n", image)
-		ctx := m.Home.Abs(home.ApprovedPath(m.Repo.ID) + "/" + hash + "/" + setup.ContainerDir)
+		ctx := m.Home.Abs(filepath.Join(home.ApprovedPath(m.Repo.ID), hash, setup.ContainerDir))
 		if err := m.Runtime.Build(image, ctx); err != nil {
 			return err
 		}
@@ -201,7 +203,7 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 		// crannog reads the key from the proxy's environment when it
 		// reloads, so it is not stored anywhere else.
 		Env:  []string{managementKeyEnv + "=" + hex.EncodeToString(key)},
-		Args: []string{"-config", proxyDirInProxy + "/" + proxyConfigFile},
+		Args: []string{"-config", path.Join(proxyDirInProxy, proxyConfigFile)},
 	}); err != nil {
 		return err
 	}

@@ -3,7 +3,7 @@ package crannog
 import (
 	"io/fs"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,7 +19,7 @@ import (
 func (f *fixture) unrelated() (user *os.Root, check func()) {
 	user = f.userRoot()
 	for _, name := range []string{"Documents/unrelated.txt", "branch", "sessions/12345", "sessions/unrelated.txt"} {
-		testfs.WriteFile(f.t, user, "unrelated/"+name, "keep", 0o644)
+		testfs.WriteFile(f.t, user, filepath.Join("unrelated", name), "keep", 0o644)
 	}
 	return user, func() {
 		f.t.Helper()
@@ -50,7 +50,7 @@ func TestHostDirRefusesSymlinks(t *testing.T) {
 			return home.RepositoryPath(f.m.Repo.ID), "../../unrelated"
 		},
 		"sessions directory": func(f *fixture, tg *target) (string, string) {
-			return tg.dir.path + "/" + sessionsDir, "../../../../../unrelated/sessions"
+			return filepath.Join(tg.dir.path, sessionsDir), "../../../../../unrelated/sessions"
 		},
 	}
 	for name, link := range links {
@@ -61,9 +61,9 @@ func TestHostDirRefusesSymlinks(t *testing.T) {
 			user, check := f.unrelated()
 			at, target := link(f, tg)
 			require.NoError(t, f.m.Home.Root.RemoveAll(at))
-			require.NoError(t, f.m.Home.Root.MkdirAll(path.Dir(at), 0o755))
+			require.NoError(t, f.m.Home.Root.MkdirAll(filepath.Dir(at), 0o755))
 			require.NoError(t, f.m.Home.Root.Symlink(target, at))
-			info, err := user.Stat(".crannog/" + at)
+			info, err := user.Stat(filepath.Join(".crannog", at))
 			require.NoError(t, err)
 			require.True(t, info.IsDir(), "the symlink leads to the unrelated directory")
 
@@ -118,8 +118,8 @@ func TestSelfRepairIgnoresMalformedRemotes(t *testing.T) {
 // are not crannog directories.
 func TestListIgnoresOtherEntries(t *testing.T) {
 	f := newFixture(t)
-	require.NoError(t, f.m.Home.Root.MkdirAll(home.CrannogsPath(f.m.Repo.ID)+"/Not A Slug", 0o755))
-	testfs.WriteFile(t, f.m.Home.Root, home.CrannogsPath(f.m.Repo.ID)+"/Not A Slug/branch", "x\n", 0o644)
+	require.NoError(t, f.m.Home.Root.MkdirAll(filepath.Join(home.CrannogsPath(f.m.Repo.ID), "Not A Slug"), 0o755))
+	testfs.WriteFile(t, f.m.Home.Root, filepath.Join(home.CrannogsPath(f.m.Repo.ID), "Not A Slug", branchFile), "x\n", 0o644)
 	list, err := f.m.List()
 	require.NoError(t, err)
 	assert.Empty(t, list)

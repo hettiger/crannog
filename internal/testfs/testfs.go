@@ -4,7 +4,7 @@ package testfs
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 )
 
@@ -30,7 +30,7 @@ func TempRoot(t testing.TB) (*os.Root, string) {
 // parent directories.
 func WriteFile(t testing.TB, root *os.Root, name, content string, mode os.FileMode) {
 	t.Helper()
-	if dir := path.Dir(name); dir != "." {
+	if dir := filepath.Dir(name); dir != "." {
 		if err := root.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
 		}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/renameio/v2"
@@ -47,11 +48,7 @@ func newHostDir(h home.Home, id, slug string) HostDir {
 // open opens the directory or one below it. Without create, a missing
 // directory is an error that matches fs.ErrNotExist.
 func (d HostDir) open(sub string, create bool) (*os.Root, error) {
-	p := d.path
-	if sub != "" {
-		p += "/" + sub
-	}
-	return d.home.OpenDir(p, create)
+	return d.home.OpenDir(filepath.Join(d.path, sub), create)
 }
 
 // exists reports whether the directory exists.
@@ -67,10 +64,10 @@ func (d HostDir) exists() (bool, error) {
 }
 
 // ProxyDir is mounted into the proxy: CA, secrets, configuration.
-func (d HostDir) ProxyDir() string { return d.home.Abs(d.path + "/" + proxyDir) }
+func (d HostDir) ProxyDir() string { return d.home.Abs(filepath.Join(d.path, proxyDir)) }
 
 // CADir is mounted into the crannog: ca.crt only.
-func (d HostDir) CADir() string { return d.home.Abs(d.path + "/" + caDir) }
+func (d HostDir) CADir() string { return d.home.Abs(filepath.Join(d.path, caDir)) }
 
 // Branch returns the start branch, or "" if it was not recorded.
 func (d HostDir) Branch() (string, error) { return d.readValue(branchFile) }
@@ -114,7 +111,7 @@ func (d HostDir) writeValue(name, value string) error {
 // mkdirs creates the given directories below the directory.
 func (d HostDir) mkdirs(subs ...string) error {
 	for _, s := range subs {
-		if err := hostfs.MkdirAll(d.home.Root, d.path+"/"+s); err != nil {
+		if err := hostfs.MkdirAll(d.home.Root, filepath.Join(d.path, s)); err != nil {
 			return err
 		}
 	}

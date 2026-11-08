@@ -28,14 +28,14 @@ func OpenAnchor(dir string, create bool) (*os.Root, error) {
 }
 
 // OpenDir opens the directory name within root as a new root. name is
-// slash-separated and relative; no component of it may be a symlink. With
+// relative; no component of it may be a symlink. With
 // create, missing directories are created.
 func OpenDir(root *os.Root, name string, create bool) (*os.Root, error) {
 	if name == "." {
 		return root.OpenRoot(".")
 	}
 	cur := root
-	for _, c := range strings.Split(name, "/") {
+	for _, c := range strings.Split(name, string(filepath.Separator)) {
 		next, err := openComponent(cur, c, create)
 		if cur != root {
 			cur.Close()

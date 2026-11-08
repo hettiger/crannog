@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
@@ -153,7 +154,7 @@ func (s Setup) paths() []string {
 }
 
 // Write writes the setup into the directory dir within root, which must not
-// exist yet. dir is slash-separated.
+// exist yet.
 func (s Setup) Write(root *os.Root, dir string) error {
 	if err := root.Mkdir(dir, 0o755); err != nil {
 		return err
@@ -163,8 +164,8 @@ func (s Setup) Write(root *os.Root, dir string) error {
 		if !validPath(p) {
 			return fmt.Errorf("invalid path in setup: %q", p)
 		}
-		target := path.Join(dir, p)
-		if err := root.MkdirAll(path.Dir(target), 0o755); err != nil {
+		target := filepath.Join(dir, filepath.FromSlash(p))
+		if err := root.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
 		mode := os.FileMode(0o644)
@@ -182,7 +183,7 @@ func (s Setup) Write(root *os.Root, dir string) error {
 }
 
 // ReadDir reads a setup from the directory dir within root, e.g. an
-// approved copy or a user preset. dir is slash-separated. Symlinks are an
+// approved copy or a user preset. Symlinks are an
 // error.
 func ReadDir(root *os.Root, dir string) (Setup, error) {
 	r, err := hostfs.OpenDir(root, dir, false)

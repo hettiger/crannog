@@ -66,6 +66,12 @@ with the PoC.
   named `approved` and `.crannog`, with git's pager in a terminal.
 - **`preset publish`** writes the new `.crannog/` next to the old one and
   replaces it only then.
+- **Paths:** host paths, absolute or within an `os.Root`, are built with
+  `filepath.Join`. Paths in a container, Git paths, `io/fs` paths and the
+  file paths of a setup are slash-separated and use `path`. Paths are never
+  built by concatenating `"/"`. Names from outside (slugs, setup hashes,
+  preset names) are validated before they are joined, since `Join` cleans
+  `..` away.
 
 ## Alternatives
 

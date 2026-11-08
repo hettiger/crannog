@@ -152,7 +152,7 @@ func TestPublishKeepsTheBackupIfRestoringFails(t *testing.T) {
 	require.Len(t, entries, 1)
 	tmp := entries[0].Name()
 	assert.Contains(t, err.Error(), filepath.Join(wt.Name(), tmp, "old"))
-	assert.Equal(t, "old", testfs.ReadFile(t, wt, tmp+"/old/old.txt"))
+	assert.Equal(t, "old", testfs.ReadFile(t, wt, filepath.Join(tmp, "old", "old.txt")))
 }
 
 func TestUserPresets(t *testing.T) {
@@ -161,7 +161,7 @@ func TestUserPresets(t *testing.T) {
 	dir := testfs.Root(t, h.Abs(home.Presets))
 	write := func(name string) {
 		for _, f := range []string{"config.yml", "iron-proxy.yaml", "container/Dockerfile"} {
-			testfs.WriteFile(t, dir, name+"/"+f, name+" "+f, 0o644)
+			testfs.WriteFile(t, dir, filepath.Join(name, f), name+" "+f, 0o644)
 		}
 	}
 	write("default")

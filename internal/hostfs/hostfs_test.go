@@ -136,9 +136,9 @@ func TestTempDirRemoveStaysInItsParent(t *testing.T) {
 	name := filepath.Base(tmp.Dir)
 
 	require.NoError(t, outer.Rename("tmp", "tmp-moved"))
-	testfs.WriteFile(t, outer, "tmp/"+name+"/keep", "keep", 0o644)
+	testfs.WriteFile(t, outer, filepath.Join("tmp", name, "keep"), "keep", 0o644)
 
 	require.NoError(t, tmp.Remove())
-	assert.Equal(t, "keep", testfs.ReadFile(t, outer, "tmp/"+name+"/keep"), "the other directory is untouched")
-	assert.False(t, testfs.Exists(t, outer, "tmp-moved/"+name), "removed where it was created")
+	assert.Equal(t, "keep", testfs.ReadFile(t, outer, filepath.Join("tmp", name, "keep")), "the other directory is untouched")
+	assert.False(t, testfs.Exists(t, outer, filepath.Join("tmp-moved", name)), "removed where it was created")
 }

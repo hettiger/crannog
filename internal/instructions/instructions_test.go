@@ -65,7 +65,7 @@ func TestWrite(t *testing.T) {
 
 	require.NoError(t, Write(agents))
 	for _, a := range Agents {
-		assert.Contains(t, testfs.ReadFile(t, agents, a.Name+"/"+a.File), ManagedBlock, a.Name)
+		assert.Contains(t, testfs.ReadFile(t, agents, filepath.Join(a.Name, a.File)), ManagedBlock, a.Name)
 	}
 	data := testfs.ReadFile(t, agents, "claude/CLAUDE.md")
 	assert.True(t, strings.HasPrefix(data, "# My rules\n\n"+Begin))

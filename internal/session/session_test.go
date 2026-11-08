@@ -3,6 +3,7 @@ package session
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -91,7 +92,7 @@ func TestLockRefusesARemovedOrReplacedFile(t *testing.T) {
 func TestLockWaiterAfterDirectoryRemoval(t *testing.T) {
 	parent, _ := testfs.TempRoot(t)
 	require.NoError(t, parent.Mkdir("crannog", 0o755))
-	old := testfs.Root(t, parent.Name()+"/crannog")
+	old := testfs.Root(t, filepath.Join(parent.Name(), "crannog"))
 	holder, err := TryLock(old, "lock")
 	require.NoError(t, err)
 	waiter, err := open(old, "lock", true)
@@ -100,7 +101,7 @@ func TestLockWaiterAfterDirectoryRemoval(t *testing.T) {
 	require.NoError(t, parent.RemoveAll("crannog"))
 	require.NoError(t, holder.Unlock())
 	require.NoError(t, parent.Mkdir("crannog", 0o755))
-	current := testfs.Root(t, parent.Name()+"/crannog")
+	current := testfs.Root(t, filepath.Join(parent.Name(), "crannog"))
 	other, err := TryLock(current, "lock")
 	require.NoError(t, err)
 	defer other.Unlock()

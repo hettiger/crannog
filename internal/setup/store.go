@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/renameio/v2"
@@ -20,7 +21,7 @@ const latestFile = "latest"
 type Store struct {
 	// Root is the root the store's directory is in.
 	Root *os.Root
-	// Dir is the store's directory within Root, slash-separated.
+	// Dir is the store's directory within Root.
 	Dir string
 }
 
@@ -66,7 +67,7 @@ func (st Store) Get(hash string) (Setup, error) {
 	if err := checkHash(hash); err != nil {
 		return nil, err
 	}
-	s, err := ReadDir(st.Root, st.Dir+"/"+hash)
+	s, err := ReadDir(st.Root, filepath.Join(st.Dir, hash))
 	if err != nil {
 		return nil, err
 	}
@@ -102,10 +103,11 @@ func (st Store) Add(s Setup) (string, error) {
 		return "", err
 	}
 	defer r.RemoveAll(tmp)
-	if err := s.Write(r, tmp+"/copy"); err != nil {
+	dir := filepath.Join(tmp, "copy")
+	if err := s.Write(r, dir); err != nil {
 		return "", err
 	}
-	if err := r.Rename(tmp+"/copy", hash); err != nil {
+	if err := r.Rename(dir, hash); err != nil {
 		// Another crannog process stored the same content first.
 		if ok, _ := has(r, hash); ok {
 			return hash, nil

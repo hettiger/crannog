@@ -39,7 +39,7 @@ func Open(dir string) (Home, error) {
 // Close closes the root.
 func (h Home) Close() error { return h.Root.Close() }
 
-// Paths within ~/.crannog, slash-separated.
+// Paths within ~/.crannog.
 const (
 	// Agents holds the agent homes shared by all crannogs.
 	Agents = "agents"
@@ -50,19 +50,19 @@ const (
 )
 
 // RepositoryPath holds crannog's state about one repository.
-func RepositoryPath(id string) string { return "repositories/" + id }
+func RepositoryPath(id string) string { return filepath.Join("repositories", id) }
 
 // CrannogsPath holds the host directories of a repository's crannogs.
-func CrannogsPath(id string) string { return RepositoryPath(id) + "/crannogs" }
+func CrannogsPath(id string) string { return filepath.Join(RepositoryPath(id), "crannogs") }
 
 // CrannogPath is the host directory of one crannog.
-func CrannogPath(id, slug string) string { return CrannogsPath(id) + "/" + slug }
+func CrannogPath(id, slug string) string { return filepath.Join(CrannogsPath(id), slug) }
 
 // ApprovedPath holds a repository's approved setups.
-func ApprovedPath(id string) string { return RepositoryPath(id) + "/approved" }
+func ApprovedPath(id string) string { return filepath.Join(RepositoryPath(id), "approved") }
 
 // Abs returns the absolute path of a path within ~/.crannog.
-func (h Home) Abs(p string) string { return filepath.Join(h.Dir, filepath.FromSlash(p)) }
+func (h Home) Abs(p string) string { return filepath.Join(h.Dir, p) }
 
 // OpenDir opens a directory within ~/.crannog as a root, see
 // hostfs.OpenDir.

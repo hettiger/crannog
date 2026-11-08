@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -78,7 +79,7 @@ func List(h home.Home) ([]Preset, error) {
 			Name:            e.Name(),
 			User:            true,
 			ReplacesBundled: isBundled,
-			Dir:             h.Abs(home.Presets + "/" + e.Name()),
+			Dir:             h.Abs(filepath.Join(home.Presets, e.Name())),
 			home:            h,
 		}
 	}
@@ -149,12 +150,12 @@ func Publish(s setup.Setup, dir string) error {
 			_ = wt.RemoveAll(tmp)
 		}
 	}()
-	next := tmp + "/" + setup.Dir
+	next := filepath.Join(tmp, setup.Dir)
 	if err := s.Write(wt, next); err != nil {
 		return err
 	}
 
-	backup := tmp + "/old"
+	backup := filepath.Join(tmp, "old")
 	hadOld := true
 	if err := rename(wt, setup.Dir, backup); errors.Is(err, fs.ErrNotExist) {
 		hadOld = false
@@ -180,10 +181,10 @@ func (p Preset) Load() (setup.Setup, error) {
 	var s setup.Setup
 	var err error
 	if p.User {
-		s, err = setup.ReadDir(p.home.Root, home.Presets+"/"+p.Name)
+		s, err = setup.ReadDir(p.home.Root, filepath.Join(home.Presets, p.Name))
 	} else {
 		var sub fs.FS
-		sub, err = fs.Sub(bundled, "bundled/"+p.Name)
+		sub, err = fs.Sub(bundled, path.Join("bundled", p.Name))
 		if err == nil {
 			s, err = setup.ReadFS(sub)
 		}

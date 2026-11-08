@@ -42,9 +42,9 @@ func generatedCA(t *testing.T, crt []byte) (*fixture, *target) {
 	tg := f.target("main")
 	require.NoError(t, tg.dir.mkdirs(proxyDir, caDir))
 	if crt != nil {
-		testfs.WriteFile(t, f.m.Home.Root, tg.dir.path+"/proxy/"+caCertFile, string(crt), 0o644)
+		testfs.WriteFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, proxyDir, caCertFile), string(crt), 0o644)
 	}
-	testfs.WriteFile(t, f.m.Home.Root, tg.dir.path+"/proxy/"+caKeyFile, "key", 0o644)
+	testfs.WriteFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, proxyDir, caKeyFile), "key", 0o644)
 	return f, tg
 }
 
@@ -53,8 +53,8 @@ func TestPublishCA(t *testing.T) {
 	f, tg := generatedCA(t, crt)
 	require.NoError(t, publishCA(tg))
 
-	assert.Equal(t, string(crt), testfs.ReadFile(t, f.m.Home.Root, tg.dir.path+"/ca/"+caCertFile))
-	info, err := f.m.Home.Root.Stat(tg.dir.path + "/proxy/" + caKeyFile)
+	assert.Equal(t, string(crt), testfs.ReadFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, caDir, caCertFile)))
+	info, err := f.m.Home.Root.Stat(filepath.Join(tg.dir.path, proxyDir, caKeyFile))
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
@@ -69,7 +69,7 @@ func TestPublishCARefusesInvalidCertificates(t *testing.T) {
 	for want, crt := range tests {
 		f, tg := generatedCA(t, crt)
 		assert.ErrorContains(t, publishCA(tg), want)
-		assert.False(t, testfs.Exists(t, f.m.Home.Root, tg.dir.path+"/ca/"+caCertFile), want)
+		assert.False(t, testfs.Exists(t, f.m.Home.Root, filepath.Join(tg.dir.path, caDir, caCertFile)), want)
 	}
 }
 
@@ -82,7 +82,7 @@ func TestPublishCARefusesSymlinks(t *testing.T) {
 	proxy := testfs.Root(t, tg.dir.ProxyDir())
 	require.NoError(t, proxy.Symlink(filepath.Join(user.Name(), "secret"), caCertFile))
 	assert.Error(t, publishCA(tg))
-	assert.False(t, testfs.Exists(t, f.m.Home.Root, tg.dir.path+"/ca/"+caCertFile))
+	assert.False(t, testfs.Exists(t, f.m.Home.Root, filepath.Join(tg.dir.path, caDir, caCertFile)))
 
 	f, tg = generatedCA(t, testCert(t, true))
 	user = f.userRoot()

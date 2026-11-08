@@ -150,7 +150,7 @@ func TestReadWorktreeUncommitted(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, changed)
 
-	require.NoError(t, testfs.Root(t, dir).Remove(Dir+"/container/run.sh"))
+	require.NoError(t, testfs.Root(t, dir).Remove(filepath.Join(Dir, "container", "run.sh")))
 	testgit.WriteFile(t, dir, ".crannog/new.txt", "new", 0o644)
 	s, err := ReadWorktree(dir)
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestSymlinksAreAnError(t *testing.T) {
 	dir := testgit.Init(t)
 	writeSample(t, dir)
 	wt := testfs.Root(t, dir)
-	require.NoError(t, wt.Symlink("/etc/passwd", Dir+"/link"))
+	require.NoError(t, wt.Symlink("/etc/passwd", filepath.Join(Dir, "link")))
 	_, err := ReadWorktree(dir)
 	assert.ErrorContains(t, err, "symlink")
 
@@ -249,8 +249,8 @@ func TestReadWorktreeStaysInTheSetup(t *testing.T) {
 
 	// Tracked files below a directory that became an ignored symlink: git
 	// lists the tracked files only.
-	require.NoError(t, wt.RemoveAll(Dir+"/container"))
-	require.NoError(t, wt.Symlink("../elsewhere", Dir+"/container"))
+	require.NoError(t, wt.RemoveAll(filepath.Join(Dir, "container")))
+	require.NoError(t, wt.Symlink("../elsewhere", filepath.Join(Dir, "container")))
 	testfs.WriteFile(t, wt, ".git/info/exclude", "/.crannog/container\n", 0o644)
 	_, err := ReadWorktree(dir)
 	assert.ErrorContains(t, err, "escapes")
@@ -331,7 +331,7 @@ func TestStore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, entries, 2, "no temporary dirs left")
 
-	testfs.WriteFile(t, root, st.Dir+"/"+hash+"/config.yml", "tampered", 0o644)
+	testfs.WriteFile(t, root, filepath.Join(st.Dir, hash, "config.yml"), "tampered", 0o644)
 	_, err = st.Get(hash)
 	assert.ErrorContains(t, err, "was changed")
 
