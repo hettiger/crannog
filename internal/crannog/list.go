@@ -1,6 +1,7 @@
 package crannog
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"sort"
@@ -27,7 +28,7 @@ const (
 // List returns the repository's crannogs, sorted by start branch.
 func (m *Manager) List() ([]Info, error) {
 	m.SelfRepair()
-	containers, err := m.Runtime.List(naming.Prefix(m.Repo.ID8()))
+	containers, err := m.Runtime.List(context.Background(), naming.Prefix(m.Repo.ID8()))
 	if err != nil {
 		return nil, err
 	}

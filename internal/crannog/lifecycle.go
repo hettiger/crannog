@@ -109,7 +109,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 
 	m.UI.Printf("Transferring the repository\n")
 	repo := m.Repo.PathInCrannog()
-	if _, err := m.Runtime.Exec(t.names.Container, runtime.ExecOptions{User: AgentUser},
+	if _, err := m.Runtime.Exec(context.Background(), t.names.Container, runtime.ExecOptions{User: AgentUser},
 		"sh", "-c", `set -e; mkdir -p "$1"; git init -q -b "$2" "$1"; git -C "$1" config receive.denyCurrentBranch updateInstead`,
 		"sh", repo, t.branch); err != nil {
 		return err
@@ -321,7 +321,7 @@ func (m *Manager) start(t *target, st status) error {
 	if err := m.waitFor(t.names.Proxy, "the proxy to become healthy", func(ctx context.Context) bool {
 		// -T bounds the probe in the proxy even if cancellation does not
 		// reach it.
-		_, err := m.Runtime.ExecContext(ctx, t.names.Proxy, runtime.ExecOptions{}, "wget", "-q", "-T", "5", "-O", "/dev/null", proxyHealthURL)
+		_, err := m.Runtime.Exec(ctx, t.names.Proxy, runtime.ExecOptions{}, "wget", "-q", "-T", "5", "-O", "/dev/null", proxyHealthURL)
 		return err == nil
 	}); err != nil {
 		return err
@@ -334,7 +334,7 @@ func (m *Manager) start(t *target, st status) error {
 	// The entrypoint writes the boot id once the crannog is prepared
 	// (ADR 0024).
 	if err := m.waitFor(t.names.Container, "the readiness marker "+readyMarker+" with the current boot id", func(ctx context.Context) bool {
-		_, err := m.Runtime.ExecContext(ctx, t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c",
+		_, err := m.Runtime.Exec(ctx, t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c",
 			`[ "$(cat `+readyMarker+` 2>/dev/null)" = "$(cat /proc/sys/kernel/random/boot_id)" ]`)
 		return err == nil
 	}); err != nil {
@@ -363,7 +363,7 @@ func (m *Manager) waitFor(container, what string, ready func(context.Context) bo
 			return nil
 		}
 		if i%8 == 7 {
-			list, err := m.Runtime.ListContext(ctx, container)
+			list, err := m.Runtime.List(ctx, container)
 			if ctx.Err() != nil {
 				return timeout()
 			}
@@ -494,7 +494,7 @@ func (m *Manager) reload(t *target, hash string) error {
 }
 
 func (m *Manager) reloadProxy(t *target) error {
-	_, err := m.Runtime.Exec(t.names.Proxy, runtime.ExecOptions{}, "sh", "-c",
+	_, err := m.Runtime.Exec(context.Background(), t.names.Proxy, runtime.ExecOptions{}, "sh", "-c",
 		`wget -q -O - --post-data= --header "Authorization: Bearer $`+managementKeyEnv+`" `+proxyReloadURL)
 	return err
 }
@@ -514,7 +514,7 @@ func (m *Manager) prepareSession(t *target) error {
 	if ip == "" {
 		return fmt.Errorf("the proxy has no address on %s", t.names.Network)
 	}
-	if _, err := m.Runtime.Exec(t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c", hostsScript, "sh", ip, proxyHostName); err != nil {
+	if _, err := m.Runtime.Exec(context.Background(), t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c", hostsScript, "sh", ip, proxyHostName); err != nil {
 		return fmt.Errorf("writing /etc/hosts: %w", err)
 	}
 
@@ -531,7 +531,7 @@ func (m *Manager) prepareSession(t *target) error {
 			return err
 		}
 	}
-	if _, err := m.Runtime.Exec(t.names.Container, runtime.ExecOptions{User: AgentUser}, args...); err != nil {
+	if _, err := m.Runtime.Exec(context.Background(), t.names.Container, runtime.ExecOptions{User: AgentUser}, args...); err != nil {
 		return fmt.Errorf("setting the git author: %w", err)
 	}
 	return nil

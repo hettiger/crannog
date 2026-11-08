@@ -1,6 +1,7 @@
 package crannog
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -21,7 +22,7 @@ func (m *Manager) SelfRepair() {
 }
 
 func (m *Manager) selfRepair() error {
-	containers, err := m.Runtime.List(naming.Prefix(m.Repo.ID8()))
+	containers, err := m.Runtime.List(context.Background(), naming.Prefix(m.Repo.ID8()))
 	if err != nil {
 		return err
 	}

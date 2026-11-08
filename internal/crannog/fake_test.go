@@ -36,7 +36,10 @@ func (f *fakeRuntime) record(format string, args ...any) {
 	f.calls = append(f.calls, fmt.Sprintf(format, args...))
 }
 
-func (f *fakeRuntime) List(prefix string) ([]runtime.Container, error) {
+func (f *fakeRuntime) List(ctx context.Context, prefix string) ([]runtime.Container, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var list []runtime.Container
 	for name, c := range f.containers {
 		if strings.HasPrefix(name, prefix) {
@@ -44,13 +47,6 @@ func (f *fakeRuntime) List(prefix string) ([]runtime.Container, error) {
 		}
 	}
 	return list, nil
-}
-
-func (f *fakeRuntime) ListContext(ctx context.Context, prefix string) ([]runtime.Container, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	return f.List(prefix)
 }
 
 func (f *fakeRuntime) ImageExists(name string) (bool, error) { return f.images[name], nil }
@@ -116,19 +112,15 @@ func (f *fakeRuntime) Delete(names ...string) error {
 	return nil
 }
 
-func (f *fakeRuntime) Exec(name string, o runtime.ExecOptions, args ...string) ([]byte, error) {
+func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptions, args ...string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if c := f.containers[name]; c == nil || c.State != runtime.StateRunning {
 		return nil, fmt.Errorf("container %s is not running", name)
 	}
 	f.record("exec %s %s", name, args[0])
 	return nil, nil
-}
-
-func (f *fakeRuntime) ExecContext(ctx context.Context, name string, o runtime.ExecOptions, args ...string) ([]byte, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	return f.Exec(name, o, args...)
 }
 
 func (f *fakeRuntime) ExecCommand(name string, o runtime.ExecOptions, args ...string) *exec.Cmd {

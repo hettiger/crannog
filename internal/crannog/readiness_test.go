@@ -18,7 +18,7 @@ type blockedReadinessRuntime struct {
 	proxy string
 }
 
-func (r *blockedReadinessRuntime) ExecContext(ctx context.Context, name string, o runtime.ExecOptions, args ...string) ([]byte, error) {
+func (r *blockedReadinessRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptions, args ...string) ([]byte, error) {
 	if r.block == "status" {
 		return nil, errors.New("not ready")
 	}
@@ -26,15 +26,15 @@ func (r *blockedReadinessRuntime) ExecContext(ctx context.Context, name string, 
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	return r.fakeRuntime.ExecContext(ctx, name, o, args...)
+	return r.fakeRuntime.Exec(ctx, name, o, args...)
 }
 
-func (r *blockedReadinessRuntime) ListContext(ctx context.Context, prefix string) ([]runtime.Container, error) {
+func (r *blockedReadinessRuntime) List(ctx context.Context, prefix string) ([]runtime.Container, error) {
 	if r.block == "status" {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	return r.fakeRuntime.ListContext(ctx, prefix)
+	return r.fakeRuntime.List(ctx, prefix)
 }
 
 func TestStartReadinessDeadline(t *testing.T) {

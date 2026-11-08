@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -101,7 +102,7 @@ func connect(branchSlug, service string) error {
 		return err
 	}
 	n := naming.New(repo.ID8(), branchSlug)
-	list, err := runtime.CLI{}.List(n.Container)
+	list, err := runtime.CLI{}.List(context.Background(), n.Container)
 	if err != nil {
 		return err
 	}

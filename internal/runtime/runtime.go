@@ -128,9 +128,7 @@ func (o ExecOptions) args() []string {
 type Runtime interface {
 	// List returns all containers, running or not, whose names start with
 	// prefix.
-	List(prefix string) ([]Container, error)
-	// ListContext is List with cancellation, used while waiting for readiness.
-	ListContext(ctx context.Context, prefix string) ([]Container, error)
+	List(ctx context.Context, prefix string) ([]Container, error)
 	ImageExists(name string) (bool, error)
 	Build(tag, contextDir string) error
 	Pull(ref string) error
@@ -147,9 +145,7 @@ type Runtime interface {
 	// Delete removes containers, running or not.
 	Delete(names ...string) error
 	// Exec runs a command in a running container and returns its stdout.
-	Exec(name string, o ExecOptions, args ...string) ([]byte, error)
-	// ExecContext is Exec with cancellation, used for readiness probes.
-	ExecContext(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error)
+	Exec(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error)
 	// ExecCommand returns a command that runs args in a container, for
 	// sessions and the remote helper.
 	ExecCommand(name string, o ExecOptions, args ...string) *exec.Cmd
@@ -244,11 +240,7 @@ func cleanStderr(s string) string {
 	return strings.Join(lines, "; ")
 }
 
-func (c CLI) List(prefix string) ([]Container, error) {
-	return c.ListContext(context.Background(), prefix)
-}
-
-func (c CLI) ListContext(ctx context.Context, prefix string) ([]Container, error) {
+func (c CLI) List(ctx context.Context, prefix string) ([]Container, error) {
 	out, err := c.runContext(ctx, "list", "--all", "--format", "json")
 	if err != nil {
 		return nil, err
@@ -361,11 +353,7 @@ func (c CLI) Delete(names ...string) error {
 	return err
 }
 
-func (c CLI) Exec(name string, o ExecOptions, args ...string) ([]byte, error) {
-	return c.ExecContext(context.Background(), name, o, args...)
-}
-
-func (c CLI) ExecContext(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error) {
+func (c CLI) Exec(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error) {
 	a := append([]string{"exec"}, o.args()...)
 	a = append(a, name)
 	return c.runContext(ctx, append(a, args...)...)

@@ -106,9 +106,9 @@ func TestReadinessCommandsCancelBlockedProcess(t *testing.T) {
 			started := time.Now()
 			var err error
 			if command == "exec" {
-				_, err = (CLI{}).ExecContext(ctx, "test", ExecOptions{}, "true")
+				_, err = (CLI{}).Exec(ctx, "test", ExecOptions{}, "true")
 			} else {
-				_, err = (CLI{}).ListContext(ctx, "test")
+				_, err = (CLI{}).List(ctx, "test")
 			}
 			require.ErrorIs(t, err, context.DeadlineExceeded)
 			require.ErrorContains(t, err, "probe started")
@@ -129,7 +129,7 @@ wait
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_, err := (CLI{}).ExecContext(ctx, "test", ExecOptions{}, "true")
+	_, err := (CLI{}).Exec(ctx, "test", ExecOptions{}, "true")
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.ErrorContains(t, err, "got TERM")
 }
@@ -141,7 +141,7 @@ func TestReadinessCommandsKillAfterIgnoredSIGTERM(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	started := time.Now()
-	_, err := (CLI{}).ExecContext(ctx, "test", ExecOptions{}, "true")
+	_, err := (CLI{}).Exec(ctx, "test", ExecOptions{}, "true")
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Less(t, time.Since(started), 5*time.Second)
 }

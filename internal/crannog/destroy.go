@@ -1,6 +1,7 @@
 package crannog
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -143,7 +144,7 @@ func (m *Manager) losses(t *target) (losses, error) {
 		}
 	}
 
-	out, err := m.Runtime.Exec(t.names.Container, runtime.ExecOptions{User: AgentUser}, "sh", "-c", dirtyScript, "sh", m.Repo.PathInCrannog())
+	out, err := m.Runtime.Exec(context.Background(), t.names.Container, runtime.ExecOptions{User: AgentUser}, "sh", "-c", dirtyScript, "sh", m.Repo.PathInCrannog())
 	if err != nil {
 		return l, fmt.Errorf("checking worktrees: %w", err)
 	}
