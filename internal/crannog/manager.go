@@ -4,7 +4,6 @@ package crannog
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -145,7 +144,7 @@ func (s status) proxyRunning() bool {
 }
 
 func (m *Manager) status(n naming.Names) (status, error) {
-	list, err := m.Runtime.List(context.Background(), n.Container)
+	list, err := m.list(n.Container)
 	if err != nil {
 		return status{}, err
 	}

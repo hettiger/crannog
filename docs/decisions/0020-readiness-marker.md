@@ -29,7 +29,11 @@ file exists before the entrypoint has run.
   not count.
 - **Timeout:** after 60 seconds crannog stops waiting and fails with an
   error that names the marker, so users of their own Dockerfile know what
-  their entrypoint must do.
+  their entrypoint must do. The same 60 seconds bound every other command
+  crannog runs itself in a crannog or against the runtime: the scripts
+  before a session, the destroy check, the proxy reload, `container list`.
+  Image builds, pulls, the repository transfer and sessions have no
+  timeout; their duration depends on the setup and the user.
 - The `default` preset's entrypoint follows the contract. Images in
   `.crannog/container/` must as well.
 
@@ -41,6 +45,10 @@ file exists before the entrypoint has run.
   and it would depend on the image.
 - **No marker, retrying the session's command:** a session could start
   before the CA is trusted.
+- **No timeout at all:** a command that never returns is rare, and the
+  user can press Ctrl-C. But without the deadline an entrypoint that never
+  writes the marker makes `checkout` wait silently, and the error naming
+  the marker is the one hint a user of a custom image gets.
 
 ## Consequences
 

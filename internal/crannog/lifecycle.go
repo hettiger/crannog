@@ -33,12 +33,35 @@ const (
 	proxyMemory      = "256M"
 	proxyHostName    = "crannog-proxy"
 	readyMarker      = "/tmp/ready"
-	readyTimeout     = 60 * time.Second
 	pollInterval     = 250 * time.Millisecond
 	managementKeyEnv = "IRON_MANAGEMENT_API_KEY"
 	caCertFile       = "ca.crt"
 	caKeyFile        = "ca.key"
 )
+
+// commandTimeout bounds every command crannog runs itself in a crannog or
+// against the runtime: the readiness probes, the scripts before a session,
+// the destroy check, the proxy reload and container list (ADR 0020). Image
+// builds, pulls, the repository transfer and sessions are not bounded.
+const commandTimeout = 60 * time.Second
+
+// bounded runs f with a context that ends after commandTimeout. It is the
+// one place that applies the timeout.
+func bounded[T any](f func(context.Context) (T, error)) (T, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+	return f(ctx)
+}
+
+// exec runs a command in a container, bounded.
+func (m *Manager) exec(name string, o runtime.ExecOptions, args ...string) ([]byte, error) {
+	return bounded(func(ctx context.Context) ([]byte, error) { return m.Runtime.Exec(ctx, name, o, args...) })
+}
+
+// list lists the containers with a name prefix, bounded.
+func (m *Manager) list(prefix string) ([]runtime.Container, error) {
+	return bounded(func(ctx context.Context) ([]runtime.Container, error) { return m.Runtime.List(ctx, prefix) })
+}
 
 // create builds a new crannog from an approved setup and starts it. On
 // failure, it removes everything it created (the image stays).
@@ -91,7 +114,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 
 	m.UI.Printf("Transferring the repository\n")
 	repo := m.Repo.PathInCrannog()
-	if _, err := m.Runtime.Exec(context.Background(), t.names.Container, runtime.ExecOptions{User: AgentUser},
+	if _, err := m.exec(t.names.Container, runtime.ExecOptions{User: AgentUser},
 		"sh", "-c", `set -e; mkdir -p "$1"; git init -q -b "$2" "$1"; git -C "$1" config receive.denyCurrentBranch updateInstead`,
 		"sh", repo, t.branch); err != nil {
 		return err
@@ -266,26 +289,28 @@ func (m *Manager) start(t *target, st status) error {
 }
 
 // waitFor polls ready until it holds, the container stopped or the
-// timeout passed.
+// command timeout passed. The probes share the deadline, so a hanging
+// probe ends with it.
 func (m *Manager) waitFor(container, what string, ready func(context.Context) bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), readyTimeout)
-	defer cancel()
-	for i := 0; ; i++ {
-		if ready(ctx) {
-			return nil
-		}
-		if i%8 == 7 {
-			list, err := m.Runtime.List(ctx, container)
-			if err == nil && !hasRunning(list, container) {
-				return fmt.Errorf("%s stopped while waiting for %s; see container logs %s", container, what, container)
+	_, err := bounded(func(ctx context.Context) (struct{}, error) {
+		for i := 0; ; i++ {
+			if ready(ctx) {
+				return struct{}{}, nil
+			}
+			if i%8 == 7 {
+				list, err := m.Runtime.List(ctx, container)
+				if err == nil && !hasRunning(list, container) {
+					return struct{}{}, fmt.Errorf("%s stopped while waiting for %s; see container logs %s", container, what, container)
+				}
+			}
+			select {
+			case <-ctx.Done():
+				return struct{}{}, fmt.Errorf("timed out after %s waiting for %s", commandTimeout, what)
+			case <-time.After(pollInterval):
 			}
 		}
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out after %s waiting for %s", readyTimeout, what)
-		case <-time.After(pollInterval):
-		}
-	}
+	})
+	return err
 }
 
 func hasRunning(list []runtime.Container, name string) bool {
@@ -403,7 +428,7 @@ func (m *Manager) reload(t *target, hash string) error {
 }
 
 func (m *Manager) reloadProxy(t *target) error {
-	_, err := m.Runtime.Exec(context.Background(), t.names.Proxy, runtime.ExecOptions{}, "sh", "-c",
+	_, err := m.exec(t.names.Proxy, runtime.ExecOptions{}, "sh", "-c",
 		`wget -q -O - --post-data= --header "Authorization: Bearer $`+managementKeyEnv+`" `+proxyReloadURL)
 	return err
 }
@@ -424,7 +449,7 @@ func (m *Manager) prepareSession(t *target) error {
 	if ip == "" {
 		return fmt.Errorf("the proxy has no address on %s", t.names.Network)
 	}
-	if _, err := m.Runtime.Exec(context.Background(), t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c", hostsScript, "sh", ip, proxyHostName); err != nil {
+	if _, err := m.exec(t.names.Container, runtime.ExecOptions{User: "root"}, "sh", "-c", hostsScript, "sh", ip, proxyHostName); err != nil {
 		return fmt.Errorf("writing /etc/hosts: %w", err)
 	}
 
@@ -441,7 +466,7 @@ func (m *Manager) prepareSession(t *target) error {
 			return err
 		}
 	}
-	if _, err := m.Runtime.Exec(context.Background(), t.names.Container, runtime.ExecOptions{User: AgentUser}, args...); err != nil {
+	if _, err := m.exec(t.names.Container, runtime.ExecOptions{User: AgentUser}, args...); err != nil {
 		return fmt.Errorf("setting the git author: %w", err)
 	}
 	return m.writeInstructions(t)
@@ -467,7 +492,7 @@ func (m *Manager) writeInstructions(t *target) error {
 	for _, a := range instructions.Agents {
 		file := path.Join(dir, a.Name, a.File)
 		o := runtime.ExecOptions{User: AgentUser}
-		content, err := m.Runtime.Exec(context.Background(), t.names.Container, o, "sh", "-c", readInstructionsScript, "sh", file)
+		content, err := m.exec(t.names.Container, o, "sh", "-c", readInstructionsScript, "sh", file)
 		if err != nil {
 			return fmt.Errorf("reading %s: %w", file, err)
 		}
@@ -476,7 +501,7 @@ func (m *Manager) writeInstructions(t *target) error {
 			continue
 		}
 		o.Stdin = strings.NewReader(updated)
-		if _, err := m.Runtime.Exec(context.Background(), t.names.Container, o, "sh", "-c", writeInstructionsScript, "sh", file); err != nil {
+		if _, err := m.exec(t.names.Container, o, "sh", "-c", writeInstructionsScript, "sh", file); err != nil {
 			return fmt.Errorf("writing %s: %w", file, err)
 		}
 	}

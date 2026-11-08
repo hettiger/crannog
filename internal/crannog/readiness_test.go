@@ -48,13 +48,31 @@ func TestStartReadinessDeadline(t *testing.T) {
 				started := time.Now()
 				err := f.m.start(tg, status{})
 				require.ErrorContains(t, err, "timed out after 1m0s")
-				assert.Equal(t, readyTimeout, time.Since(started))
+				assert.Equal(t, commandTimeout, time.Since(started))
 				if block == "crannog" {
 					assert.Contains(t, err.Error(), readyMarker)
 				}
 			})
 		})
 	}
+}
+
+// The commands before a session have the same deadline as the probes: a
+// script that never returns in the crannog does not hang checkout.
+func TestSessionCommandsDeadline(t *testing.T) {
+	f := newFixture(t)
+	tg := f.existing("main", defaultSetup(t))
+	for _, c := range []string{tg.names.Container, tg.names.Proxy} {
+		f.rt.containers[c].State = runtime.StateRunning
+	}
+	f.m.Runtime = &blockedReadinessRuntime{fakeRuntime: f.rt, block: "crannog", proxy: tg.names.Proxy}
+	synctest.Test(t, func(t *testing.T) {
+		started := time.Now()
+		err := f.m.prepareSession(tg)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		assert.ErrorContains(t, err, "writing /etc/hosts")
+		assert.Equal(t, commandTimeout, time.Since(started))
+	})
 }
 
 func TestReadinessStopsPollingStoppedContainer(t *testing.T) {

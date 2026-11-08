@@ -25,7 +25,9 @@ longer exists.
    `FETCH_HEAD`, and lists branches with commits not reachable from any ref
    except `refs/crannog/*` and `refs/remotes/crannog-<slug>/*`, and
    worktrees in the crannog with uncommitted changes.
-   If that fails, says that it cannot check what would be lost. The check
+   If that fails, or the check of the worktrees in the crannog takes longer
+   than 60 seconds ([ADR 0020](../decisions/0020-readiness-marker.md)),
+   says that it cannot check what would be lost. The check
    leaves existing refs and tags alone, disables pruning and automatic
    maintenance, and cleans up only its own temporary refs, even on failure
    or declined confirmation.

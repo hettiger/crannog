@@ -86,7 +86,11 @@ unrelated refs.
 
 The 60-second deadline for the proxy health and the readiness marker
 ([ADR 0020](../decisions/0020-readiness-marker.md)) also ends a probe that
-hangs. It is not a timeout for the whole checkout.
+hangs, and bounds every command crannog runs in the crannog before the
+session (`/etc/hosts`, git author, instruction files) and `container list`.
+Building the image, pulling the proxy image, the repository transfer and
+the session itself have no timeout. The output of build and pull is shown
+as it happens.
 
 If containers are missing, checkout explains that destroy deletes their work
 volume. When the selected setup requires a rebuild, it also suggests
