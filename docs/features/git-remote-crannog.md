@@ -1,6 +1,6 @@
 # git-remote-crannog
 
-- **Status:** In progress (PoC, not yet verified on a Mac)
+- **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
 - **Decisions:** [0006](../decisions/0006-repository-layout.md), [0015](../decisions/0015-git-causeway.md), [0017](../decisions/0017-one-crannog-per-start-branch.md), [0018](../decisions/0018-volumes-and-repository-path.md)
 

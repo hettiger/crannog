@@ -1,6 +1,6 @@
 # preset publish
 
-- **Status:** In progress (PoC, not yet verified on a Mac)
+- **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
 - **Decisions:** [0013](../decisions/0013-host-file-access.md), [0026](../decisions/0026-presets.md), [0027](../decisions/0027-cli-commands.md)
 

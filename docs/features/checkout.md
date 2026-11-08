@@ -1,6 +1,6 @@
 # checkout
 
-- **Status:** In progress (PoC, not yet verified on a Mac)
+- **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
 - **Decisions:** [0010](../decisions/0010-proxy-address.md), [0013](../decisions/0013-host-file-access.md), [0014](../decisions/0014-host-stays-out-of-guest-writable-directories.md), [0015](../decisions/0015-git-causeway.md), [0016](../decisions/0016-git-author-from-the-host.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0020](../decisions/0020-readiness-marker.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0022](../decisions/0022-rebuilds.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0026](../decisions/0026-presets.md), [0027](../decisions/0027-cli-commands.md), [0029](../decisions/0029-managed-instructions-block.md)
 

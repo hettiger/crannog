@@ -1,6 +1,6 @@
 # apply
 
-- **Status:** In progress (PoC, not yet verified on a Mac)
+- **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
 - **Decisions:** [0019](../decisions/0019-sessions-and-auto-stop.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0022](../decisions/0022-rebuilds.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0027](../decisions/0027-cli-commands.md)
 

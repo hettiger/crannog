@@ -1,6 +1,6 @@
 # destroy
 
-- **Status:** In progress (PoC, not yet verified on a Mac)
+- **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
 - **Decisions:** [0013](../decisions/0013-host-file-access.md), [0015](../decisions/0015-git-causeway.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0027](../decisions/0027-cli-commands.md)
 

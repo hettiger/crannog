@@ -1,6 +1,6 @@
 # setup
 
-- **Status:** In progress (PoC, not yet verified on a Mac)
+- **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
 - **Decisions:** [0009](../decisions/0009-iron-proxy-proxy-causeway.md), [0018](../decisions/0018-volumes-and-repository-path.md), [0020](../decisions/0020-readiness-marker.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0025](../decisions/0025-configuration-schema.md)
 
