@@ -122,8 +122,7 @@ func (s Setup) Validate() error {
 }
 
 // checkControl refuses control characters other than tab and line breaks:
-// escape sequences could hide lines of the approval diff in the terminal
-// (ADR 0031).
+// escape sequences could hide lines of the approval diff in the terminal.
 func checkControl(data []byte) error {
 	for i, b := range data {
 		if b < 0x20 && b != '\t' && b != '\n' && b != '\r' || b == 0x7f {
