@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -200,7 +201,11 @@ func (c CLI) run(args ...string) ([]byte, error) {
 func (CLI) runContext(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "container", args...)
 	if ctx.Done() != nil {
-		// A child retaining an output pipe must not defeat cancellation.
+		// container exec forwards SIGTERM to the process in the container;
+		// the default SIGKILL would leave that process running.
+		cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+		// Kills the CLI if it ignores SIGTERM, and stops waiting for a
+		// child retaining an output pipe.
 		cmd.WaitDelay = time.Second
 	}
 	var stderr bytes.Buffer

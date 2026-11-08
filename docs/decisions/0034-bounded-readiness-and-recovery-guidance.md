@@ -13,13 +13,16 @@ continued during confirmation.
 ## Decision
 
 - Each proxy-health and readiness-marker wait has a 60-second context shared
-  by its probes and status queries. Cancel the runtime CLI process at the
-  deadline and wait for it to exit; allow at most one additional second to
-  drain inherited output pipes. Reject success returned after cancellation.
-  This bounds readiness checks, not builds, starts or subsequent cleanup.
+  by its probes and status queries. At the deadline, send the runtime CLI
+  process SIGTERM, which `container exec` forwards to the probe in the
+  container (SIGKILL would leave the probe running), and wait for it to
+  exit; after at most one additional second, kill it and stop draining
+  inherited output pipes. Reject success returned after cancellation.
+  The proxy health probe also has its own `wget` timeout. This bounds
+  readiness checks, not builds, starts or subsequent cleanup.
 - When containers are missing and the selected setup requires a rebuild,
-  checkout suggests resolving the failure and retrying `crannog apply` with
-  that setup. Otherwise it explains that the work volume may still hold work.
+  checkout suggests `crannog apply` with that setup to recreate them.
+  Otherwise it explains that the work volume may still hold work.
   Both messages explain that destroy deletes the volume. Recovery remains the
   existing apply behavior, not an automatic rollback.
 - Describe a successful destroy check as a point-in-time result. If sessions

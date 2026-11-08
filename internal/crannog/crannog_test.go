@@ -277,6 +277,26 @@ func TestApplyRebuildsAndLeavesTheCrannogStopped(t *testing.T) {
 	assert.Equal(t, next.Hash(), hash)
 }
 
+func TestCheckoutWithMissingContainers(t *testing.T) {
+	s := defaultSetup(t)
+	for _, tc := range []struct {
+		name  string
+		setup setup.Setup
+		hint  string
+	}{
+		{"unchanged", s, "the work volume may still contain work; crannog destroy deletes it"},
+		{"rebuild", with(s, "container/extra", "x"), "crannog apply main recreates them with this setup and keeps the work volume"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			tg := f.existing("main", s)
+			require.NoError(t, f.rt.Delete(tg.names.Container, tg.names.Proxy))
+			err := f.m.ensureRunning(tg, &source{setup: tc.setup})
+			require.ErrorContains(t, err, "the containers of the crannog of main are missing; "+tc.hint)
+		})
+	}
+}
+
 func TestSelfRepair(t *testing.T) {
 	f := newFixture(t)
 	s := defaultSetup(t)

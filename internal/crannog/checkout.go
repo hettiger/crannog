@@ -133,7 +133,7 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 	if st.crannog == nil || st.proxy == nil {
 		hint := "the work volume may still contain work; crannog destroy deletes it"
 		if planChange(current, src.setup) == changeRebuild {
-			hint = fmt.Sprintf("after resolving the rebuild error, retry crannog apply %s with this setup to recreate the containers without deleting the work volume; crannog destroy deletes that volume", shell.Quote(t.branch))
+			hint = fmt.Sprintf("crannog apply %s recreates them with this setup and keeps the work volume; crannog destroy deletes it", shell.Quote(t.branch))
 		}
 		return fmt.Errorf("the containers of the crannog of %s are missing; %s", t.branch, hint)
 	}

@@ -317,7 +317,9 @@ func (m *Manager) start(t *target, st status) error {
 		}
 	}
 	if err := m.waitFor(t.names.Proxy, "the proxy to become healthy", func(ctx context.Context) bool {
-		_, err := m.Runtime.ExecContext(ctx, t.names.Proxy, runtime.ExecOptions{}, "wget", "-q", "-O", "/dev/null", proxyHealthURL)
+		// -T bounds the probe in the proxy even if cancellation does not
+		// reach it.
+		_, err := m.Runtime.ExecContext(ctx, t.names.Proxy, runtime.ExecOptions{}, "wget", "-q", "-T", "5", "-O", "/dev/null", proxyHealthURL)
 		return err == nil
 	}); err != nil {
 		return err
