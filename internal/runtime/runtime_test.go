@@ -133,3 +133,15 @@ wait
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.ErrorContains(t, err, "got TERM")
 }
+
+func TestReadinessCommandsKillAfterIgnoredSIGTERM(t *testing.T) {
+	dir := t.TempDir()
+	testfs.WriteFile(t, testfs.Root(t, dir), "container", "#!/bin/sh\ntrap '' TERM\nexec sleep 30\n", 0o755)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	started := time.Now()
+	_, err := (CLI{}).ExecContext(ctx, "test", ExecOptions{}, "true")
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(started), 5*time.Second)
+}

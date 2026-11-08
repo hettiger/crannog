@@ -17,7 +17,8 @@ continued during confirmation.
   process SIGTERM, which `container exec` forwards to the probe in the
   container (SIGKILL would leave the probe running), and wait for it to
   exit; after at most one additional second, kill it and stop draining
-  inherited output pipes. Reject success returned after cancellation.
+  inherited output pipes. This bounds the CLI, not a probe in the container
+  that ignores SIGTERM. Reject success returned after cancellation.
   The proxy health probe also has its own `wget` timeout. This bounds
   readiness checks, not builds, starts or subsequent cleanup.
 - When containers are missing and the selected setup requires a rebuild,
