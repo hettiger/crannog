@@ -20,8 +20,8 @@ func TestWriteCA(t *testing.T) {
 	require.NoError(t, writeCA(tg))
 
 	proxy := filepath.Join(tg.dir.path, proxyDir)
-	crt := testfs.ReadFile(t, f.m.Home.Root, filepath.Join(proxy, caCertFile))
-	assert.Equal(t, crt, testfs.ReadFile(t, f.m.Home.Root, filepath.Join(tg.dir.path, caDir, caCertFile)))
+	crt := testfs.ReadFile(t, f.m.CrannogHome.Root, filepath.Join(proxy, caCertFile))
+	assert.Equal(t, crt, testfs.ReadFile(t, f.m.CrannogHome.Root, filepath.Join(tg.dir.path, caDir, caCertFile)))
 	block, _ := pem.Decode([]byte(crt))
 	require.NotNil(t, block)
 	cert, err := x509.ParseCertificate(block.Bytes)
@@ -29,12 +29,12 @@ func TestWriteCA(t *testing.T) {
 	assert.True(t, cert.IsCA)
 	assert.Equal(t, "crannog "+tg.names.Container, cert.Subject.CommonName)
 
-	key := testfs.ReadFile(t, f.m.Home.Root, filepath.Join(proxy, caKeyFile))
+	key := testfs.ReadFile(t, f.m.CrannogHome.Root, filepath.Join(proxy, caKeyFile))
 	block, _ = pem.Decode([]byte(key))
 	require.NotNil(t, block)
 	_, err = x509.ParsePKCS8PrivateKey(block.Bytes)
 	require.NoError(t, err, "iron-proxy reads PKCS #8 keys")
-	info, err := f.m.Home.Root.Stat(filepath.Join(proxy, caKeyFile))
+	info, err := f.m.CrannogHome.Root.Stat(filepath.Join(proxy, caKeyFile))
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }

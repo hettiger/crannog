@@ -18,9 +18,9 @@ import (
 	"github.com/hettiger/crannog/internal/testfs"
 )
 
-func tempHome(t *testing.T) home.Home {
+func tempHome(t *testing.T) home.CrannogHome {
 	t.Setenv("HOME", t.TempDir())
-	h, err := home.Open()
+	h, err := home.OpenCrannogHome()
 	require.NoError(t, err)
 	t.Cleanup(func() { h.Close() })
 	return h

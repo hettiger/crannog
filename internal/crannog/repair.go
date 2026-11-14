@@ -49,7 +49,7 @@ func (m *Manager) selfRepair() error {
 	var errs []error
 	for s := range slugs {
 		n := naming.New(m.Repo.ID8(), s)
-		d := newHostDir(m.Home, m.Repo.ID, s)
+		d := newHostDir(m.CrannogHome, m.Repo.ID, s)
 		ok, err := d.exists()
 		if err != nil {
 			errs = append(errs, err)

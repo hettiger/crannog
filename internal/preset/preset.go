@@ -33,8 +33,8 @@ type Preset struct {
 	ReplacesBundled bool
 	// Dir is the absolute path of a user preset, for messages.
 	Dir string
-	// home is ~/.crannog, for reading a user preset.
-	home home.Home
+	// crannogHome is ~/.crannog, for reading a user preset.
+	crannogHome home.CrannogHome
 }
 
 // Source describes where the preset comes from, e.g. for crannog's
@@ -52,7 +52,7 @@ func (p Preset) Source() string {
 
 // List returns all presets, sorted by name. A user preset hides a bundled
 // one of the same name.
-func List(h home.Home) ([]Preset, error) {
+func List(h home.CrannogHome) ([]Preset, error) {
 	byName := map[string]Preset{}
 	entries, err := fs.ReadDir(bundled, "bundled")
 	if err != nil {
@@ -79,7 +79,7 @@ func List(h home.Home) ([]Preset, error) {
 			User:            true,
 			ReplacesBundled: isBundled,
 			Dir:             h.Abs(filepath.Join(home.Presets, e.Name())),
-			home:            h,
+			crannogHome:     h,
 		}
 	}
 
@@ -92,7 +92,7 @@ func List(h home.Home) ([]Preset, error) {
 }
 
 // userPresets lists ~/.crannog/presets/.
-func userPresets(h home.Home) ([]fs.DirEntry, error) {
+func userPresets(h home.CrannogHome) ([]fs.DirEntry, error) {
 	r, err := h.OpenDir(home.Presets, false)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -105,7 +105,7 @@ func userPresets(h home.Home) ([]fs.DirEntry, error) {
 }
 
 // Find returns the preset with the given name.
-func Find(h home.Home, name string) (Preset, error) {
+func Find(h home.CrannogHome, name string) (Preset, error) {
 	list, err := List(h)
 	if err != nil {
 		return Preset{}, err
@@ -181,7 +181,7 @@ func (p Preset) Load() (setup.Setup, error) {
 	var s setup.Setup
 	var err error
 	if p.User {
-		s, err = setup.ReadDir(p.home.Root, filepath.Join(home.Presets, p.Name))
+		s, err = setup.ReadDir(p.crannogHome.Root, filepath.Join(home.Presets, p.Name))
 	} else {
 		var sub fs.FS
 		sub, err = fs.Sub(bundled, path.Join("bundled", p.Name))

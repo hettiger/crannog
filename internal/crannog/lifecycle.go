@@ -145,7 +145,7 @@ func (m *Manager) transferRepository(t *target) error {
 // never writes into them: crannogs can write there (ADR 0014).
 func (m *Manager) prepareHost(cfg *config.Config) error {
 	for _, d := range []string{home.Agents, home.Cache} {
-		if err := hostfs.MkdirAll(m.Home.Root, d); err != nil {
+		if err := hostfs.MkdirAll(m.CrannogHome.Root, d); err != nil {
 			return err
 		}
 	}
@@ -169,7 +169,7 @@ func (m *Manager) prepareImages(approved setup.Setup, hash string, cfg *config.C
 	}
 	if !ok {
 		m.UI.Printf("Building image %s\n", image)
-		ctx := m.Home.Abs(filepath.Join(home.ApprovedPath(m.Repo.ID), hash, setup.ContainerDir))
+		ctx := m.CrannogHome.Abs(filepath.Join(home.ApprovedPath(m.Repo.ID), hash, setup.ContainerDir))
 		if err := m.Runtime.Build(image, ctx); err != nil {
 			return err
 		}
@@ -485,7 +485,7 @@ func (m *Manager) writeInstructions(t *target) error {
 	if err != nil {
 		return err
 	}
-	dir := agentsMount(cfg, m.Home.Abs(home.Agents))
+	dir := agentsMount(cfg, m.CrannogHome.Abs(home.Agents))
 	if dir == "" {
 		return nil
 	}

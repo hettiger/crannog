@@ -42,7 +42,7 @@ func (m *Manager) List() ([]Info, error) {
 	}
 	var list []Info
 	for _, s := range slugs {
-		d := newHostDir(m.Home, m.Repo.ID, s)
+		d := newHostDir(m.CrannogHome, m.Repo.ID, s)
 		branch, err := d.Branch()
 		if err != nil || branch == "" {
 			continue
@@ -75,7 +75,7 @@ func (m *Manager) List() ([]Info, error) {
 // directories. Entries that are no directory or not named like a branch
 // slug are not crannog directories.
 func (m *Manager) hostDirSlugs() ([]string, error) {
-	r, err := m.Home.OpenDir(home.CrannogsPath(m.Repo.ID), false)
+	r, err := m.CrannogHome.OpenDir(home.CrannogsPath(m.Repo.ID), false)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}

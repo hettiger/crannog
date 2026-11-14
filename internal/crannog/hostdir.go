@@ -30,7 +30,7 @@ const (
 // access goes through the root of ~/.crannog; no directory on the way may
 // be a symlink (ADR 0013).
 type HostDir struct {
-	home home.Home
+	crannogHome home.CrannogHome
 	// crannogs is the repository's crannogs directory within ~/.crannog.
 	crannogs string
 	slug     string
@@ -40,15 +40,15 @@ type HostDir struct {
 	Dir string
 }
 
-func newHostDir(h home.Home, id, slug string) HostDir {
+func newHostDir(h home.CrannogHome, id, slug string) HostDir {
 	p := home.CrannogPath(id, slug)
-	return HostDir{home: h, crannogs: home.CrannogsPath(id), slug: slug, path: p, Dir: h.Abs(p)}
+	return HostDir{crannogHome: h, crannogs: home.CrannogsPath(id), slug: slug, path: p, Dir: h.Abs(p)}
 }
 
 // open opens the directory or one below it. Without create, a missing
 // directory is an error that matches fs.ErrNotExist.
 func (d HostDir) open(sub string, create bool) (*os.Root, error) {
-	return d.home.OpenDir(filepath.Join(d.path, sub), create)
+	return d.crannogHome.OpenDir(filepath.Join(d.path, sub), create)
 }
 
 // exists reports whether the directory exists.
@@ -64,10 +64,10 @@ func (d HostDir) exists() (bool, error) {
 }
 
 // ProxyDir is mounted into the proxy: CA, secrets, configuration.
-func (d HostDir) ProxyDir() string { return d.home.Abs(filepath.Join(d.path, proxyDir)) }
+func (d HostDir) ProxyDir() string { return d.crannogHome.Abs(filepath.Join(d.path, proxyDir)) }
 
 // CADir is mounted into the crannog: ca.crt only.
-func (d HostDir) CADir() string { return d.home.Abs(filepath.Join(d.path, caDir)) }
+func (d HostDir) CADir() string { return d.crannogHome.Abs(filepath.Join(d.path, caDir)) }
 
 // Branch returns the start branch, or "" if it was not recorded.
 func (d HostDir) Branch() (string, error) { return d.readValue(branchFile) }
@@ -111,7 +111,7 @@ func (d HostDir) writeValue(name, value string) error {
 // mkdirs creates the given directories below the directory.
 func (d HostDir) mkdirs(subs ...string) error {
 	for _, s := range subs {
-		if err := hostfs.MkdirAll(d.home.Root, filepath.Join(d.path, s)); err != nil {
+		if err := hostfs.MkdirAll(d.crannogHome.Root, filepath.Join(d.path, s)); err != nil {
 			return err
 		}
 	}
@@ -200,7 +200,7 @@ func (d HostDir) clear() error {
 
 // removeAll removes the directory with everything in it.
 func (d HostDir) removeAll() error {
-	r, err := d.home.OpenDir(d.crannogs, false)
+	r, err := d.crannogHome.OpenDir(d.crannogs, false)
 	if err != nil {
 		return err
 	}

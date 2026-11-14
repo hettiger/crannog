@@ -56,7 +56,7 @@ func (m *Manager) readSource(branch string) (*source, error) {
 	}
 
 	if len(src.setup) == 0 {
-		p, err := preset.Find(m.Home, preset.Default)
+		p, err := preset.Find(m.CrannogHome, preset.Default)
 		if err != nil {
 			return nil, err
 		}

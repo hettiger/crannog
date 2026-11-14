@@ -27,10 +27,10 @@ const AgentUser = "agent"
 
 // Manager handles the crannogs of one repository.
 type Manager struct {
-	Home    home.Home
-	Repo    *repository.Repository
-	Runtime runtime.Runtime
-	UI      *ui.UI
+	CrannogHome home.CrannogHome
+	Repo        *repository.Repository
+	Runtime     runtime.Runtime
+	UI          *ui.UI
 	// LookupEnv reads the host's environment for interpolation.
 	LookupEnv func(string) (string, bool)
 	// UserHome is the user's home directory, for ~/ in mounts.
@@ -50,7 +50,7 @@ func New(u *ui.UI) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	h, err := home.Open()
+	h, err := home.OpenCrannogHome()
 	if err != nil {
 		return nil, err
 	}
@@ -59,12 +59,12 @@ func New(u *ui.UI) (*Manager, error) {
 		return nil, err
 	}
 	return &Manager{
-		Home:      h,
-		Repo:      repo,
-		Runtime:   runtime.CLI{Progress: u.Out},
-		UI:        u,
-		LookupEnv: os.LookupEnv,
-		UserHome:  userHome,
+		CrannogHome: h,
+		Repo:        repo,
+		Runtime:     runtime.CLI{Progress: u.Out},
+		UI:          u,
+		LookupEnv:   os.LookupEnv,
+		UserHome:    userHome,
 	}, nil
 }
 
@@ -82,7 +82,7 @@ func (m *Manager) target(branch string) (*target, error) {
 	t := &target{
 		branch: branch,
 		names:  naming.New(m.Repo.ID8(), s),
-		dir:    newHostDir(m.Home, m.Repo.ID, s),
+		dir:    newHostDir(m.CrannogHome, m.Repo.ID, s),
 	}
 	recorded, err := t.dir.Branch()
 	if err != nil {
@@ -95,15 +95,15 @@ func (m *Manager) target(branch string) (*target, error) {
 }
 
 func (m *Manager) store() setup.Store {
-	return setup.Store{Root: m.Home.Root, Dir: home.ApprovedPath(m.Repo.ID)}
+	return setup.Store{Root: m.CrannogHome.Root, Dir: home.ApprovedPath(m.Repo.ID)}
 }
 
 // vars returns the variables for interpolating the crannog's config.yml.
 func (m *Manager) vars(t *target) config.Vars {
 	return config.Vars{
 		Crannog: map[string]string{
-			config.AgentsDir: m.Home.Abs(home.Agents),
-			config.CacheDir:  m.Home.Abs(home.Cache),
+			config.AgentsDir: m.CrannogHome.Abs(home.Agents),
+			config.CacheDir:  m.CrannogHome.Abs(home.Cache),
 			config.CADir:     t.dir.CADir(),
 			config.RepoDir:   m.Repo.PathInCrannog(),
 			config.ProxyURL:  config.ProxyURLValue,
@@ -193,7 +193,7 @@ func (m *Manager) checkRemote(n naming.Names) error {
 // recordPath writes the repository's git common dir, from which its id is
 // derived, to repositories/<id>/path (ADR 0021).
 func (m *Manager) recordPath() error {
-	r, err := m.Home.OpenDir(home.RepositoryPath(m.Repo.ID), true)
+	r, err := m.CrannogHome.OpenDir(home.RepositoryPath(m.Repo.ID), true)
 	if err != nil {
 		return err
 	}

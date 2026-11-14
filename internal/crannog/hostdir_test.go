@@ -45,8 +45,8 @@ func TestHostDirRefusesSymlinks(t *testing.T) {
 	f := newFixture(t)
 	tg := f.target("main")
 	user, check := f.unrelated()
-	require.NoError(t, f.m.Home.Root.MkdirAll(tg.dir.crannogs, 0o755))
-	require.NoError(t, f.m.Home.Root.Symlink(filepath.Join(user.Name(), "unrelated"), tg.dir.path))
+	require.NoError(t, f.m.CrannogHome.Root.MkdirAll(tg.dir.crannogs, 0o755))
+	require.NoError(t, f.m.CrannogHome.Root.Symlink(filepath.Join(user.Name(), "unrelated"), tg.dir.path))
 
 	assert.ErrorContains(t, tg.dir.clear(), "not a directory")
 	assert.ErrorContains(t, tg.dir.removeAll(), "not a directory")
@@ -66,7 +66,7 @@ func TestHostDirRefusesSymlinksWithinTheHome(t *testing.T) {
 	other := f.target("other")
 	require.NoError(t, other.dir.WriteBranch("other"))
 	tg := f.target("main")
-	require.NoError(t, f.m.Home.Root.Symlink(other.dir.slug, tg.dir.path))
+	require.NoError(t, f.m.CrannogHome.Root.Symlink(other.dir.slug, tg.dir.path))
 
 	assert.ErrorContains(t, tg.dir.clear(), "not a directory")
 	assert.ErrorContains(t, tg.dir.removeAll(), "not a directory")
@@ -96,8 +96,8 @@ func TestSelfRepairIgnoresMalformedRemotes(t *testing.T) {
 // are not crannog directories.
 func TestListIgnoresOtherEntries(t *testing.T) {
 	f := newFixture(t)
-	require.NoError(t, f.m.Home.Root.MkdirAll(filepath.Join(home.CrannogsPath(f.m.Repo.ID), "Not A Slug"), 0o755))
-	testfs.WriteFile(t, f.m.Home.Root, filepath.Join(home.CrannogsPath(f.m.Repo.ID), "Not A Slug", branchFile), "x\n", 0o644)
+	require.NoError(t, f.m.CrannogHome.Root.MkdirAll(filepath.Join(home.CrannogsPath(f.m.Repo.ID), "Not A Slug"), 0o755))
+	testfs.WriteFile(t, f.m.CrannogHome.Root, filepath.Join(home.CrannogsPath(f.m.Repo.ID), "Not A Slug", branchFile), "x\n", 0o644)
 	list, err := f.m.List()
 	require.NoError(t, err)
 	assert.Empty(t, list)

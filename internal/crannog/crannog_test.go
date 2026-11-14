@@ -22,7 +22,7 @@ import (
 
 func defaultSetup(t *testing.T) setup.Setup {
 	t.Setenv("HOME", t.TempDir())
-	h, err := home.Open()
+	h, err := home.OpenCrannogHome()
 	require.NoError(t, err)
 	defer h.Close()
 	p, err := preset.Find(h, preset.Default)
@@ -402,14 +402,14 @@ func TestWriteInstructions(t *testing.T) {
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
 	claude := "/home/agent/.crannog/agents/claude/CLAUDE.md"
 	f.rt.files[claude] = "# mine\n"
-	require.NoError(t, hostfs.MkdirAll(f.m.Home.Root, home.Agents))
+	require.NoError(t, hostfs.MkdirAll(f.m.CrannogHome.Root, home.Agents))
 
 	require.NoError(t, f.m.writeInstructions(tg))
 	assert.Equal(t, "# mine\n\n"+instructions.ManagedBlock+"\n", f.rt.files[claude])
 	for _, a := range instructions.Agents {
 		assert.Contains(t, f.rt.files["/home/agent/.crannog/agents/"+a.Name+"/"+a.File], instructions.ManagedBlock)
 	}
-	entries, err := fs.ReadDir(f.m.Home.Root.FS(), home.Agents)
+	entries, err := fs.ReadDir(f.m.CrannogHome.Root.FS(), home.Agents)
 	require.NoError(t, err)
 	assert.Empty(t, entries, "the host does not write into the agent homes")
 

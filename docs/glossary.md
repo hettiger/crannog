@@ -92,7 +92,7 @@ the agent homes.
 
 - **Not to be confused with:** the user's home directory, or an agent home
   within it
-- **In code:** package `home`, `hostfs.OpenCrannogHome`
+- **In code:** `home.CrannogHome`, `hostfs.OpenCrannogHome`
 
 ## Git causeway
 

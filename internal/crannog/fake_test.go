@@ -179,14 +179,14 @@ func newFixture(t *testing.T) *fixture {
 	}
 	userHome := t.TempDir()
 	t.Setenv("HOME", userHome)
-	h, err := home.Open()
+	h, err := home.OpenCrannogHome()
 	require.NoError(t, err)
 	t.Cleanup(func() { h.Close() })
 	f.m = &Manager{
-		Home:    h,
-		Repo:    repo,
-		Runtime: f.rt,
-		UI:      &ui.UI{Prompter: f.prompt, Out: f.out},
+		CrannogHome: h,
+		Repo:        repo,
+		Runtime:     f.rt,
+		UI:          &ui.UI{Prompter: f.prompt, Out: f.out},
 		LookupEnv: func(k string) (string, bool) {
 			v, ok := f.hostEnv[k]
 			return v, ok

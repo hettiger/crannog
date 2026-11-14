@@ -1,4 +1,4 @@
-// Package home lays out crannog's state on the host in ~/.crannog
+// Package home lays out the crannog home ~/.crannog on the host
 // (ADR 0021).
 package home
 
@@ -9,25 +9,26 @@ import (
 	"github.com/hettiger/crannog/internal/hostfs"
 )
 
-// Home is the crannog home on the host, ~/.crannog.
-type Home struct {
+// CrannogHome is the crannog home on the host, ~/.crannog.
+type CrannogHome struct {
 	// Dir is the absolute path, for mounts and messages.
 	Dir string
 	// Root is the anchor all access to ~/.crannog goes through (ADR 0013).
 	Root *os.Root
 }
 
-// Open opens the crannog home of the current user, creating it if needed.
-func Open() (Home, error) {
+// OpenCrannogHome opens the crannog home of the current user, creating it
+// if needed.
+func OpenCrannogHome() (CrannogHome, error) {
 	root, err := hostfs.OpenCrannogHome()
 	if err != nil {
-		return Home{}, err
+		return CrannogHome{}, err
 	}
-	return Home{Dir: root.Name(), Root: root}, nil
+	return CrannogHome{Dir: root.Name(), Root: root}, nil
 }
 
 // Close closes the root.
-func (h Home) Close() error { return h.Root.Close() }
+func (h CrannogHome) Close() error { return h.Root.Close() }
 
 // Paths within ~/.crannog.
 const (
@@ -56,10 +57,10 @@ func CrannogPath(id, slug string) string { return filepath.Join(CrannogsPath(id)
 func ApprovedPath(id string) string { return filepath.Join(RepositoryPath(id), "approved") }
 
 // Abs returns the absolute path of a path within ~/.crannog.
-func (h Home) Abs(p string) string { return filepath.Join(h.Dir, p) }
+func (h CrannogHome) Abs(p string) string { return filepath.Join(h.Dir, p) }
 
 // OpenDir opens a directory within ~/.crannog as a root, see
 // hostfs.OpenDir.
-func (h Home) OpenDir(p string, create bool) (*os.Root, error) {
+func (h CrannogHome) OpenDir(p string, create bool) (*os.Root, error) {
 	return hostfs.OpenDir(h.Root, p, create)
 }
