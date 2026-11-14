@@ -44,6 +44,10 @@ var allowed = map[string]string{
 	// The anchors of the tests (ADR 0013).
 	"internal/testfs/testfs.go os.OpenRoot":           "opens a temporary directory or the repository",
 	"internal/testfs/testfs.go filepath.EvalSymlinks": "resolves a directory before checking it is temporary",
+	// The self-test of Seatbelt (ADR 0030): it must fail to create a file
+	// outside the anchors, and deletes the file if it could.
+	"internal/seatbelt/seatbelt.go os.OpenFile": "tries to create the check file in the home directory",
+	"internal/seatbelt/seatbelt.go os.Remove":   "deletes the check file if it could be created",
 	// Read-only checks outside the anchors.
 	"internal/crannog/lifecycle.go os.Stat": "checks that approved mount sources exist",
 }

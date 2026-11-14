@@ -147,6 +147,15 @@ its git worktrees count as one repository. Its configuration lives in
   (on the crannog's volume)
 - **In code:** `Repository`
 
+## Seatbelt
+
+The macOS sandbox crannog and git-remote-crannog confine themselves with:
+they can write files only in the anchors, the git directory and the
+runtime's builder directory ([ADR 0030](decisions/0030-seatbelt.md)).
+
+- **Not to be confused with:** a crannog, the sandbox an agent works in
+- **In code:** package `seatbelt`
+
 ## Session
 
 A process the user starts in a crannog with `crannog checkout`: usually an

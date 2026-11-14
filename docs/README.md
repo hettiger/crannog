@@ -23,7 +23,9 @@ their logins in a shared agent home
 ([ADR 0011](decisions/0011-agent-home.md)). Code enters and leaves a crannog
 through plain git remotes, via a remote helper over `container exec`; crannog
 does not touch the user's SSH configuration
-([ADR 0015](decisions/0015-git-causeway.md)).
+([ADR 0015](decisions/0015-git-causeway.md)). On the host, crannog itself
+runs in the macOS sandbox and can write files only where it has to
+([ADR 0030](decisions/0030-seatbelt.md)).
 
 Each repository configures its crannogs in `.crannog/` (image, environment,
 mounts, proxy) ([ADR 0023](decisions/0023-repository-configuration.md)),

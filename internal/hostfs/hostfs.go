@@ -24,20 +24,80 @@ const SetupDir = ".crannog"
 // OpenCrannogHome opens the crannog home ~/.crannog of the current user
 // as a root, creating it readable by the user only if it is missing.
 func OpenCrannogHome() (*os.Root, error) {
+	dir, err := crannogHome()
+	if err != nil {
+		return nil, err
+	}
+	return os.OpenRoot(dir)
+}
+
+// crannogHome returns the path of the crannog home, creating it readable
+// by the user only if it is missing.
+func crannogHome() (string, error) {
 	h, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("cannot find the home directory: %w", err)
+		return "", fmt.Errorf("cannot find the home directory: %w", err)
 	}
 	if testing.Testing() {
 		if err := checkTestHome(h); err != nil {
-			return nil, err
+			return "", err
 		}
 	}
 	dir := filepath.Join(h, ".crannog")
 	if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, err
+		return "", err
 	}
-	return os.OpenRoot(dir)
+	return dir, nil
+}
+
+// Locations are the places on the host crannog writes to, as absolute
+// paths with symlinks resolved. Seatbelt allows writes nowhere else
+// (ADR 0030).
+type Locations struct {
+	// Home is the user's home directory. It is not writable; paths in it
+	// that are follow from it.
+	Home string
+	// CrannogHome is the crannog home, created if it was missing.
+	CrannogHome string
+	// TempDir is the user's temporary directory.
+	TempDir string
+	// Worktree is the top of the current worktree, in which only the
+	// setup directory and its temporary siblings are written. Empty
+	// outside of a worktree.
+	Worktree string
+	// GitDir is the common git directory of the repository. Empty outside
+	// of a repository.
+	GitDir string
+}
+
+// Locate resolves the locations for the worktree and the common git
+// directory of the current repository; both may be empty.
+func Locate(worktree, gitDir string) (Locations, error) {
+	var l Locations
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return l, fmt.Errorf("cannot find the home directory: %w", err)
+	}
+	ch, err := crannogHome()
+	if err != nil {
+		return l, err
+	}
+	for _, p := range []struct {
+		dst *string
+		dir string
+	}{{&l.Home, h}, {&l.CrannogHome, ch}, {&l.TempDir, os.TempDir()}, {&l.Worktree, worktree}, {&l.GitDir, gitDir}} {
+		if p.dir == "" {
+			continue
+		}
+		abs, err := filepath.Abs(p.dir)
+		if err != nil {
+			return l, err
+		}
+		if *p.dst, err = filepath.EvalSymlinks(abs); err != nil {
+			return l, err
+		}
+	}
+	return l, nil
 }
 
 // testTempDir is the user's temporary directory with symlinks resolved, taken

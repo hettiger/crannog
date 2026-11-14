@@ -2,7 +2,7 @@
 
 - **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0006](../decisions/0006-repository-layout.md), [0015](../decisions/0015-git-causeway.md), [0017](../decisions/0017-one-crannog-per-start-branch.md), [0018](../decisions/0018-volumes-and-repository-path.md)
+- **Decisions:** [0006](../decisions/0006-repository-layout.md), [0015](../decisions/0015-git-causeway.md), [0017](../decisions/0017-one-crannog-per-start-branch.md), [0018](../decisions/0018-volumes-and-repository-path.md), [0030](../decisions/0030-seatbelt.md)
 
 ## Summary
 
@@ -23,6 +23,7 @@ git push crannog-<slug> main
 
 ## Behavior
 
+- Runs in [Seatbelt](seatbelt.md) like `crannog`.
 - A URL whose slug is not a branch slug is an error.
 - Supports only the `connect` capability. On `connect git-upload-pack` or
   `connect git-receive-pack`, it replaces itself with

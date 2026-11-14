@@ -33,6 +33,59 @@ func TestOpenCrannogHome(t *testing.T) {
 	assert.Error(t, err, "the home directory is not created")
 }
 
+// Locate returns every location with symlinks resolved, as Seatbelt
+// compares paths (ADR 0030), and creates the crannog home.
+func TestLocateResolvesSymlinks(t *testing.T) {
+	tmp, dir := testfs.TempRoot(t)
+	require.NoError(t, tmp.MkdirAll(filepath.Join("real", "home"), 0o755))
+	require.NoError(t, tmp.MkdirAll(filepath.Join("real", "repo", ".git"), 0o755))
+	require.NoError(t, tmp.Mkdir(filepath.Join("real", "tmp"), 0o755))
+	require.NoError(t, tmp.Symlink("real", "link"))
+	link := filepath.Join(dir, "link")
+	t.Setenv("HOME", filepath.Join(link, "home"))
+	t.Setenv("TMPDIR", filepath.Join(link, "tmp"))
+
+	l, err := Locate(filepath.Join(link, "repo"), filepath.Join(link, "repo", ".git"))
+
+	require.NoError(t, err)
+	real := filepath.Join(dir, "real")
+	assert.Equal(t, Locations{
+		Home:        filepath.Join(real, "home"),
+		CrannogHome: filepath.Join(real, "home", ".crannog"),
+		TempDir:     filepath.Join(real, "tmp"),
+		Worktree:    filepath.Join(real, "repo"),
+		GitDir:      filepath.Join(real, "repo", ".git"),
+	}, l)
+	assert.Equal(t, []string{".crannog"}, names(t, tmp, filepath.Join("real", "home")))
+}
+
+// Outside of a repository there is no worktree and no git directory.
+func TestLocateWithoutARepository(t *testing.T) {
+	_, dir := testfs.TempRoot(t)
+	t.Setenv("HOME", dir)
+
+	l, err := Locate("", "")
+
+	require.NoError(t, err)
+	assert.Empty(t, l.Worktree)
+	assert.Empty(t, l.GitDir)
+	assert.Equal(t, filepath.Join(dir, ".crannog"), l.CrannogHome)
+}
+
+// Locate keeps tests out of the user's real crannog home like
+// OpenCrannogHome does.
+func TestLocateRefusesHomeOutsideTemp(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	h := filepath.Join(wd, "hostfs.go")
+	if checkTestHome(h) == nil {
+		t.Skip("the repository is in the temporary directory")
+	}
+	t.Setenv("HOME", h)
+	_, err = Locate("", "")
+	assert.ErrorContains(t, err, "tests must set HOME to a temporary directory")
+}
+
 // Tests cannot open the crannog home outside of the temporary directory,
 // e.g. the user's real one, even after changing $TMPDIR. A file in the
 // repository stands in for it, so nothing can be created in it if the

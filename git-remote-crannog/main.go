@@ -17,6 +17,7 @@ import (
 	"github.com/hettiger/crannog/internal/naming"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/runtime"
+	"github.com/hettiger/crannog/internal/seatbelt"
 	"github.com/hettiger/crannog/internal/slug"
 )
 
@@ -28,6 +29,10 @@ func main() {
 }
 
 func run() error {
+	// Nothing runs before Seatbelt is active (ADR 0030).
+	if err := seatbelt.Enter(); err != nil {
+		return err
+	}
 	// git passes the remote (name or URL) and the address after crannog::.
 	if len(os.Args) != 3 || os.Args[2] == "" {
 		return errors.New("usage: git-remote-crannog <remote> <slug> (run by git for crannog::<slug> URLs)")

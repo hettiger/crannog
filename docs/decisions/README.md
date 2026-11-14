@@ -28,6 +28,7 @@ current state ([ADR 0004](0004-knowledge-base.md)). New ADRs use
 | [0012](0012-shared-package-caches.md) Package caches | Package manager caches shared via `~/.crannog/cache` |
 | [0013](0013-host-file-access.md) Host file access | All host file access through `os.Root` on three anchors; symlinks in crannog's state are errors |
 | [0014](0014-host-stays-out-of-guest-writable-directories.md) Guest-writable directories | Host code never touches directories a guest can write to; the crannog writes there itself |
+| [0030](0030-seatbelt.md) Seatbelt | Both binaries confine themselves with the macOS sandbox: writes only in the anchors, the git directory and the runtime's builder directory; self-test; no way to turn it off |
 
 ## Git causeway
 
