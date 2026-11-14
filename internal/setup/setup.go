@@ -21,7 +21,7 @@ import (
 )
 
 // Dir is the name of the setup directory in a repository.
-const Dir = ".crannog"
+const Dir = hostfs.SetupDir
 
 // Paths of the files crannog reads from a setup.
 const (
@@ -254,27 +254,25 @@ func readFile(root *os.Root, name string) (File, error) {
 	return File{Data: data, Executable: info.Mode()&0o100 != 0}, nil
 }
 
-// OpenWorktree opens .crannog/ in the worktree at dir as a root. Only
-// .crannog/ and its siblings named .crannog.tmp-* are accessed through
-// the worktree's root (ADR 0013).
-func OpenWorktree(dir string) (*os.Root, error) {
-	wt, err := hostfs.OpenAnchor(dir, false)
+// openSetup opens .crannog/ in the worktree at dir as a root (ADR 0013).
+func openSetup(dir string) (*os.Root, error) {
+	wt, err := hostfs.OpenWorktree(dir)
 	if err != nil {
 		return nil, err
 	}
 	defer wt.Close()
-	return hostfs.OpenDir(wt, Dir, false)
+	return wt.OpenSetup()
 }
 
 // Present reports whether the worktree at dir has a .crannog/ (or a file
 // of that name).
 func Present(dir string) (bool, error) {
-	wt, err := hostfs.OpenAnchor(dir, false)
+	wt, err := hostfs.OpenWorktree(dir)
 	if err != nil {
 		return false, err
 	}
 	defer wt.Close()
-	_, err = wt.Lstat(Dir)
+	_, err = wt.LstatSetup()
 	if errors.Is(err, fs.ErrNotExist) {
 		return false, nil
 	}
@@ -284,12 +282,12 @@ func Present(dir string) (bool, error) {
 // checkDirectory fails if the worktree at dir has a .crannog that exists
 // and is not a directory, symlinks included. A missing one is fine.
 func checkDirectory(dir string) error {
-	wt, err := hostfs.OpenAnchor(dir, false)
+	wt, err := hostfs.OpenWorktree(dir)
 	if err != nil {
 		return err
 	}
 	defer wt.Close()
-	info, err := wt.Lstat(Dir)
+	info, err := wt.LstatSetup()
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -333,7 +331,7 @@ func ReadWorktree(dir string) (Setup, error) {
 			continue
 		}
 		if root == nil {
-			root, err = OpenWorktree(dir)
+			root, err = openSetup(dir)
 			if errors.Is(err, fs.ErrNotExist) {
 				// .crannog/ was deleted in the working tree.
 				return s, nil

@@ -13,7 +13,7 @@ var presetListCmd = &cobra.Command{
 	Short: "List all presets, bundled and user",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		h, err := home.Default()
+		h, err := home.Open()
 		if err != nil {
 			return err
 		}

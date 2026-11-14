@@ -32,7 +32,7 @@ one. It asks before replacing an existing .crannog/.`,
 		if err != nil {
 			return err
 		}
-		h, err := home.Default()
+		h, err := home.Open()
 		if err != nil {
 			return err
 		}

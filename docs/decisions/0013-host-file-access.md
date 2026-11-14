@@ -21,6 +21,11 @@ next one open. Directories a guest can write to are covered by
     replaced)
   - temporary directories crannog creates in `$TMPDIR`, named
     `crannog-<purpose>-*`
+- Only package `hostfs` decides where the anchors are and opens them:
+  the crannog home from the user's home directory, a temporary directory
+  as a new child of `$TMPDIR`, and a worktree only at the top of a git
+  worktree. Code gets no root on the worktree itself, only on
+  `.crannog/` and operations to replace it.
 - Below an anchor, a symlink in crannog's state is an error, never
   followed. Names from outside (branch slugs, setup hashes) are validated
   before they name a directory.
@@ -33,6 +38,9 @@ next one open. Directories a guest can write to are covered by
 ## Alternatives
 
 - **Securing each operation on its own:** the next one is easy to miss.
+- **A generic `OpenAnchor(dir)` with a list of files allowed to call it:**
+  limits who opens an anchor, not where; and a root on the whole worktree
+  relies on convention to touch only `.crannog/`.
 - **Allowing symlinks within `~/.crannog`:** a symlinked crannog directory
   could still make a cleanup delete another crannog's state.
 - **Temporary directories in `~/.crannog/tmp` or a fixed `/tmp/crannog`:**

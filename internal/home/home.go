@@ -3,14 +3,13 @@
 package home
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/hettiger/crannog/internal/hostfs"
 )
 
-// Home is crannog's directory on the host, ~/.crannog.
+// Home is the crannog home on the host, ~/.crannog.
 type Home struct {
 	// Dir is the absolute path, for mounts and messages.
 	Dir string
@@ -18,22 +17,13 @@ type Home struct {
 	Root *os.Root
 }
 
-// Default opens ~/.crannog of the current user, creating it if needed.
-func Default() (Home, error) {
-	h, err := os.UserHomeDir()
-	if err != nil {
-		return Home{}, fmt.Errorf("cannot find the home directory: %w", err)
-	}
-	return Open(filepath.Join(h, ".crannog"))
-}
-
-// Open opens dir as crannog's directory, creating it if needed.
-func Open(dir string) (Home, error) {
-	root, err := hostfs.OpenAnchor(dir, true)
+// Open opens the crannog home of the current user, creating it if needed.
+func Open() (Home, error) {
+	root, err := hostfs.OpenCrannogHome()
 	if err != nil {
 		return Home{}, err
 	}
-	return Home{Dir: dir, Root: root}, nil
+	return Home{Dir: root.Name(), Root: root}, nil
 }
 
 // Close closes the root.

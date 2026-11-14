@@ -50,7 +50,7 @@ func New(u *ui.UI) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	h, err := home.Default()
+	h, err := home.Open()
 	if err != nil {
 		return nil, err
 	}

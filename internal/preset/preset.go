@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -119,10 +118,10 @@ func Find(h home.Home, name string) (Preset, error) {
 	return Preset{}, fmt.Errorf("no preset named %q (see crannog preset list)", name)
 }
 
-// rename moves oldname to newname within root; tests replace it to make a
-// step fail.
-var rename = func(root *os.Root, oldname, newname string) error {
-	return root.Rename(oldname, newname)
+// install moves name from tmp to .crannog; tests replace it to make a step
+// fail.
+var install = func(tmp *hostfs.SetupTemp, name string) error {
+	return tmp.Install(name)
 }
 
 // Publish writes a setup to .crannog/ in the worktree at dir, replacing an
@@ -135,39 +134,40 @@ var rename = func(root *os.Root, oldname, newname string) error {
 // .crannog/ and its temporary sibling are accessed in the worktree
 // (ADR 0013).
 func Publish(s setup.Setup, dir string) error {
-	wt, err := hostfs.OpenAnchor(dir, false)
+	wt, err := hostfs.OpenWorktree(dir)
 	if err != nil {
 		return err
 	}
 	defer wt.Close()
-	tmp, err := hostfs.MkdirTemp(wt, setup.Dir+".tmp-")
+	tmp, err := wt.NewSetupTemp()
 	if err != nil {
 		return err
 	}
 	keep := false
 	defer func() {
-		if !keep {
-			_ = wt.RemoveAll(tmp)
+		if keep {
+			_ = tmp.Close()
+		} else {
+			_ = tmp.Remove()
 		}
 	}()
-	next := filepath.Join(tmp, setup.Dir)
-	if err := s.Write(wt, next); err != nil {
+	if err := s.Write(tmp.Root, setup.Dir); err != nil {
 		return err
 	}
 
-	backup := filepath.Join(tmp, "old")
+	const backup = "old"
 	hadOld := true
-	if err := rename(wt, setup.Dir, backup); errors.Is(err, fs.ErrNotExist) {
+	if err := tmp.Stash(backup); errors.Is(err, fs.ErrNotExist) {
 		hadOld = false
 	} else if err != nil {
 		return err
 	}
-	if err := rename(wt, next, setup.Dir); err != nil {
+	if err := install(tmp, setup.Dir); err != nil {
 		if hadOld {
-			if rerr := rename(wt, backup, setup.Dir); rerr != nil {
+			if rerr := install(tmp, backup); rerr != nil {
 				keep = true
 				return fmt.Errorf("%w; restoring the old %s failed (%v), it is kept in %s",
-					err, setup.Dir, rerr, filepath.Join(wt.Name(), backup))
+					err, setup.Dir, rerr, filepath.Join(tmp.Dir, backup))
 			}
 		}
 		return err

@@ -3,7 +3,6 @@ package crannog
 import (
 	"io/fs"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -22,7 +21,8 @@ import (
 )
 
 func defaultSetup(t *testing.T) setup.Setup {
-	h, err := home.Open(filepath.Join(t.TempDir(), ".crannog"))
+	t.Setenv("HOME", t.TempDir())
+	h, err := home.Open()
 	require.NoError(t, err)
 	defer h.Close()
 	p, err := preset.Find(h, preset.Default)

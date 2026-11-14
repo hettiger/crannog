@@ -48,14 +48,6 @@ var allowed = map[string]string{
 	"internal/crannog/lifecycle.go os.Stat": "checks that approved mount sources exist",
 }
 
-// anchorUsers may open anchors with OpenAnchor.
-var anchorUsers = map[string]string{
-	"internal/home/home.go":          "~/.crannog",
-	"internal/setup/setup.go":        ".crannog/ in a worktree",
-	"internal/preset/preset.go":      ".crannog/ in a worktree",
-	"internal/hostfs/hostfs_test.go": "tests OpenAnchor",
-}
-
 // Every file system access by path outside this package is one of the
 // allowed ones. Tests follow the same rule.
 func TestFileSystemAccessIsAnchored(t *testing.T) {
@@ -144,11 +136,6 @@ func check(t *testing.T, name string, src []byte) []string {
 		}
 		if selects(imports, sel, renameio, renameioFuncs...) && !withRoot[sel] {
 			report(sel, what+" without WithRoot")
-		}
-		if selects(imports, sel, "github.com/hettiger/crannog/internal/hostfs", "OpenAnchor") {
-			if _, ok := anchorUsers[name]; !ok {
-				report(sel, what)
-			}
 		}
 		return true
 	})

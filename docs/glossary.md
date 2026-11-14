@@ -36,8 +36,8 @@ history.
 
 ## Anchor
 
-A directory crannog opens as the root of all file access below it:
-`~/.crannog`, a worktree's `.crannog/`, or a temporary directory crannog
+A directory crannog opens as the root of all file access below it: the
+crannog home, a worktree's `.crannog/`, or a temporary directory crannog
 created ([ADR 0013](decisions/0013-host-file-access.md)).
 
 - **In code:** package `hostfs`
@@ -83,6 +83,16 @@ answers it with yes; without a terminal and without `--yes` it is an error.
 An isolated sandbox in which an agent works. Reachable only via causeways.
 
 - **Not to be confused with:** crannog, the CLI (written in lowercase)
+
+## Crannog home
+
+The directory `~/.crannog` on the host, created by crannog for the user. It
+holds crannog's state per repository and crannog, the user's presets and
+the agent homes.
+
+- **Not to be confused with:** the user's home directory, or an agent home
+  within it
+- **In code:** package `home`, `hostfs.OpenCrannogHome`
 
 ## Git causeway
 

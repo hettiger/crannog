@@ -178,7 +178,8 @@ func newFixture(t *testing.T) *fixture {
 		hostEnv: map[string]string{},
 	}
 	userHome := t.TempDir()
-	h, err := home.Open(filepath.Join(userHome, ".crannog"))
+	t.Setenv("HOME", userHome)
+	h, err := home.Open()
 	require.NoError(t, err)
 	t.Cleanup(func() { h.Close() })
 	f.m = &Manager{
