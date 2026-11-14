@@ -39,9 +39,14 @@ for the image build. Run it in a terminal: some checks need one.
 
 ## Result
 
-2026-11-14, macOS 27.2.1, `container` 1.6.1, Apple Git 2.54.0, without
-`--go-test`: **60 passed, 0 failed.**
+2026-11-14, macOS 27.2.1, `container` 1.6.1, Apple Git 2.54.0, Go 1.27.3,
+with `--go-test`: **63 passed, 0 failed.**
 
+- `go test ./...` and `go vet ./...` pass with only the temporary
+  directory and the build cache writable, once the modules are in the
+  module cache; `go` cannot download them in the sandbox. The Go
+  telemetry counters in `~/Library/Application Support/go/telemetry`
+  cannot be written, which the tools ignore.
 - Seatbelt compares resolved paths: a parameter with a symlink in it
   allows nothing.
 - Its regular expressions have no repetition counts such as `{8}`; the

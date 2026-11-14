@@ -37,6 +37,11 @@ to rely on one small, fixed list of places crannog can write to.
   only saves entering again and is never trusted on its own.
 - There is no way to turn Seatbelt off. On other systems than macOS the
   binaries fail.
+- On macOS, `make test` runs the tests in Seatbelt with a profile of
+  their own: only the user's temporary directory and the Go build cache
+  are writable. Everything that gives tests access to files (`testfs`,
+  the anchors of `hostfs`) runs the self-test first, so tests started
+  without Seatbelt fail. On other systems the tests run unconfined.
 - The end-to-end smoke test and the spikes are not confined.
 
 ## Alternatives
@@ -56,6 +61,11 @@ to rely on one small, fixed list of places crannog can write to.
 - **Trusting the environment variable alone:** anyone can set it. The
   self-test fails then.
 - **A switch to turn Seatbelt off:** then nobody can rely on it.
+- **Letting the tests write to the Go module cache:** tests could then
+  change the source of the dependencies the binaries are built from. The
+  modules are downloaded before the tests run instead.
+- **Only a Makefile target for the tests:** a plain `go test` on the Mac
+  would still run unconfined.
 - **Confining the smoke test and the spikes:** a script cannot be confined
   as a whole when it runs `crannog`, and what would remain is its own
   `rm -rf` of a directory it checks itself.
@@ -81,6 +91,9 @@ to rely on one small, fixed list of places crannog can write to.
 - Entering replaces the process, so unit tests cover the profile, the
   arguments and the self-test, but not Seatbelt itself. That is checked by
   the [spike](../spikes/seatbelt/README.md) and the smoke test.
+- On a Mac, tests run from an editor or with a plain `go test` fail
+  until they are started in Seatbelt. A test that does not access files
+  and runs a program itself is not stopped by the self-test.
 - `sandbox-exec` is deprecated by Apple but still what other tools use. An
   update of macOS or of Apple Containers can make crannog fail until the
   profile is adjusted; rerun the spike then.

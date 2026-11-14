@@ -7,7 +7,7 @@
 ## Summary
 
 `crannog` and `git-remote-crannog` run in the macOS sandbox and can write
-files only where crannog has to.
+files only where crannog has to. On macOS the tests run in it as well.
 
 ## Usage
 
@@ -48,3 +48,16 @@ no option to turn it off.
 - Inside the sandbox of another program, entering fails with
   `sandbox-exec: sandbox_apply: Operation not permitted`.
 - On other systems than macOS, both binaries fail.
+
+## Tests
+
+- On macOS, `make test` (and so `make check`) first runs
+  `go mod download` and then `go test ./...` through `sandbox-exec` with
+  `internal/seatbelt/test.sb`. Writing files is allowed only in the
+  user's temporary directory (`TEMP_DIR`), the Go build cache
+  (`GO_CACHE`) and the devices above.
+- On macOS, `testfs` and the anchors of `hostfs` run the self-test once
+  per test binary, in the user's real home directory. Outside of
+  Seatbelt the tests fail with `on macOS, tests must run in Seatbelt
+  (make test)`.
+- On other systems the tests run without Seatbelt.

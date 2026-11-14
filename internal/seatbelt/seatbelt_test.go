@@ -1,6 +1,8 @@
 package seatbelt
 
 import (
+	_ "embed"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -65,16 +67,49 @@ func TestProfileParametersMatchTheCommand(t *testing.T) {
 	assert.Equal(t, used, passed)
 }
 
-// The profile denies all writes first and names no path of its own
-// outside of /dev.
-func TestProfileAllowsWritesOnlyInParametersAndDevices(t *testing.T) {
-	code := regexp.MustCompile(`(?m);;.*$`).ReplaceAllString(profile, "")
+//go:embed test.sb
+var testProfile string
 
-	assert.Less(t, strings.Index(code, "(deny file-write*)"), strings.Index(code, "(allow file-write*"))
-	assert.Equal(t, 1, strings.Count(code, "(allow file-write*"))
-	for _, m := range regexp.MustCompile(`\((literal|subpath|regex) #?"([^"]*)"`).FindAllStringSubmatch(code, -1) {
-		assert.Regexp(t, `^\^?/dev/`, m[2])
+// The profiles deny all writes first and name no path of their own
+// outside of /dev.
+func TestProfilesAllowWritesOnlyInParametersAndDevices(t *testing.T) {
+	for name, p := range map[string]string{"profile.sb": profile, "test.sb": testProfile} {
+		code := regexp.MustCompile(`(?m);;.*$`).ReplaceAllString(p, "")
+
+		assert.Less(t, strings.Index(code, "(deny file-write*)"), strings.Index(code, "(allow file-write*"), name)
+		assert.Equal(t, 1, strings.Count(code, "(allow file-write*"), name)
+		for _, m := range regexp.MustCompile(`\((literal|subpath|regex) #?"([^"]*)"`).FindAllStringSubmatch(code, -1) {
+			assert.Regexp(t, `^\^?/dev/`, m[2], name)
+		}
 	}
+}
+
+// The tests' profile allows less than the binaries' one: no crannog
+// home, no worktree, no git directory.
+func TestTestProfileParameters(t *testing.T) {
+	assert.Equal(t, []string{"TEMP_DIR", "GO_CACHE"}, parameters(testProfile))
+}
+
+// The Makefile passes exactly the parameters of the tests' profile.
+func TestMakefilePassesTheParametersOfTheTestProfile(t *testing.T) {
+	makefile, err := fs.ReadFile(testfs.Repo(t), "Makefile")
+	require.NoError(t, err)
+	require.Contains(t, string(makefile), "/usr/bin/sandbox-exec -f internal/seatbelt/test.sb")
+	var passed []string
+	for _, m := range regexp.MustCompile(`-D "([A-Z_]+)=`).FindAllStringSubmatch(string(makefile), -1) {
+		passed = append(passed, m[1])
+	}
+
+	assert.Equal(t, parameters(testProfile), passed)
+}
+
+// parameters returns the names of the parameters a profile uses.
+func parameters(profile string) []string {
+	var names []string
+	for _, m := range regexp.MustCompile(`\(param "([A-Z_]+)"\)`).FindAllStringSubmatch(profile, -1) {
+		names = append(names, m[1])
+	}
+	return names
 }
 
 // The rule for the worktree matches what hostfs creates there: the setup
@@ -104,35 +139,4 @@ func TestProfileWorktreeRuleMatchesTheSetupDirectoryAndItsSiblings(t *testing.T)
 		assert.False(t, rule.MatchString(filepath.Join(dir, name)), name)
 	}
 	assert.False(t, rule.MatchString(dir))
-}
-
-func TestSelfTestFailsAndCleansUpWhenTheFileCanBeCreated(t *testing.T) {
-	root, home := testfs.TempRoot(t)
-
-	err := selfTest(home)
-
-	assert.ErrorContains(t, err, "Seatbelt is not active")
-	assert.False(t, testfs.Exists(t, root, CheckFile))
-}
-
-// A file that exists says nothing about Seatbelt, and it is not crannog's
-// to delete.
-func TestSelfTestFailsOnAnExistingFileAndKeepsIt(t *testing.T) {
-	root, home := testfs.TempRoot(t)
-	testfs.WriteFile(t, root, CheckFile, "kept", 0o600)
-
-	err := selfTest(home)
-
-	assert.ErrorContains(t, err, "cannot check that Seatbelt is active")
-	assert.Equal(t, "kept", testfs.ReadFile(t, root, CheckFile))
-}
-
-// Only "operation not permitted" passes, not a home that cannot be
-// written to.
-func TestSelfTestFailsWhenTheHomeIsMissing(t *testing.T) {
-	_, home := testfs.TempRoot(t)
-
-	err := selfTest(filepath.Join(home, "missing"))
-
-	assert.ErrorContains(t, err, "cannot check that Seatbelt is active")
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+
+	"github.com/hettiger/crannog/internal/seatbelt/selftest"
 )
 
 // Enter confines the process. Called first in main, it replaces the
@@ -19,7 +21,7 @@ func Enter() error {
 		return fmt.Errorf("cannot find the home directory: %w", err)
 	}
 	if os.Getenv(Env) != "" {
-		return selfTest(home)
+		return selftest.Run(home)
 	}
 	exe, err := os.Executable()
 	if err != nil {

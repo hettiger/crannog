@@ -7,11 +7,8 @@ package seatbelt
 
 import (
 	_ "embed"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"github.com/hettiger/crannog/internal/hostfs"
 	"github.com/hettiger/crannog/internal/repository"
@@ -21,10 +18,6 @@ import (
 // saves entering again, which Seatbelt refuses; the self-test decides
 // whether Seatbelt is active.
 const Env = "CRANNOG_SEATBELT"
-
-// CheckFile is the file in the user's home directory the self-test tries
-// to create.
-const CheckFile = ".crannog-sandbox-check"
 
 // sandboxExec is given as a path: it must not be found through PATH.
 const sandboxExec = "/usr/bin/sandbox-exec"
@@ -75,23 +68,4 @@ func command(exe string, args []string, l hostfs.Locations) []string {
 		argv = append(argv, "-D", p.name+"="+p.value)
 	}
 	return append(append(argv, exe), args...)
-}
-
-// selfTest checks that Seatbelt is active: creating CheckFile in home
-// must fail because the operation is not permitted. If the file can be
-// created, it is deleted again and the check fails. Any other error
-// fails it too: a file that exists or a home that cannot be written to
-// says nothing about Seatbelt.
-func selfTest(home string) error {
-	name := filepath.Join(home, CheckFile)
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err == nil {
-		return errors.Join(
-			fmt.Errorf("Seatbelt is not active: %s could be created", name),
-			f.Close(), os.Remove(name))
-	}
-	if errors.Is(err, syscall.EPERM) {
-		return nil
-	}
-	return fmt.Errorf("cannot check that Seatbelt is active: %w", err)
 }

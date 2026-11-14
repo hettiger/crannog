@@ -9,7 +9,9 @@ All relevant commands are in the `Makefile`:
 
 - Build: `make build` (macOS/arm64 binaries in `dist/`, version from
   `git describe`)
-- Check: `make check` (`gofmt -l .` must report nothing, `go vet`, `go test`)
+- Check: `make check` (`gofmt -l .` must report nothing, `go vet`, `go test`).
+  On macOS the tests run in Seatbelt (ADR 0030); a plain `go test` fails
+  there.
 - Format: `make fmt`
 - Third-party licenses: `make THIRD_PARTY_NOTICES`
 
