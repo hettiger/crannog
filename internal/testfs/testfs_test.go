@@ -65,10 +65,16 @@ func TestRootResolvesSymlinks(t *testing.T) {
 	assert.True(t, fails(t, func(tb testing.TB) { Root(tb, filepath.Join(dir, "outside")) }))
 }
 
-// A test that changes $TMPDIR does not move the boundary.
+// A test that changes $TMPDIR does not move the boundary: the working
+// directory is below the new one, but still refused.
 func TestRootIgnoresChangedTMPDIR(t *testing.T) {
-	t.Setenv("TMPDIR", "/")
-	assert.True(t, fails(t, func(tb testing.TB) { Root(tb, "/") }))
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	if !fails(t, func(tb testing.TB) { Root(tb, wd) }) {
+		t.Skip("the repository is in the temporary directory")
+	}
+	t.Setenv("TMPDIR", string(filepath.Separator))
+	assert.True(t, fails(t, func(tb testing.TB) { Root(tb, wd) }))
 }
 
 func TestRepo(t *testing.T) {

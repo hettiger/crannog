@@ -40,19 +40,29 @@ func OpenCrannogHome() (*os.Root, error) {
 	return os.OpenRoot(dir)
 }
 
+// testTempDir is the user's temporary directory with symlinks resolved, taken
+// once in a test binary before any test can change $TMPDIR.
+var testTempDir, testTempDirErr = resolveTestTempDir()
+
+func resolveTestTempDir() (string, error) {
+	if !testing.Testing() {
+		return "", nil
+	}
+	return filepath.EvalSymlinks(os.TempDir())
+}
+
 // checkTestHome fails unless the home directory h is below the temporary
 // directory, with symlinks resolved, so tests never touch the user's
 // crannog home.
 func checkTestHome(h string) error {
-	tmp, err := filepath.EvalSymlinks(os.TempDir())
-	if err != nil {
-		return err
+	if testTempDirErr != nil {
+		return testTempDirErr
 	}
 	resolved, err := filepath.EvalSymlinks(h)
 	if err != nil {
 		return err
 	}
-	rel, err := filepath.Rel(tmp, resolved)
+	rel, err := filepath.Rel(testTempDir, resolved)
 	if err != nil || rel == "." || !filepath.IsLocal(rel) {
 		return fmt.Errorf("tests must set HOME to a temporary directory, not %s", h)
 	}
@@ -66,7 +76,9 @@ type Worktree struct {
 }
 
 // OpenWorktree opens the worktree at dir. dir must be the top of a git
-// worktree.
+// worktree with a .git entry; a worktree whose git dir is only set by
+// GIT_DIR or core.worktree is not supported. That error is not an
+// fs.ErrNotExist, so it is not mistaken for a missing setup directory.
 func OpenWorktree(dir string) (*Worktree, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
@@ -74,7 +86,10 @@ func OpenWorktree(dir string) (*Worktree, error) {
 	}
 	if _, err := root.Lstat(".git"); err != nil {
 		root.Close()
-		return nil, fmt.Errorf("%s is not the top of a git worktree: %w", dir, err)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("%s is not the top of a git worktree: it has no .git", dir)
+		}
+		return nil, err
 	}
 	return &Worktree{root: root}, nil
 }

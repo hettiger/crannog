@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -19,6 +18,10 @@ const module = "github.com/hettiger/crannog"
 // tempDir is the user's temporary directory with symlinks resolved, taken
 // once before any test can change $TMPDIR.
 var tempDir, tempDirErr = filepath.EvalSymlinks(os.TempDir())
+
+// workDir is the working directory, a package directory of the crannog
+// repository, taken once before any test can change it.
+var workDir, workDirErr = os.Getwd()
 
 // Root opens dir as a root that is closed at the end of the test. dir must
 // be below the user's temporary directory, e.g. from t.TempDir(); the root
@@ -52,22 +55,29 @@ func tempRoot(t testing.TB, dir string) (*os.Root, string) {
 	return open(t, resolved), resolved
 }
 
-// Repo returns the crannog repository this package is in, read-only.
+// Repo returns the crannog repository the test runs in, read-only: the
+// closest directory with a go.mod at or above the working directory.
 func Repo(t testing.TB) fs.FS {
 	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok || !filepath.IsAbs(file) {
-		t.Fatal("cannot locate the crannog repository")
+	if workDirErr != nil {
+		t.Fatal(workDirErr)
 	}
-	r := open(t, filepath.Join(filepath.Dir(file), "..", ".."))
-	mod, err := r.ReadFile("go.mod")
-	if err != nil {
-		t.Fatal(err)
+	for dir := workDir; ; dir = filepath.Dir(dir) {
+		r := open(t, dir)
+		mod, err := r.ReadFile("go.mod")
+		if err == nil {
+			if !declares(mod, module) {
+				t.Fatalf("%s is not the repository of %s", dir, module)
+			}
+			return r.FS()
+		}
+		if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		if dir == filepath.Dir(dir) {
+			t.Fatalf("cannot locate the crannog repository above %s", workDir)
+		}
 	}
-	if !declares(mod, module) {
-		t.Fatalf("%s is not the repository of %s", r.Name(), module)
-	}
-	return r.FS()
 }
 
 // declares reports whether the go.mod content mod declares module.

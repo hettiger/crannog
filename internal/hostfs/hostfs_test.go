@@ -34,19 +34,23 @@ func TestOpenCrannogHome(t *testing.T) {
 }
 
 // Tests cannot open the crannog home outside of the temporary directory,
-// e.g. the user's real one. The package directory in the repository stands
-// in for it.
+// e.g. the user's real one, even after changing $TMPDIR. A file in the
+// repository stands in for it, so nothing can be created in it if the
+// check fails.
 func TestOpenCrannogHomeRefusesHomeOutsideTemp(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err)
-	if checkTestHome(wd) == nil {
+	h := filepath.Join(wd, "hostfs.go")
+	if checkTestHome(h) == nil {
 		t.Skip("the repository is in the temporary directory")
 	}
-	t.Setenv("HOME", wd)
+	t.Setenv("HOME", h)
 	_, err = OpenCrannogHome()
 	assert.ErrorContains(t, err, "tests must set HOME to a temporary directory")
-	_, err = fs.Stat(testfs.Repo(t), "internal/hostfs/.crannog")
-	assert.ErrorIs(t, err, fs.ErrNotExist, "nothing created")
+
+	t.Setenv("TMPDIR", string(filepath.Separator))
+	_, err = OpenCrannogHome()
+	assert.ErrorContains(t, err, "tests must set HOME to a temporary directory", "a changed TMPDIR")
 }
 
 // names returns the sorted names in the directory name within root.
@@ -64,6 +68,7 @@ func TestOpenWorktree(t *testing.T) {
 	tmp, dir := testfs.TempRoot(t)
 	_, err := OpenWorktree(dir)
 	assert.ErrorContains(t, err, "not the top of a git worktree")
+	assert.NotErrorIs(t, err, fs.ErrNotExist, "not mistaken for a missing .crannog")
 
 	for _, git := range []string{"dir", "file"} {
 		t.Run(git, func(t *testing.T) {

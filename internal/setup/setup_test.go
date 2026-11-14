@@ -190,6 +190,19 @@ func TestReadWorktreeDeletedSetup(t *testing.T) {
 	assert.Empty(t, s)
 }
 
+// A work tree without a .git entry, here set by GIT_WORK_TREE, is an
+// error, not a missing setup.
+func TestReadWorktreeWithoutGitEntry(t *testing.T) {
+	repo := testgit.Init(t)
+	_, dir := testfs.TempRoot(t)
+	writeSample(t, dir)
+	t.Setenv("GIT_DIR", filepath.Join(repo, ".git"))
+	t.Setenv("GIT_WORK_TREE", dir)
+
+	_, err := ReadWorktree(dir)
+	assert.ErrorContains(t, err, "not the top of a git worktree")
+}
+
 // A .crannog that is a file or a symlink is an error, not a missing setup.
 func TestNonDirectorySetupIsAnError(t *testing.T) {
 	for name, create := range map[string]func(t *testing.T, dir string){

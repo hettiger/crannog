@@ -20,12 +20,11 @@ import (
 	"github.com/hettiger/crannog/internal/ui"
 )
 
+// defaultSetup returns the bundled default preset's setup. It reads it
+// with an empty crannog home of its own, leaving $HOME alone.
 func defaultSetup(t *testing.T) setup.Setup {
-	t.Setenv("HOME", t.TempDir())
-	h, err := home.OpenCrannogHome()
-	require.NoError(t, err)
-	defer h.Close()
-	p, err := preset.Find(h, preset.Default)
+	root, dir := testfs.TempRoot(t)
+	p, err := preset.Find(home.CrannogHome{Dir: dir, Root: root}, preset.Default)
 	require.NoError(t, err)
 	s, err := p.Load()
 	require.NoError(t, err)

@@ -53,6 +53,10 @@ next one open. Directories a guest can write to are covered by
 ## Consequences
 
 - `~/.crannog` itself may be a symlink: the anchor is opened through it.
+- The top of a git worktree is recognized by its `.git` entry, a fact of
+  the file system the environment cannot change. A work tree without one
+  (`GIT_DIR` with `GIT_WORK_TREE`, `core.worktree`) is not supported:
+  crannog fails instead of reading or replacing `.crannog/` there.
 - Approved mount sources are outside the anchors; crannog only checks that
   they exist.
 - Runtime objects (containers, volumes, networks) are not covered; their
