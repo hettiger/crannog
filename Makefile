@@ -5,7 +5,7 @@ LDFLAGS := -X github.com/hettiger/crannog/crannog/cmd.version=$(VERSION)
 
 all: check build
 
-# crannog runs on macOS on Apple Silicon only (ADR 0006).
+# crannog runs on macOS on Apple Silicon only (ADR 0008).
 build:
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/ ./...
 

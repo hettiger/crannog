@@ -16,30 +16,32 @@ controls all of them.
 
 Each crannog runs in its own lightweight VM via Apple Containers, so crannog
 requires macOS 26 or later on Apple Silicon
-([ADR 0006](decisions/0006-apple-containers-runtime.md)). Network access goes
+([ADR 0008](decisions/0008-apple-containers-runtime.md)). Network access goes
 through iron-proxy, which also injects credentials so they never enter the
-crannog ([ADR 0007](decisions/0007-iron-proxy-proxy-causeway.md)). Agents keep
+crannog ([ADR 0009](decisions/0009-iron-proxy-proxy-causeway.md)). Agents keep
 their logins in a shared agent home
-([ADR 0008](decisions/0008-agent-home.md)). Code enters and leaves a crannog
+([ADR 0011](decisions/0011-agent-home.md)). Code enters and leaves a crannog
 through plain git remotes, via a remote helper over `container exec`; crannog
 does not touch the user's SSH configuration
-([ADR 0010](decisions/0010-git-causeway.md)).
+([ADR 0015](decisions/0015-git-causeway.md)).
 
 Each repository configures its crannogs in `.crannog/` (image, environment,
-mounts, proxy), and crannog only uses a version the user has approved
-([ADR 0011](decisions/0011-repository-configuration.md)); without one, a
-preset is used ([ADR 0015](decisions/0015-presets.md)). Crannogs keep the
+mounts, proxy) ([ADR 0023](decisions/0023-repository-configuration.md)),
+and crannog only uses a version the user has approved
+([ADR 0024](decisions/0024-setup-approval.md)); without one, a preset is
+used ([ADR 0026](decisions/0026-presets.md)). Crannogs keep the
 repository on a `/work` volume and agent state on a `/state` volume
-([ADR 0012](decisions/0012-crannog-names-volumes-paths.md)). A repository has
-one crannog per start branch, which runs only while a session does
-([ADR 0014](decisions/0014-one-crannog-per-start-branch.md)). The default
+([ADR 0018](decisions/0018-volumes-and-repository-path.md)). A repository has
+one crannog per start branch
+([ADR 0017](decisions/0017-one-crannog-per-start-branch.md)), which runs
+only while a session does ([ADR 0019](decisions/0019-sessions-and-auto-stop.md)). The default
 image ships Claude Code, Codex, OpenCode and Pi, which share their logins and
 settings across crannogs and can call each other
-([ADR 0013](decisions/0013-agents-default-image.md)).
+([ADR 0028](decisions/0028-agents-in-the-default-image.md)).
 
 Day to day, `crannog checkout [branch]` opens a session in the crannog of a
 branch, building or updating it as needed
-([ADR 0016](decisions/0016-cli-commands.md)).
+([ADR 0027](decisions/0027-cli-commands.md)).
 
 ## Contents
 
@@ -49,3 +51,4 @@ branch, building or updating it as needed
 | [decisions/](decisions/README.md)  | Architecture Decision Records (ADRs)      |
 | [features/](features/README.md)    | Features, their status and behavior       |
 | [use-cases/](use-cases/README.md)  | What users want to achieve with crannog   |
+| [spikes/](spikes/README.md)        | Experiments that confirmed ADRs           |

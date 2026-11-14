@@ -19,8 +19,18 @@ All relevant commands are in the `Makefile`:
 - `crannog/cmd/` – Cobra commands (package `cmd`), one file per command,
   registered in `init()`
 - `git-remote-crannog/` – the git remote helper binary (package `main`)
-- `internal/` – packages shared by the binaries
+- `internal/` – packages shared by the binaries; the bundled presets are in
+  `internal/preset/bundled/`
+- `e2e/` – end-to-end smoke test, run on a Mac with Apple Containers
 - `docs/` – project knowledge base (see below)
+
+## Conventions
+
+- Host paths, absolute or within an `os.Root`, are built with
+  `filepath.Join`. Paths in a container, Git paths, `io/fs` paths and the
+  file paths of a setup use `path`. Never concatenate `"/"`.
+- Validate names from outside (branch slugs, setup hashes, preset names)
+  before joining them: `Join` cleans `..` away.
 
 ## Language
 
@@ -37,7 +47,7 @@ to repeat context across sessions. Start at `docs/README.md`.
 - Before working on a topic, read `docs/README.md`, `docs/glossary.md` and any
   docs related to the topic (decisions, features, use cases).
 - Treat accepted decisions as binding. If a request conflicts with one, point
-  that out and ask whether the decision should be superseded.
+  that out and ask whether the decision should change.
 
 ### Glossary (`docs/glossary.md`)
 
@@ -49,13 +59,20 @@ to repeat context across sessions. Start at `docs/README.md`.
 
 ### Decisions (`docs/decisions/`)
 
-- Record every significant decision as an ADR as soon as it is made, without
-  being asked: technology choices, architecture, conventions, scope, naming,
+- Record every significant decision as soon as it is made, without being
+  asked: technology choices, architecture, conventions, scope, naming,
   rejected alternatives worth remembering.
-- Use `docs/decisions/template.md`. Number sequentially (`NNNN-short-title.md`)
-  and add the ADR to the index in `docs/decisions/README.md`.
-- Never rewrite an accepted ADR's decision. Supersede it with a new ADR and
-  update the old one's status to `Superseded by NNNN`.
+- One topic per ADR, in its current state. ADRs hold decisions, their
+  reasons and alternatives; behavior, formats and implementation details
+  belong in feature docs or the code.
+- Until the first release, revise ADRs in place: edit the ADR a decision
+  belongs to, or merge, split or renumber ADRs to keep them atomic. Update
+  every reference (docs, spikes, code comments) in the same change. After
+  the first release, never rewrite an accepted ADR's decision: supersede it
+  with a new ADR and set the old one's status to `Superseded by NNNN`.
+- New ADRs use `docs/decisions/template.md` and the next number
+  (`NNNN-short-title.md`). Keep the index in `docs/decisions/README.md`
+  current: grouped by topic, one line on what each ADR decides.
 
 ### Features (`docs/features/`) and use cases (`docs/use-cases/`)
 

@@ -34,6 +34,24 @@ history.
 - **Not to be confused with:** the user's own agent configuration (e.g.
   `~/.claude` on the host), which crannog does not touch
 
+## Anchor
+
+A directory crannog opens as the root of all file access below it: the
+crannog home, a worktree's `.crannog/`, or a temporary directory crannog
+created ([ADR 0013](decisions/0013-host-file-access.md)).
+
+- **In code:** package `hostfs`
+
+## Approved setup
+
+A setup the user approved, or a preset crannog used, stored by its setup
+hash in `~/.crannog/repositories/<id>/approved/<sha256>/`. Crannogs are built
+only from approved setups.
+
+- **Not to be confused with:** setup approval, the user's agreement that
+  makes a setup an approved setup
+- **In code:** `setup.Store`
+
 ## Branch slug
 
 The identifier crannog derives from a start branch: the cleaned branch name
@@ -58,7 +76,7 @@ running sessions. It never decides which setup a crannog uses. `--yes`
 answers it with yes; without a terminal and without `--yes` it is an error.
 
 - **Not to be confused with:** setup approval
-- **In code:** `Confirmation`
+- **In code:** `ui.UI.AskConfirmation`
 
 ## Crannog
 
@@ -66,10 +84,30 @@ An isolated sandbox in which an agent works. Reachable only via causeways.
 
 - **Not to be confused with:** crannog, the CLI (written in lowercase)
 
+## Crannog home
+
+The directory `~/.crannog` on the host, created by crannog for the user. It
+holds crannog's state per repository and crannog, the user's presets and
+the agent homes.
+
+- **Not to be confused with:** the user's home directory, or an agent home
+  within it
+- **In code:** `home.CrannogHome`, `hostfs.OpenCrannogHome`
+
 ## Git causeway
 
 The causeway through which code enters a crannog and the agent's results
 (commits, branches) leave it. Every crannog has one.
+
+## Managed instructions block
+
+The block between `<!-- crannog:begin -->` and `<!-- crannog:end -->` in each
+agent's global instruction file in the agent home. It explains the crannog
+to the agent; crannog replaces it whenever a session starts.
+
+- **Not to be confused with:** the rest of the instruction file, which is
+  the user's and which crannog leaves alone
+- **In code:** `instructions.ManagedBlock`
 
 ## Mount causeway
 
@@ -89,6 +127,14 @@ add their own in `~/.crannog/presets/<name>/`.
 
 The causeway through which a crannog reaches the network: a proxy that
 allows only listed domains and injects credentials. Every crannog has one.
+
+## Readiness marker
+
+`/tmp/ready` in a crannog, holding the boot id of the current start once the
+image's entrypoint has prepared the crannog. crannog waits for it before it
+runs a session.
+
+- **In code:** `readyMarker`
 
 ## Repository
 
@@ -111,16 +157,33 @@ while it has sessions. What a session runs by default is configured in
 - **Not to be confused with:** an agent's own sessions (conversations it
   stores, e.g. for resuming)
 
+## Setup
+
+The content of a `.crannog/` directory: `config.yml`, `iron-proxy.yaml` and
+`container/`, from a working tree, a commit or a preset. A crannog uses one
+setup at a time.
+
+- **Not to be confused with:** preset, a template a setup can come from
+- **In code:** `setup.Setup`
+
 ## Setup approval
 
 The user's agreement to use a setup, i.e. a content of `.crannog/`, in
 crannogs, given after seeing a diff. Each content is approved once; crannog
-keeps approved copies in `approved/<sha256>/`. `--yes` never skips a setup
+keeps approved setups in `approved/<sha256>/`. `--yes` never skips a setup
 approval. Short: approval.
 
 - **Not to be confused with:** confirmation; an agent's own approvals or
   permission prompts
-- **In code:** `SetupApproval`
+- **In code:** `ui.UI.AskSetupApproval`
+
+## Setup hash
+
+The sha256 over a setup's files: paths, contents and executable bits. It
+identifies approved setups. The image name uses the same hash computed over
+`container/` alone (`crannog-<hash12>`).
+
+- **In code:** `Setup.Hash`
 
 ## Start branch
 
