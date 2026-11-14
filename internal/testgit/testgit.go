@@ -28,10 +28,7 @@ func Isolate(t *testing.T) {
 func Init(t *testing.T) string {
 	t.Helper()
 	Isolate(t)
-	dir, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, dir := testfs.TempRoot(t)
 	dir = filepath.Join(dir, "repo")
 	Git(t, "", "init", "-q", "-b", "main", dir)
 	Git(t, dir, "commit", "-q", "--allow-empty", "-m", "Initial commit")

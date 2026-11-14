@@ -25,6 +25,10 @@ next one open. Directories a guest can write to are covered by
   followed. Names from outside (branch slugs, setup hashes) are validated
   before they name a directory.
 - A unit test fails on file access by path, in code and tests alike.
+- Tests write only below the user's temporary directory as it was when
+  the tests started, with symlinks resolved, and read only the crannog
+  repository outside of it. A test cannot widen this by changing
+  `$TMPDIR`.
 
 ## Alternatives
 

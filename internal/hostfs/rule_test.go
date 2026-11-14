@@ -41,11 +41,11 @@ const renameio = "github.com/google/renameio/v2"
 // allowed are the uses of path functions outside this package, by file
 // and function, with the reason.
 var allowed = map[string]string{
-	// The anchor of the tests (ADR 0013).
-	"internal/testfs/testfs.go os.OpenRoot": "opens a test's temporary directory",
+	// The anchors of the tests (ADR 0013).
+	"internal/testfs/testfs.go os.OpenRoot":           "opens a temporary directory or the repository",
+	"internal/testfs/testfs.go filepath.EvalSymlinks": "resolves a directory before checking it is temporary",
 	// Read-only checks outside the anchors.
-	"internal/crannog/lifecycle.go os.Stat":             "checks that approved mount sources exist",
-	"internal/testgit/testgit.go filepath.EvalSymlinks": "resolves the test's temporary directory",
+	"internal/crannog/lifecycle.go os.Stat": "checks that approved mount sources exist",
 }
 
 // anchorUsers may open anchors with OpenAnchor.
@@ -59,9 +59,9 @@ var anchorUsers = map[string]string{
 // Every file system access by path outside this package is one of the
 // allowed ones. Tests follow the same rule.
 func TestFileSystemAccessIsAnchored(t *testing.T) {
-	root := testfs.Root(t, "../..")
+	repo := testfs.Repo(t)
 	var violations []string
-	err := fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(repo, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -75,7 +75,7 @@ func TestFileSystemAccessIsAnchored(t *testing.T) {
 		if !strings.HasSuffix(p, ".go") || (path.Dir(p) == "internal/hostfs" && !strings.HasSuffix(p, "_test.go")) {
 			return nil
 		}
-		src, err := root.ReadFile(p)
+		src, err := fs.ReadFile(repo, p)
 		if err != nil {
 			return err
 		}
