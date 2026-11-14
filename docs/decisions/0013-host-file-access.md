@@ -33,7 +33,9 @@ next one open. Directories a guest can write to are covered by
 - Tests write only below the user's temporary directory as it was when
   the tests started, with symlinks resolved, and read only the crannog
   repository outside of it. A test cannot widen this by changing
-  `$TMPDIR`.
+  `$TMPDIR`. In tests, `hostfs` refuses a crannog home outside the
+  temporary directory, so a test that does not set `HOME` fails instead
+  of using the user's real one.
 
 ## Alternatives
 

@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 )
 
 // SetupDir is the name of the setup directory in a worktree.
@@ -27,11 +28,35 @@ func OpenCrannogHome() (*os.Root, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot find the home directory: %w", err)
 	}
+	if testing.Testing() {
+		if err := checkTestHome(h); err != nil {
+			return nil, err
+		}
+	}
 	dir := filepath.Join(h, ".crannog")
 	if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, err
 	}
 	return os.OpenRoot(dir)
+}
+
+// checkTestHome fails unless the home directory h is below the temporary
+// directory, with symlinks resolved, so tests never touch the user's
+// crannog home.
+func checkTestHome(h string) error {
+	tmp, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		return err
+	}
+	resolved, err := filepath.EvalSymlinks(h)
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(tmp, resolved)
+	if err != nil || rel == "." || !filepath.IsLocal(rel) {
+		return fmt.Errorf("tests must set HOME to a temporary directory, not %s", h)
+	}
+	return nil
 }
 
 // Worktree is a git worktree on the host. Only its setup directory and

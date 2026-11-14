@@ -33,6 +33,22 @@ func TestOpenCrannogHome(t *testing.T) {
 	assert.Error(t, err, "the home directory is not created")
 }
 
+// Tests cannot open the crannog home outside of the temporary directory,
+// e.g. the user's real one. The package directory in the repository stands
+// in for it.
+func TestOpenCrannogHomeRefusesHomeOutsideTemp(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	if checkTestHome(wd) == nil {
+		t.Skip("the repository is in the temporary directory")
+	}
+	t.Setenv("HOME", wd)
+	_, err = OpenCrannogHome()
+	assert.ErrorContains(t, err, "tests must set HOME to a temporary directory")
+	_, err = fs.Stat(testfs.Repo(t), "internal/hostfs/.crannog")
+	assert.ErrorIs(t, err, fs.ErrNotExist, "nothing created")
+}
+
 // names returns the sorted names in the directory name within root.
 func names(t *testing.T, root *os.Root, name string) []string {
 	entries, err := fs.ReadDir(root.FS(), name)
