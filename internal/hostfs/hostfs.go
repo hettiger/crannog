@@ -16,8 +16,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/hettiger/crannog/internal/seatbelt/selftest"
 )
 
 // SetupDir is the name of the setup directory in a worktree.
@@ -39,9 +37,6 @@ func crannogHome() (string, error) {
 	h, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("cannot find the home directory: %w", err)
-	}
-	if err := selftest.InTests(); err != nil {
-		return "", err
 	}
 	if testing.Testing() {
 		if err := checkTestHome(h); err != nil {
@@ -145,9 +140,6 @@ type Worktree struct {
 // GIT_DIR or core.worktree is not supported. That error is not an
 // fs.ErrNotExist, so it is not mistaken for a missing setup directory.
 func OpenWorktree(dir string) (*Worktree, error) {
-	if err := selftest.InTests(); err != nil {
-		return nil, err
-	}
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
@@ -310,9 +302,6 @@ type TempDir struct {
 
 // NewTempDir creates a temporary directory named crannog-<name>-<random>.
 func NewTempDir(name string) (*TempDir, error) {
-	if err := selftest.InTests(); err != nil {
-		return nil, err
-	}
 	parent, err := os.OpenRoot(os.TempDir())
 	if err != nil {
 		return nil, err

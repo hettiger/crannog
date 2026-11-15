@@ -1,7 +1,8 @@
 // Package selftest checks that Seatbelt is active (ADR 0030): creating a
 // file where the profile allows no writes must fail. The binaries run it
-// after entering Seatbelt, and on macOS the tests' file access runs it so
-// tests do not run outside of Seatbelt.
+// after entering Seatbelt. On macOS every test binary runs it when it
+// starts, by linking this package, so tests do not run outside of
+// Seatbelt.
 package selftest
 
 import (
@@ -10,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"syscall"
 	"testing"
 )
@@ -37,28 +37,21 @@ func Run(dir string) error {
 	return fmt.Errorf("cannot check that Seatbelt is active: %w", err)
 }
 
-// home is the user's home directory, taken once in a test binary before
-// any test can change $HOME.
-var home, homeErr = testHome()
-
-func testHome() (string, error) {
+// init stops a test binary on macOS before any test runs unless it runs
+// in Seatbelt, so tests started without it fail instead of running
+// unconfined. Every test binary links this package; a test in it checks
+// that. The self-test runs in the user's real home directory, before any
+// test can change $HOME. In the binaries init does nothing: they run the
+// self-test after entering Seatbelt.
+func init() {
 	if !testing.Testing() {
-		return "", nil
+		return
 	}
-	return os.UserHomeDir()
-}
-
-var inTests = sync.OnceValue(func() error { return tests(runtime.GOOS, home, homeErr) })
-
-// InTests fails in a test binary on macOS that does not run in Seatbelt.
-// Everything that gives tests access to files calls it, so tests started
-// without Seatbelt fail instead of running unconfined. It runs the
-// self-test once, in the user's real home directory.
-func InTests() error {
-	if !testing.Testing() {
-		return nil
+	home, err := os.UserHomeDir()
+	if err := tests(runtime.GOOS, home, err); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	return inTests()
 }
 
 func tests(goos, home string, homeErr error) error {

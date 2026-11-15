@@ -56,8 +56,11 @@ no option to turn it off.
   `internal/seatbelt/test.sb`. Writing files is allowed only in the
   user's temporary directory (`TEMP_DIR`), the Go build cache
   (`GO_CACHE`) and the devices above.
-- On macOS, `testfs` and the anchors of `hostfs` run the self-test once
-  per test binary, in the user's real home directory. Outside of
-  Seatbelt the tests fail with `on macOS, tests must run in Seatbelt
-  (make test)`.
+- On macOS, every test binary runs the self-test once when it starts,
+  in the user's real home directory. Outside of Seatbelt it fails before
+  any test runs, with `on macOS, tests must run in Seatbelt (make test)`.
+- Every package with tests has a `selftest_test.go` that imports package
+  `selftest` blank; its `init` runs the self-test.
+  `TestEveryPackageWithTestsImportsTheSelfTest` fails for a package with
+  tests that does not.
 - On other systems the tests run without Seatbelt.

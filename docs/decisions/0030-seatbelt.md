@@ -39,9 +39,12 @@ to rely on one small, fixed list of places crannog can write to.
   binaries fail.
 - On macOS, `make test` runs the tests in Seatbelt with a profile of
   their own: only the user's temporary directory and the Go build cache
-  are writable. Everything that gives tests access to files (`testfs`,
-  the anchors of `hostfs`) runs the self-test first, so tests started
-  without Seatbelt fail. On other systems the tests run unconfined.
+  are writable. Every test binary runs the self-test once when it
+  starts, in an `init` of package `selftest`, so tests started without
+  Seatbelt fail before any of them runs. Every package with tests
+  imports `selftest` blank in a file `selftest_test.go`, also when it
+  links it anyway; a test checks that. On other systems the tests run
+  unconfined.
 - The end-to-end smoke test and the spikes are not confined.
 
 ## Alternatives
@@ -66,6 +69,12 @@ to rely on one small, fixed list of places crannog can write to.
   modules are downloaded before the tests run instead.
 - **Only a Makefile target for the tests:** a plain `go test` on the Mac
   would still run unconfined.
+- **Running the self-test in everything that gives tests access to
+  files:** safe only as long as no such place is forgotten, and it does
+  not stop a test that runs a program without accessing files.
+- **Importing `selftest` only where it is not linked anyway**, e.g. in
+  `testfs`: fewer files, but whether a package is covered then depends
+  on its imports instead of being visible in the package.
 - **Confining the smoke test and the spikes:** a script cannot be confined
   as a whole when it runs `crannog`, and what would remain is its own
   `rm -rf` of a directory it checks itself.
@@ -92,8 +101,9 @@ to rely on one small, fixed list of places crannog can write to.
   arguments and the self-test, but not Seatbelt itself. That is checked by
   the [spike](../spikes/seatbelt/README.md) and the smoke test.
 - On a Mac, tests run from an editor or with a plain `go test` fail
-  until they are started in Seatbelt. A test that does not access files
-  and runs a program itself is not stopped by the self-test.
+  until they are started in Seatbelt.
+- A new package with tests needs a `selftest_test.go`; the tests fail
+  until it has one.
 - `sandbox-exec` is deprecated by Apple but still what other tools use. An
   update of macOS or of Apple Containers can make crannog fail until the
   profile is adjusted; rerun the spike then.

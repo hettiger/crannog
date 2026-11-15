@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/hettiger/crannog/internal/seatbelt/selftest"
 )
 
 const module = "github.com/hettiger/crannog"
@@ -95,9 +93,6 @@ func declares(mod []byte, module string) bool {
 
 func open(t testing.TB, dir string) *os.Root {
 	t.Helper()
-	if err := selftest.InTests(); err != nil {
-		t.Fatal(err)
-	}
 	r, err := os.OpenRoot(dir)
 	if err != nil {
 		t.Fatal(err)
