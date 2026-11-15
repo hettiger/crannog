@@ -111,7 +111,7 @@ var testTempDir, testTempDirErr = resolveTestTempDir()
 
 func resolveTestTempDir() (string, error) {
 	if !testing.Testing() {
-		return "", nil
+		return "", errors.New("the test temporary directory is only available in tests")
 	}
 	return filepath.EvalSymlinks(os.TempDir())
 }
