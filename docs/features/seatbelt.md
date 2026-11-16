@@ -62,5 +62,7 @@ no option to turn it off.
 - Every package with tests has a `selftest_test.go` that imports package
   `selftest` blank; its `init` runs the self-test.
   `TestEveryPackageWithTestsImportsTheSelfTest` fails for a package with
-  tests that does not.
+  tests that does not. It reads the packages itself, not through
+  `go list`, so the test cache notices a `selftest_test.go` that was
+  added or deleted.
 - On other systems the tests run without Seatbelt.
