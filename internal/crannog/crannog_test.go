@@ -2,6 +2,7 @@ package crannog
 
 import (
 	"io/fs"
+	"maps"
 	"os/exec"
 	"strings"
 	"testing"
@@ -32,7 +33,7 @@ func defaultSetup(t *testing.T) setup.Setup {
 }
 
 func with(s setup.Setup, path, content string) setup.Setup {
-	c := s.Without()
+	c := maps.Clone(s)
 	c[path] = setup.File{Data: []byte(content)}
 	return c
 }
@@ -40,7 +41,7 @@ func with(s setup.Setup, path, content string) setup.Setup {
 func TestPlanChange(t *testing.T) {
 	s := defaultSetup(t)
 	assert.Equal(t, changeCreate, planChange(nil, s))
-	assert.Equal(t, changeNone, planChange(s, s.Without()))
+	assert.Equal(t, changeNone, planChange(s, maps.Clone(s)))
 	assert.Equal(t, changeReload, planChange(s, with(s, setup.ProxyFile, "x")))
 	assert.Equal(t, changeRebuild, planChange(s, with(s, setup.ConfigFile, "x")))
 	assert.Equal(t, changeRebuild, planChange(s, with(s, "container/extra", "x")))
