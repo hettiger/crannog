@@ -16,6 +16,9 @@ import (
 	"github.com/hettiger/crannog/internal/testfs"
 )
 
+// The tests can write to their temporary directory, also in Seatbelt
+// (test.sb), so there the check file can be created as if Seatbelt were
+// not active.
 func TestRunFailsAndCleansUpWhenTheFileCanBeCreated(t *testing.T) {
 	root, dir := testfs.TempRoot(t)
 
@@ -54,16 +57,22 @@ func TestTestsOnlyCheckOnMacOS(t *testing.T) {
 	assert.NoError(t, selftest.Tests("linux", "", errors.New("no home")))
 }
 
-// On macOS a test binary outside of Seatbelt fails, and leaves nothing
-// behind.
-func TestTestsFailOutsideOfSeatbeltOnMacOS(t *testing.T) {
-	root, dir := testfs.TempRoot(t)
+func TestTestsRunTheSelfTestOnMacOS(t *testing.T) {
+	// Outside of Seatbelt, the home directory can be written to. The
+	// temporary directory can be written to even in Seatbelt, so it
+	// stands in for it.
+	_, writableHome := testfs.TempRoot(t)
 
-	err := selftest.Tests("darwin", dir, nil)
+	err := selftest.Tests("darwin", writableHome, nil)
 
+	assert.ErrorContains(t, err, "Seatbelt is not active")
 	assert.ErrorContains(t, err, "tests must run in Seatbelt (make test)")
-	assert.False(t, testfs.Exists(t, root, selftest.CheckFile))
-	assert.ErrorContains(t, selftest.Tests("darwin", "", errors.New("no home")), "no home")
+}
+
+func TestTestsFailWithoutAHomeOnMacOS(t *testing.T) {
+	err := selftest.Tests("darwin", "", errors.New("no home"))
+
+	assert.ErrorContains(t, err, "no home")
 }
 
 const selftestPkg = "github.com/hettiger/crannog/internal/seatbelt/selftest"
