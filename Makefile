@@ -5,12 +5,25 @@ LDFLAGS := -X github.com/hettiger/crannog/crannog/cmd.version=$(VERSION)
 
 all: check build
 
-# crannog runs on macOS on Apple Silicon only (ADR 0006).
+# crannog runs on macOS on Apple Silicon only (ADR 0008).
 build:
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/ ./...
 
+# On macOS the tests run in Seatbelt and can write only to the temporary
+# directory and the Go build cache (ADR 0030). The modules are downloaded
+# before: the tests cannot write to the module cache.
+ifeq ($(shell uname -s),Darwin)
+test:
+	go mod download
+	mkdir -p "$$(go env GOCACHE)"
+	/usr/bin/sandbox-exec -f internal/seatbelt/test.sb \
+		-D "TEMP_DIR=$$(cd -P -- "$$TMPDIR" && pwd -P)" \
+		-D "GO_CACHE=$$(cd -P -- "$$(go env GOCACHE)" && pwd -P)" \
+		go test ./...
+else
 test:
 	go test ./...
+endif
 
 vet:
 	go vet ./...

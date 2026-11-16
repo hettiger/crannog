@@ -1,0 +1,50 @@
+# iron-proxy configuration of this crannog's proxy causeway, in iron-proxy's
+# own format: https://github.com/paradigmxyz/iron-proxy
+#
+# crannog relies on these settings, keep them:
+#   - proxy.tunnel_listen on :8080 (the crannog's CRANNOG_PROXY_URL)
+#   - the CA at /etc/iron-proxy/ca.crt and ca.key (crannog generates it)
+#   - metrics on 127.0.0.1:9090 (crannog waits for /healthz)
+#   - the management API on 127.0.0.1:9092 (crannog reloads through it)
+# Both listeners stay on loopback, out of the agent's reach. Secrets are read
+# from files in /etc/iron-proxy/secrets/; their values never go here.
+#
+# Apply changes with `crannog apply`, without ending running sessions. To
+# open the proxy temporarily, set warn: true: unlisted hosts then pass and
+# show up as warnings in the proxy's log (container logs <proxy>).
+
+dns:
+  enabled: false
+proxy:
+  tunnel_listen: ":8080"
+tls:
+  mode: mitm
+  ca_cert: /etc/iron-proxy/ca.crt
+  ca_key: /etc/iron-proxy/ca.key
+metrics:
+  listen: "127.0.0.1:9090"
+management:
+  listen: "127.0.0.1:9092"
+transforms:
+  - name: allowlist
+    config:
+      warn: false
+      domains:
+        # Claude Code
+        - "*.anthropic.com"
+        - "*.claude.ai"
+        - "*.claude.com"
+        # Codex
+        - "*.openai.com"
+        - "*.chatgpt.com"
+        # OpenCode
+        - "opencode.ai"
+        - "models.opencode.ai"
+        # Pi
+        - "pi.dev"
+        # npm packages and agent updates
+        - "registry.npmjs.org"
+        # Debian packages and security updates (sudo apt-get)
+        - "deb.debian.org"
+log:
+  level: info

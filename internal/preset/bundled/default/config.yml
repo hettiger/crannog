@@ -1,0 +1,74 @@
+# crannog configuration of this repository: what a session runs, the
+# crannog's resources, the proxy image, environment and mounts.
+#
+# crannog always attaches two volumes, /work (the repository) and /state
+# (agent state of this crannog only), and the proxy as the only network.
+# The crannog's environment contains only what env sets below.
+#
+# Values can use variables, written like in Docker Compose: $VAR, ${VAR},
+# ${VAR:-default}, $$ for a literal $. CRANNOG_* variables come from crannog:
+#
+#   CRANNOG_AGENTS_DIR  ~/.crannog/agents, the agent homes (host path)
+#   CRANNOG_CACHE_DIR   ~/.crannog/cache, the package caches (host path)
+#   CRANNOG_CA_DIR      this crannog's CA certificate (host path)
+#   CRANNOG_REPO_DIR    the repository's path in the crannog
+#   CRANNOG_PROXY_URL   the proxy's URL in the crannog
+#
+# All other variables are read from the host's environment when the
+# crannog is built; an unset variable without a default is an error.
+# session.command is not interpolated: the shell in the crannog expands it.
+
+session:
+  # Run by the agent user's login shell in the repository.
+  # `crannog checkout -- command...` runs another command instead.
+  command: claude --dangerously-skip-permissions
+
+resources:
+  cpus: 4
+  memory: 4G
+
+proxy:
+  image: docker.io/ironsh/iron-proxy:0.54.0@sha256:6d074be2de9188f88d08013788d5500fb4de8557f16c2e5b27af4d8d2cb1e3fb
+
+env:
+  # Proxy causeway: the crannog's only way out.
+  HTTP_PROXY: ${CRANNOG_PROXY_URL}
+  HTTPS_PROXY: ${CRANNOG_PROXY_URL}
+  http_proxy: ${CRANNOG_PROXY_URL}
+  https_proxy: ${CRANNOG_PROXY_URL}
+  NO_PROXY: localhost,127.0.0.1,::1
+  no_proxy: localhost,127.0.0.1,::1
+  # Node's fetch ignores the proxy variables without this.
+  NODE_USE_ENV_PROXY: "1"
+
+  # The proxy intercepts TLS with this crannog's CA. The entrypoint adds it
+  # to the system trust store; Node and Codex need it named explicitly.
+  NODE_EXTRA_CA_CERTS: /etc/crannog/ca.crt
+  CODEX_CA_CERTIFICATE: /etc/crannog/ca.crt
+
+  # Agent homes: login, settings and history, shared by all crannogs.
+  CLAUDE_CONFIG_DIR: /home/agent/.crannog/agents/claude
+  CODEX_HOME: /home/agent/.crannog/agents/codex
+  OPENCODE_CONFIG_DIR: /home/agent/.crannog/agents/opencode
+  PI_CODING_AGENT_DIR: /home/agent/.crannog/agents/pi
+
+  # Agent state that is not safe to share between crannogs (SQLite).
+  # The entrypoint creates these directories; keep both in sync.
+  CODEX_SQLITE_HOME: /state/codex
+  OPENCODE_DB: /state/opencode/opencode.db
+
+  # Package and tool caches, shared by all crannogs.
+  NPM_CONFIG_CACHE: /home/agent/.crannog/cache/npm
+  PLAYWRIGHT_BROWSERS_PATH: /home/agent/.crannog/cache/ms-playwright
+  # Without this, one crannog removes browsers another one uses.
+  PLAYWRIGHT_SKIP_BROWSER_GC: "1"
+
+mounts:
+  # This crannog's CA certificate (not its key).
+  - source: ${CRANNOG_CA_DIR}
+    target: /etc/crannog
+    readonly: true
+  - source: ${CRANNOG_AGENTS_DIR}
+    target: /home/agent/.crannog/agents
+  - source: ${CRANNOG_CACHE_DIR}
+    target: /home/agent/.crannog/cache

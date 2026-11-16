@@ -1,6 +1,6 @@
 # 0001. Go and Cobra for the CLI
 
-- **Status:** Accepted, partially superseded by [0027](0027-repository-layout.md) (layout, version path)
+- **Status:** Accepted
 - **Date:** 2026-10-30
 
 ## Context
@@ -11,9 +11,8 @@ crannog is a command line application and needs a language and a CLI framework.
 
 crannog is written in Go (module `github.com/hettiger/crannog`) and uses
 `github.com/spf13/cobra` for commands, flags, help, and shell completion.
-Commands live in `cmd/`, one file per command. The version is injected at
-build time via
-`-ldflags "-X github.com/hettiger/crannog/cmd.version=..."` and defaults to `dev`.
+Where the code lives is decided in
+[ADR 0006](0006-repository-layout.md).
 
 ## Alternatives
 
