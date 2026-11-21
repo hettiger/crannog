@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/huh/v2/spinner"
 	"golang.org/x/term"
@@ -17,9 +16,6 @@ import (
 
 // ErrDeclined is returned when the user answers no.
 var ErrDeclined = errors.New("declined")
-
-// ErrInterrupted is returned when the user ends a wait with Ctrl-C.
-var ErrInterrupted = errors.New("interrupted")
 
 // Prompter asks yes/no questions and lets the user pick.
 type Prompter interface {
@@ -29,7 +25,7 @@ type Prompter interface {
 	Ask(question string) (bool, error)
 	Pick(title string, options []string) (string, error)
 	// Wait shows title while action runs. Ctrl-C cancels the action's
-	// context and gives ErrInterrupted.
+	// context and is an error.
 	Wait(title string, action func(context.Context) error) error
 }
 
@@ -92,7 +88,7 @@ func (u *UI) PickOne(title, missing string, options []string) (string, error) {
 }
 
 // WaitFor shows title while action runs, with a spinner in a terminal.
-// There, Ctrl-C cancels the action's context and gives ErrInterrupted.
+// There, Ctrl-C cancels the action's context and is an error.
 func (u *UI) WaitFor(title string, action func(context.Context) error) error {
 	if !u.Interactive() {
 		u.Printf("%s\n", title)
@@ -147,8 +143,5 @@ func (Terminal) Wait(title string, action func(context.Context) error) error {
 	// The spinner ended first: the action stops before Wait returns.
 	cancel()
 	<-done
-	if errors.Is(err, tea.ErrInterrupted) {
-		return ErrInterrupted
-	}
 	return err
 }

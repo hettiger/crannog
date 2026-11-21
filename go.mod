@@ -3,7 +3,6 @@ module github.com/hettiger/crannog
 go 1.27.3
 
 require (
-	charm.land/bubbletea/v2 v2.0.2
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/google/renameio/v2 v2.0.2
@@ -15,6 +14,7 @@ require (
 
 require (
 	charm.land/bubbles/v2 v2.0.0 // indirect
+	charm.land/bubbletea/v2 v2.0.2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/catppuccin/go v0.2.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
