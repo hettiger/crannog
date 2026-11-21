@@ -252,6 +252,13 @@ func TestApplyRebuildsAndLeavesTheCrannogStopped(t *testing.T) {
 	sess, _, err := tg.dir.registerSession()
 	require.NoError(t, err)
 	defer sess.Unlock()
+	// The session ends when its program is asked to.
+	f.rt.execHook = func(name string, args []string) error {
+		if args[2] == termScript {
+			sess.Unlock()
+		}
+		return nil
+	}
 
 	next := with(s, "container/extra", "x")
 	_, err = f.m.store().Add(next)
@@ -263,13 +270,15 @@ func TestApplyRebuildsAndLeavesTheCrannogStopped(t *testing.T) {
 	f.m.UI.Yes = true
 	require.NoError(t, f.m.Apply(""))
 	assert.Contains(t, f.out.String(), "1 session running in this crannog end when it is rebuilt")
+	assert.Contains(t, f.out.String(), "Waiting for 1 session in the crannog of main to end")
 
 	assert.Equal(t, []string{
 		"build " + next.ImageName(),
+		"exec " + tg.names.Container + " sh",
 		"delete " + tg.names.Container + " " + tg.names.Proxy,
 		"create " + tg.names.Proxy + " " + "docker.io/ironsh/iron-proxy:0.54.0@sha256:6d074be2de9188f88d08013788d5500fb4de8557f16c2e5b27af4d8d2cb1e3fb",
 		"create " + tg.names.Container + " " + next.ImageName(),
-	}, f.rt.calls, "the image is built before the old containers go")
+	}, f.rt.calls, "the image is built and the session ended before the old containers go")
 	assert.Equal(t, runtime.StateStopped, f.rt.containers[tg.names.Container].State)
 	hash, _ := tg.dir.Hash()
 	assert.Equal(t, next.Hash(), hash)

@@ -18,7 +18,8 @@ Direct dependencies besides Cobra ([ADR 0001](0001-go-and-cobra.md)):
 | `github.com/google/renameio/v2` | Atomic file writes | Apache-2.0 |
 | `go.yaml.in/yaml/v3` | `config.yml` | MIT and Apache-2.0 |
 | `golang.org/x/term` | Detecting terminals | BSD-3-Clause |
-| `charm.land/huh/v2` | Confirmations, approvals, pickers | MIT |
+| `charm.land/huh/v2` | Confirmations, approvals, pickers, the spinner | MIT |
+| `charm.land/bubbletea/v2` | Telling Ctrl-C in the spinner from other errors | MIT |
 | `charm.land/lipgloss/v2` | Tables and styling | MIT |
 | `github.com/stretchr/testify` | Tests (`require`, `assert`) | MIT |
 
@@ -44,4 +45,4 @@ requires:
 - All dependencies are permissively licensed and compatible with the MIT
   license. Release binaries must ship their license texts and NOTICE files;
   `make THIRD_PARTY_NOTICES` collects them with `go-licenses`.
-- Bubble Tea and other Charm modules come in as indirect dependencies.
+- Other Charm modules come in as indirect dependencies.

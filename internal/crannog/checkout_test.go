@@ -220,3 +220,17 @@ func withoutExec(calls []string) []string {
 	}
 	return out
 }
+
+// A session that ends after destroy removed its crannog has nothing to
+// stop and leaves no host directory behind.
+func TestEndSessionOfADestroyedCrannog(t *testing.T) {
+	f := newFixture(t)
+	tg := f.target("main")
+
+	require.NoError(t, f.m.endSession(tg))
+	assert.Equal(t, "The crannog of main was destroyed while this session ran\n", f.out.String())
+	assert.Empty(t, f.rt.calls)
+	exists, err := tg.dir.exists()
+	require.NoError(t, err)
+	assert.False(t, exists, "the host directory is not created again")
+}

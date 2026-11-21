@@ -164,6 +164,9 @@ func (p *fakePrompter) Ask(q string) (bool, error) {
 	return p.answer, nil
 }
 func (p *fakePrompter) Pick(string, []string) (string, error) { return "", nil }
+func (p *fakePrompter) Wait(_ string, action func(context.Context) error) error {
+	return action(context.Background())
+}
 
 func newFixture(t *testing.T) *fixture {
 	dir := testgit.Init(t)

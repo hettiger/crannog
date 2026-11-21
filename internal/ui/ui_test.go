@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"io"
 	"testing"
 
@@ -21,6 +22,10 @@ func (f *Fake) Interactive() bool { return f.Terminal }
 func (f *Fake) Ask(q string) (bool, error) {
 	f.Asked = append(f.Asked, q)
 	return f.Answer, nil
+}
+
+func (f *Fake) Wait(title string, action func(context.Context) error) error {
+	return action(context.Background())
 }
 
 func (f *Fake) Pick(title string, options []string) (string, error) {

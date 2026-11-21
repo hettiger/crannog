@@ -36,13 +36,21 @@ longer exists.
    Declining stops the crannog again if no session runs. The loss report is a
    point-in-time check; when sessions run, the output explains that work created
    after the check is deleted too. Sessions continue during confirmation.
-4. Deletes proxy and crannog, the network, both volumes, the remote and the
+4. Ends the running sessions: sends SIGTERM to every process of the
+   `agent` user in the crannog and waits until no session runs, without a
+   timeout, with a spinner in a terminal. Their programs restore the
+   terminals themselves. Processes that ignore SIGTERM, as interactive
+   shells do, get SIGHUP as soon as they have no child process. Ctrl-C ends
+   destroy with nothing deleted; the processes in the crannog were asked to
+   end all the same.
+5. Deletes proxy and crannog, the network, both volumes, the remote and the
    host directory. The image stays. A host
    directory that is a symlink is an error, its target stays.
 
 Cleanup refuses a remote with changed fetch mappings. A command waiting
 on a lock removed by destroy fails with a retry hint rather than continuing
-with an obsolete lock.
+with an obsolete lock. A session that outlives its crannog says that the crannog
+was destroyed ([checkout](checkout.md)).
 
 Cleanup is not transactional: when remote removal fails, containers and
 volumes may already be deleted, while the remote and a host directory with

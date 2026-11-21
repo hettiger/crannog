@@ -129,6 +129,17 @@ func (d HostDir) lock(waiting func()) (*session.Lock, error) {
 	return session.LockWait(r, lockFile, waiting)
 }
 
+// lockExisting takes the crannog's lock like lock, without creating the
+// directory: a missing one is an error that matches fs.ErrNotExist.
+func (d HostDir) lockExisting(waiting func()) (*session.Lock, error) {
+	r, err := d.open("", false)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return session.LockWait(r, lockFile, waiting)
+}
+
 // tryLock takes the crannog's lock without waiting.
 func (d HostDir) tryLock() (*session.Lock, error) {
 	r, err := d.open("", false)

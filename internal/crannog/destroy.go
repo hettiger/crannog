@@ -83,6 +83,9 @@ func (m *Manager) Destroy(branchArg string) error {
 		return err
 	}
 
+	if err := m.endSessions(t); err != nil {
+		return err
+	}
 	m.UI.Printf("Destroying the crannog of %s\n", branch)
 	if err := m.remove(t); err != nil {
 		return err

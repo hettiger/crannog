@@ -361,6 +361,9 @@ func (m *Manager) rebuild(t *target, hash string, start bool) error {
 	if err := m.prepareImages(approved, hash, cfg); err != nil {
 		return err
 	}
+	if err := m.endSessions(t); err != nil {
+		return err
+	}
 	m.UI.Printf("Rebuilding the crannog of %s\n", t.branch)
 	st, err := m.status(t.names)
 	if err != nil {

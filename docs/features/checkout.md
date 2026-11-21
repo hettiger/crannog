@@ -49,7 +49,8 @@ confirmations, never setup approvals.
 5. Existing crannog: if `.crannog/` differs from the crannog's copy, asks
    for approval (new content) or confirmation (a rebuild that ends running
    sessions), then reloads the proxy (only `iron-proxy.yaml` changed) or
-   rebuilds both containers. With running sessions and no other question,
+   rebuilds both containers. A rebuild first ends the running sessions
+   like [destroy](destroy.md). With running sessions and no other question,
    asks before starting another session; without a terminal it only warns.
    Starts proxy and crannog if stopped, waits for the readiness marker and
    adds the remote. A foreign remote of that name is an error.
@@ -63,7 +64,9 @@ confirmations, never setup approvals.
    SIGTERM and SIGHUP on. A session killed by a signal gives exit code
    128 + signal.
 8. When the session ends: if no other session runs, stops crannog and proxy
-   and removes the remote. Exits with the session's exit code.
+   and removes the remote. If the crannog was destroyed while the session
+   ran, says so and leaves no host directory behind. Exits with the
+   session's exit code.
 
 The crannog remote is temporary. Removing it also removes Git's upstream
 configuration for local branches tracking that remote; their local branches
@@ -80,8 +83,8 @@ named `approved` and `.crannog`, built in a temporary directory
 `crannog-diff-*` in `$TMPDIR` and shown with git's pager in a terminal.
 crannog's own messages go to stderr.
 
-A lock removed or replaced while checkout waits is an error with a retry
-hint. Remote cleanup refuses changed fetch mappings rather than deleting
+A lock removed or replaced while checkout waits to start a session is an
+error with a retry hint. Remote cleanup refuses changed fetch mappings rather than deleting
 unrelated refs.
 
 The 60-second deadline for the proxy health and the readiness marker

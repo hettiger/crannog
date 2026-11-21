@@ -36,6 +36,14 @@ starts inherit it.
   - Ending: crannog deletes its file, takes `lock` and counts the sessions.
     If none is left, it stops the crannog. Start and stop both hold `lock`,
     so they cannot race.
+- **Ending sessions:** before `destroy` or a rebuild
+  ([ADR 0022](0022-rebuilds.md)) deletes the containers, crannog sends
+  SIGTERM to the processes of the agent user in the crannog and waits until
+  no session runs, without a timeout. The programs restore their terminals
+  themselves. Processes that ignore SIGTERM, as interactive shells do, get
+  SIGHUP once they have no child process left, so a program in a shell's
+  foreground ends first. Nothing is deleted before, so Ctrl-C leaves the
+  crannog as it was.
 - **Self-repair:** `checkout`, `apply`, `destroy` and `list` first stop
   running crannogs of the repository with no session whose `lock` nobody
   holds, and remove `crannog-*` remotes with a `crannog::` URL whose crannog
@@ -54,8 +62,19 @@ starts inherit it.
   crannog:** a variable crannog adds itself, inherited by everything the
   session starts, and `list` would need a `container exec` per crannog.
 
+- **Deleting the containers under running sessions:** the programs are
+  killed and leave mouse reporting and keyboard modes on in the terminal.
+  Resetting the terminal from the host means guessing what they turned on.
+- **Killing sessions that do not end after a timeout:** the terminal is left
+  broken after all; waiting shows what crannog waits for, and the user ends
+  the session or aborts.
+- **SIGHUP for every process:** programs that clean up on SIGTERM but not on
+  SIGHUP are killed before they restored the terminal.
+
 ## Consequences
 
+- A session whose program ends on neither SIGTERM nor SIGHUP blocks
+  `destroy` and rebuilds until the user ends it.
 - `crannog list` counts sessions on the host, without entering the VM.
 - Background services in a crannog only run while a session does.
 - Loops that start a session per iteration start and stop the VM each time.

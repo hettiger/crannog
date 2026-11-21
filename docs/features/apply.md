@@ -29,7 +29,9 @@ crannog apply [branch] [--yes]
   file, the old one is restored.
 - Otherwise: builds the new image first, then replaces proxy and crannog.
   With running sessions and approved content, asks for confirmation first
-  (`--yes` answers it). The rebuilt crannog stays stopped until the next
+  (`--yes` answers it). After the build, ends the running sessions like
+  [destroy](destroy.md) and waits for them without a timeout; Ctrl-C keeps
+  the old containers. The rebuilt crannog stays stopped until the next
   session.
 
 After an interrupted rebuild, resolve its cause and retry apply with the setup

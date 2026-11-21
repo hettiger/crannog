@@ -62,7 +62,7 @@ func checkLocked(dir *os.Root, name string, f *os.File) error {
 	current, err := dir.Lstat(name)
 	if err != nil || !os.SameFile(locked, current) {
 		f.Close()
-		return fmt.Errorf("lock %s: %w", name, ErrReplaced)
+		return fmt.Errorf("%s: %w", name, ErrReplaced)
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func tryLock(dir *os.Root, name string, create bool) (*Lock, error) {
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, ErrLocked
 		}
-		return nil, fmt.Errorf("lock %s: %w", name, err)
+		return nil, fmt.Errorf("flock %s: %w", name, err)
 	}
 	if err := checkLocked(dir, name, f); err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func LockWait(dir *os.Root, name string, waiting func()) (*Lock, error) {
 	}
 	if err := flockRetry(f); err != nil {
 		f.Close()
-		return nil, fmt.Errorf("lock %s: %w", name, err)
+		return nil, fmt.Errorf("flock %s: %w", name, err)
 	}
 	if err := checkLocked(dir, name, f); err != nil {
 		return nil, err

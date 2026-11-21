@@ -3,17 +3,23 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
+	"charm.land/huh/v2/spinner"
 	"golang.org/x/term"
 )
 
 // ErrDeclined is returned when the user answers no.
 var ErrDeclined = errors.New("declined")
+
+// ErrInterrupted is returned when the user ends a wait with Ctrl-C.
+var ErrInterrupted = errors.New("interrupted")
 
 // Prompter asks yes/no questions and lets the user pick.
 type Prompter interface {
@@ -22,6 +28,9 @@ type Prompter interface {
 	Interactive() bool
 	Ask(question string) (bool, error)
 	Pick(title string, options []string) (string, error)
+	// Wait shows title while action runs. Ctrl-C cancels the action's
+	// context and gives ErrInterrupted.
+	Wait(title string, action func(context.Context) error) error
 }
 
 // UI asks questions and prints messages.
@@ -82,6 +91,16 @@ func (u *UI) PickOne(title, missing string, options []string) (string, error) {
 	return u.Pick(title, options)
 }
 
+// WaitFor shows title while action runs, with a spinner in a terminal.
+// There, Ctrl-C cancels the action's context and gives ErrInterrupted.
+func (u *UI) WaitFor(title string, action func(context.Context) error) error {
+	if !u.Interactive() {
+		u.Printf("%s\n", title)
+		return action(context.Background())
+	}
+	return u.Wait(title, action)
+}
+
 // Terminal asks questions on the terminal with huh.
 type Terminal struct{}
 
@@ -105,4 +124,31 @@ func (Terminal) Pick(title string, options []string) (string, error) {
 		return "", ErrDeclined
 	}
 	return v, err
+}
+
+func (Terminal) Wait(title string, action func(context.Context) error) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var actionErr error
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		actionErr = action(ctx)
+	}()
+	err := spinner.New().Title(" " + title).ActionWithErr(func(context.Context) error {
+		<-done
+		return nil
+	}).Run()
+	select {
+	case <-done:
+		return actionErr
+	default:
+	}
+	// The spinner ended first: the action stops before Wait returns.
+	cancel()
+	<-done
+	if errors.Is(err, tea.ErrInterrupted) {
+		return ErrInterrupted
+	}
+	return err
 }

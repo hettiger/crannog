@@ -1,12 +1,15 @@
 package crannog
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/session"
@@ -169,9 +172,14 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 
 // lock takes the crannog's lock, waiting for other crannog processes.
 func (m *Manager) lock(t *target) (*session.Lock, error) {
-	return t.dir.lock(func() {
+	return t.dir.lock(m.waiting(t))
+}
+
+// waiting returns the function that says that crannog waits for the lock.
+func (m *Manager) waiting(t *target) func() {
+	return func() {
 		m.UI.Printf("Waiting for another crannog command on the crannog of %s\n", t.branch)
-	})
+	}
 }
 
 // runSession runs the command in the crannog as the agent user in the
@@ -229,9 +237,74 @@ func exitCode(err error) (int, error) {
 	return exitErr.ExitCode(), nil
 }
 
-// endSession stops the crannog when the last session ended (ADR 0019).
+// termScript asks every process of the agent user to end. A program that
+// is killed with its container cannot restore the terminal of its session.
+const termScript = `kill -TERM -1 2>/dev/null; true`
+
+// hupScript hangs up the processes that ignore SIGTERM, as interactive
+// shells do, once they have no child process left: a program in the
+// foreground of a shell restores the terminal before its session ends.
+// SIGTERM is bit 0x4000 of SigIgn.
+const hupScript = `parents=" $(sed -n 's/^PPid:[[:space:]]*//p' /proc/[0-9]*/status 2>/dev/null | tr '\n' ' ')"
+for d in /proc/[0-9]*; do
+  pid=${d#/proc/}
+  case "$parents" in *" $pid "*) continue ;; esac
+  ign=$(sed -n 's/^SigIgn:[[:space:]]*//p' "$d/status" 2>/dev/null)
+  [ -n "$ign" ] || continue
+  [ $((0x${ign#"${ign%????}"} & 0x4000)) -ne 0 ] && kill -HUP "$pid" 2>/dev/null
+done
+true`
+
+// sessionPoll is how often endSessions counts the sessions.
+var sessionPoll = 500 * time.Millisecond
+
+// endSessions asks the programs in the crannog to end and waits until no
+// session runs, without a timeout: nothing is deleted before, so Ctrl-C
+// leaves the crannog as it is (ADR 0019). The caller holds the lock.
+func (m *Manager) endSessions(t *target) error {
+	n, err := t.dir.sessions(true)
+	if err != nil || n == 0 {
+		return err
+	}
+	signal := func(script string) error {
+		_, err := m.exec(t.names.Container, runtime.ExecOptions{User: AgentUser}, "sh", "-c", script)
+		return err
+	}
+	title := fmt.Sprintf("Waiting for %s in the crannog of %s to end (Ctrl-C keeps the crannog as it is)", plural(n, "session", "sessions"), t.branch)
+	err = m.UI.WaitFor(title, func(ctx context.Context) error {
+		if err := signal(termScript); err != nil {
+			return err
+		}
+		for {
+			n, err := t.dir.sessions(true)
+			if err != nil || n == 0 {
+				return err
+			}
+			if err := signal(hupScript); err != nil {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(sessionPoll):
+			}
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("ending the sessions in the crannog of %s: %w; nothing was deleted", t.branch, err)
+	}
+	return nil
+}
+
+// endSession stops the crannog when the last session ended (ADR 0019). A
+// crannog destroyed while the session ran has nothing left to stop; its
+// host directory is not created again.
 func (m *Manager) endSession(t *target) error {
-	lock, err := m.lock(t)
+	lock, err := t.dir.lockExisting(m.waiting(t))
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, session.ErrReplaced) {
+		m.UI.Printf("The crannog of %s was destroyed while this session ran\n", t.branch)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
