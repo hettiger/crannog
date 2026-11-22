@@ -36,6 +36,8 @@ type fakeRuntime struct {
 	// execHook, if set, can fail an Exec in a container, e.g. the proxy's
 	// reload.
 	execHook func(name string, args []string) error
+	// buildErr, if set, fails Build.
+	buildErr error
 }
 
 func newFakeRuntime() *fakeRuntime {
@@ -63,6 +65,9 @@ func (f *fakeRuntime) ImageExists(name string) (bool, error) { return f.images[n
 
 func (f *fakeRuntime) Build(tag, dir string) error {
 	f.record("build %s", tag)
+	if f.buildErr != nil {
+		return f.buildErr
+	}
 	f.images[tag] = true
 	return nil
 }
@@ -89,6 +94,11 @@ func (f *fakeRuntime) CreateNetwork(name string) error {
 
 func (f *fakeRuntime) DeleteNetwork(name string) error {
 	f.record("network delete %s", name)
+	// Like the container CLI, which does not say that the network is
+	// missing.
+	if !f.networks[name] {
+		return fmt.Errorf("failed to delete one or more networks: [%q]", name)
+	}
 	delete(f.networks, name)
 	return nil
 }
@@ -101,6 +111,9 @@ func (f *fakeRuntime) CreateVolume(name string) error {
 
 func (f *fakeRuntime) DeleteVolume(name string) error {
 	f.record("volume delete %s", name)
+	if !f.volumes[name] {
+		return fmt.Errorf("failed to delete one or more volumes: [%q]", name)
+	}
 	delete(f.volumes, name)
 	return nil
 }

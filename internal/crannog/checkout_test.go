@@ -1,6 +1,7 @@
 package crannog
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -213,6 +214,74 @@ func TestCheckoutRemovesAnInterruptedBuild(t *testing.T) {
 	hash, err := tg.dir.Hash()
 	require.NoError(t, err)
 	assert.NotEmpty(t, hash)
+}
+
+// A build that fails before the network and the volumes exist deletes
+// neither: the runtime fails on deleting a missing one. The next checkout
+// builds from scratch.
+func TestCheckoutAfterABuildThatFailedEarly(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.target("main")
+	f.redirectURL(tg)
+	f.rt.buildErr = errors.New("build failed")
+
+	_, err := f.m.Checkout("", []string{"true"})
+	require.ErrorContains(t, err, "build failed")
+	assert.NotContains(t, f.out.String(), "Warning")
+	assert.Equal(t, []string{"build " + defaultSetup(t).ImageName()}, f.rt.calls)
+	exists, err := tg.dir.exists()
+	require.NoError(t, err)
+	assert.False(t, exists, "host directory removed")
+
+	f.rt.buildErr = nil
+	_, err = f.m.Checkout("", []string{"true"})
+	require.NoError(t, err, f.out.String())
+	hash, err := tg.dir.Hash()
+	require.NoError(t, err)
+	assert.NotEmpty(t, hash)
+}
+
+// An interrupted build leaves any part of the runtime objects. Checkout and
+// destroy delete the ones that exist and get past the missing ones.
+func TestRemainsOfAnInterruptedBuildWithMissingObjects(t *testing.T) {
+	interrupted := func(t *testing.T) (*fixture, *target) {
+		f := newFixture(t)
+		stubHelper(t)
+		tg := f.target("main")
+		f.redirectURL(tg)
+		require.NoError(t, tg.dir.mkdirs(proxyDir, caDir))
+		require.NoError(t, tg.dir.WriteBranch("main"))
+		f.rt.networks[tg.names.Network] = true
+		f.rt.volumes[tg.names.WorkVolume] = true
+		return f, tg
+	}
+	deleted := func(tg *target) []string {
+		return []string{"network delete " + tg.names.Network, "volume delete " + tg.names.WorkVolume}
+	}
+
+	t.Run("checkout", func(t *testing.T) {
+		f, tg := interrupted(t)
+		_, err := f.m.Checkout("", []string{"true"})
+		require.NoError(t, err, f.out.String())
+		assert.Equal(t, deleted(tg), f.rt.calls[:2], "the remains go first")
+		hash, err := tg.dir.Hash()
+		require.NoError(t, err)
+		assert.NotEmpty(t, hash)
+	})
+
+	t.Run("destroy", func(t *testing.T) {
+		f, tg := interrupted(t)
+		f.prompt.answer = true
+		f.prompt.terminal = true
+		require.NoError(t, f.m.Destroy("main"), f.out.String())
+		assert.Equal(t, deleted(tg), f.rt.calls)
+		assert.Empty(t, f.rt.networks)
+		assert.Empty(t, f.rt.volumes)
+		exists, err := tg.dir.exists()
+		require.NoError(t, err)
+		assert.False(t, exists, "host directory removed")
+	})
 }
 
 // If the proxy rejects a new iron-proxy.yaml, the old one is restored and

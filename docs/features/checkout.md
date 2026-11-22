@@ -36,7 +36,8 @@ confirmations, never setup approvals.
 3. Records the repository's git common dir in `repositories/<id>/path`
    and takes the crannog's lock, waiting for other crannog commands.
 4. New crannog: removes the remains of an interrupted build first (a
-   recorded branch without a hash). Without a recorded branch, containers,
+   recorded branch without a hash): the containers, network and volumes
+   that exist, whichever part of them the build got to. Without a recorded branch, containers,
    a network or volumes that already exist with the crannog's names are an
    error that lists them for the user to remove; crannog changes none of
    them ([ADR 0021](../decisions/0021-crannog-state-on-the-host.md)).

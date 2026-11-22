@@ -198,6 +198,9 @@ func (f *fixture) existing(branch string, s setup.Setup) *target {
 	_, cfg, err := f.m.loadApproved(tg, hash)
 	require.NoError(f.t, err)
 	f.rt.images[cfg.Proxy.Image] = true
+	f.rt.networks[tg.names.Network] = true
+	f.rt.volumes[tg.names.WorkVolume] = true
+	f.rt.volumes[tg.names.StateVolume] = true
 	require.NoError(f.t, f.m.createContainers(tg, s, cfg))
 	f.rt.calls = nil
 	return tg

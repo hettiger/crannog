@@ -45,7 +45,8 @@ longer exists.
    destroy with nothing deleted; the processes in the crannog were asked to
    end all the same.
 5. Deletes proxy and crannog, the network, both volumes, the remote and the
-   host directory. The image stays. A host
+   host directory; containers, a network or volumes that are missing are
+   skipped. The image stays. A host
    directory that is a symlink is an error, its target stays.
 
 Cleanup refuses a remote with changed fetch mappings. A command waiting

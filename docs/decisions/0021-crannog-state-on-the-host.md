@@ -40,7 +40,8 @@ can be interrupted at any point.
   `path`, since the id cannot be reversed.
 - **A crannog exists** once its `crannog` file holds a hash. A host
   directory with a `branch` but no hash is the remains of an interrupted
-  build; `checkout` removes them and builds anew. A directory with neither
+  build; `checkout` removes them, whichever runtime objects exist, and
+  builds anew. A directory with neither
   is new, and nothing is removed. If a first build fails, crannog removes
   everything it created (containers, network, volumes, remote, host
   directory); the image stays. If a removal fails, the host state

@@ -553,14 +553,24 @@ if [ "$4" = set ]; then git -C "$repo" config user.email "$5"; else git -C "$rep
 
 // remove deletes everything of a crannog except the image and the host
 // directory's lock: containers, network, volumes, remote and host state.
+// It deletes only the runtime objects that exist: an interrupted build
+// leaves any part of them, and the runtime fails on deleting a missing one.
 // If a runtime object or the remote cannot be deleted, the host state
 // stays, so the next checkout tries again.
 func (m *Manager) remove(t *target) error {
-	var errs []error
 	st, err := m.status(t.names)
 	if err != nil {
 		return err
 	}
+	networks, err := bounded(m.Runtime.Networks)
+	if err != nil {
+		return err
+	}
+	volumes, err := bounded(m.Runtime.Volumes)
+	if err != nil {
+		return err
+	}
+	var errs []error
 	var containers []string
 	if st.crannog != nil {
 		containers = append(containers, t.names.Container)
@@ -571,9 +581,13 @@ func (m *Manager) remove(t *target) error {
 	if len(containers) > 0 {
 		errs = append(errs, m.Runtime.Delete(containers...))
 	}
-	errs = append(errs, ignoreMissing(m.Runtime.DeleteNetwork(t.names.Network)))
+	if slices.Contains(networks, t.names.Network) {
+		errs = append(errs, m.Runtime.DeleteNetwork(t.names.Network))
+	}
 	for _, v := range []string{t.names.WorkVolume, t.names.StateVolume} {
-		errs = append(errs, ignoreMissing(m.Runtime.DeleteVolume(v)))
+		if slices.Contains(volumes, v) {
+			errs = append(errs, m.Runtime.DeleteVolume(v))
+		}
 	}
 	errs = append(errs, m.removeRemote(t.names))
 	if err := errors.Join(errs...); err != nil {
@@ -613,12 +627,4 @@ func (m *Manager) leftovers(t *target) ([]string, error) {
 		}
 	}
 	return found, nil
-}
-
-// ignoreMissing ignores errors about objects that do not exist.
-func ignoreMissing(err error) error {
-	if err != nil && strings.Contains(strings.ToLower(err.Error()), "not found") {
-		return nil
-	}
-	return err
 }
