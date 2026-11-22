@@ -1,6 +1,6 @@
 # Seatbelt
 
-- **Status:** In progress
+- **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
 - **Decisions:** [0013](../decisions/0013-host-file-access.md), [0030](../decisions/0030-seatbelt.md)
 
