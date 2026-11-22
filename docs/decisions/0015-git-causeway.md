@@ -49,7 +49,13 @@ repository, including `origin`.
   with commits not reachable from the user's own refs, and worktrees with
   uncommitted changes. The user confirms; `--yes` answers the confirmation.
   If the crannog cannot be started or fetched, crannog says that it cannot
-  check what would be lost and asks all the same.
+  check what would be lost and asks all the same. Nothing is recreated or
+  built for the check.
+- **Nothing to lose, nothing to ask:** work is in the work volume of a
+  crannog that was built. The remains of an interrupted first build, in
+  which no session ever ran, and a crannog without its work volume are
+  destroyed without the check and without the confirmation, unless
+  sessions run.
 - **No changes to `~/.ssh`:** git and crannog's own shell access use
   `container exec`. SSH is only needed for IDEs.
 
@@ -79,6 +85,9 @@ Containers.
   helper to start it.
 - **No `destroy` without a successful check, or a separate `--force`:** a
   broken crannog could not be destroyed, or needs another flag.
+- **Recreating missing containers in `destroy` for the check:** builds
+  what is deleted a moment later, and fails in new ways, e.g. on an image
+  that no longer builds.
 
 ## Consequences
 

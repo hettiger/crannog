@@ -64,6 +64,36 @@ func (m *Manager) Destroy(branchArg string) error {
 	if err != nil {
 		return err
 	}
+	hash, err := t.dir.Hash()
+	if err != nil {
+		return err
+	}
+	o, err := m.objects(t)
+	if err != nil {
+		return err
+	}
+	// Work is in the work volume of a crannog that was built. Without
+	// either, nothing can be lost and nothing is asked (ADR 0015).
+	if sessions > 0 || (hash != "" && o.work) {
+		if err := m.confirmDestroy(t, sessions); err != nil {
+			return err
+		}
+	}
+
+	if err := m.endSessions(t); err != nil {
+		return err
+	}
+	m.UI.Printf("Destroying the crannog of %s\n", branch)
+	if err := m.remove(t); err != nil {
+		return err
+	}
+	return t.dir.removeAll()
+}
+
+// confirmDestroy shows what destroying the crannog would lose and asks for
+// confirmation. Nothing is recreated for the check: a crannog that lacks
+// containers cannot be checked.
+func (m *Manager) confirmDestroy(t *target, sessions int) error {
 	l, checkErr := m.losses(t)
 	if checkErr != nil {
 		m.UI.Printf("Warning: cannot check what would be lost: %v\n", checkErr)
@@ -75,22 +105,14 @@ func (m *Manager) Destroy(branchArg string) error {
 		m.UI.Printf("%s running in this crannog end.\n", plural(sessions, "session", "sessions"))
 		m.UI.Printf("Running sessions can create more work after this check; that work will also be deleted.\n")
 	}
-	if err := m.UI.AskConfirmation(fmt.Sprintf("Destroy the crannog of %s?", branch)); err != nil {
+	if err := m.UI.AskConfirmation(fmt.Sprintf("Destroy the crannog of %s?", t.branch)); err != nil {
 		// The check may have started the crannog.
 		if serr := m.stopIdle(t); serr != nil {
 			m.UI.Printf("Warning: %v\n", serr)
 		}
 		return err
 	}
-
-	if err := m.endSessions(t); err != nil {
-		return err
-	}
-	m.UI.Printf("Destroying the crannog of %s\n", branch)
-	if err := m.remove(t); err != nil {
-		return err
-	}
-	return t.dir.removeAll()
+	return nil
 }
 
 // losses starts the crannog if needed, fetches its branches directly via

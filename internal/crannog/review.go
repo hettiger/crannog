@@ -68,9 +68,14 @@ func decide(c change, approved, fromPreset bool, sessions int, checkout bool) qu
 // review decides what the new setup means for the crannog and asks the
 // user if needed. current is the crannog's copy, nil for a new crannog. It
 // stores approved and preset setups as approved setups and returns the
-// change and the hash of the setup to use.
-func (m *Manager) review(t *target, src *source, current setup.Setup, sessions int, checkout bool) (change, string, error) {
+// change and the hash of the setup to use. incomplete tells that the
+// crannog lacks containers, its network or its state volume: recreating
+// them is a rebuild, also to an unchanged setup.
+func (m *Manager) review(t *target, src *source, current setup.Setup, sessions int, checkout, incomplete bool) (change, string, error) {
 	c := planChange(current, src.setup)
+	if incomplete && c != changeCreate {
+		c = changeRebuild
+	}
 	store := m.store()
 	hash := src.setup.Hash()
 	approved := true

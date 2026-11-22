@@ -46,7 +46,15 @@ func (m *Manager) Apply(branchArg string) error {
 	if err != nil {
 		return err
 	}
-	c, next, err := m.review(t, src, current, sessions, false)
+	o, err := m.objects(t)
+	if err != nil {
+		return err
+	}
+	if !o.work {
+		return errWorkVolumeMissing(t)
+	}
+	incomplete := m.noteMissing(t, o)
+	c, next, err := m.review(t, src, current, sessions, false, incomplete)
 	if err != nil {
 		return err
 	}

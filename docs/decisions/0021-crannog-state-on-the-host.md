@@ -54,6 +54,15 @@ can be interrupted at any point.
   directory was deleted by hand, `checkout` names them and stops. This is
   a state crannog did not create; it changes nothing and the user removes
   them.
+- **Missing runtime objects of an existing crannog:** a host directory
+  with a hash says that crannog created the objects with its names, so
+  crannog deals with whatever of them is gone, for example after a cleanup
+  with the container CLI or a failed rebuild. Containers, the network and
+  the state volume are replaceable: `checkout` and `apply` say what is
+  missing and recreate it from the crannog's setup with a rebuild
+  ([ADR 0022](0022-rebuilds.md)). The work volume is not: without it the
+  repository in the crannog is gone, `checkout` and `apply` stop and point
+  to `destroy`.
 - **Removal:** destroy removes `crannogs/<slug>/`; removing
   `repositories/<id>/` removes everything crannog knows about a repository.
 - Access to these files follows
@@ -68,6 +77,17 @@ can be interrupted at any point.
 - **Letting `destroy` remove existing resources without a host
   directory:** more code for a state only manual changes to `~/.crannog`
   produce.
+- **Asking the user to choose between repairing, rebuilding from scratch
+  and stopping when objects are missing:** crannog knows no better than
+  the user whether a kept volume is intact, building from scratch is
+  `destroy` followed by `checkout`, and a menu needs an answer without a
+  terminal.
+- **Missing containers as an error that only `apply` with a changed setup
+  or `destroy` resolves:** a failed rebuild followed by reverting
+  `.crannog/` left no way to keep the work volume.
+- **Transferring the repository again into a new work volume:** that is a
+  new crannog under the old name; the work in the old volume is gone
+  either way.
 - **Removing only what the failed build created:** keeps the existing
   resources, but the build still fails on the first name in use, with the
   runtime's error.
@@ -78,5 +98,6 @@ can be interrupted at any point.
   repository.
 - Removing a repository from disk leaves its state under `~/.crannog/` until
   it is cleaned up.
-- A crannog whose containers are missing while its host directory exists is
-  an error that only `apply` or `destroy` resolves.
+- A recreated state volume is empty: agents lose the state they kept in
+  the crannog, and crannog says so.
+- crannog does not check the contents of a work volume it keeps.

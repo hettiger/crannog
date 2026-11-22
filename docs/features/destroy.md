@@ -19,13 +19,18 @@ longer exists.
 
 ## Behavior
 
-1. Takes the crannog's lock and starts the crannog if it is stopped.
+1. Takes the crannog's lock. If no session runs and nothing can be lost,
+   continues with step 5 without the check and without asking: the
+   remains of an interrupted first build, or a crannog whose work volume
+   is missing ([ADR 0015](../decisions/0015-git-causeway.md)). Otherwise
+   starts the crannog if it is stopped.
 2. Fetches the crannog's branches directly via `crannog::<slug>` into
    temporary refs `refs/crannog/destroy/<slug>/*`, without writing
    `FETCH_HEAD`, and lists branches with commits not reachable from any ref
    except `refs/crannog/*` and `refs/remotes/crannog-<slug>/*`, and
    worktrees in the crannog with uncommitted changes.
-   If that fails, or the check of the worktrees in the crannog takes longer
+   If that fails, containers are missing (destroy recreates nothing), or
+   the check of the worktrees in the crannog takes longer
    than 60 seconds ([ADR 0020](../decisions/0020-readiness-marker.md)),
    says that it cannot check what would be lost. The check
    leaves existing refs and tags alone, disables pruning and automatic

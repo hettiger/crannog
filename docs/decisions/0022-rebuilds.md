@@ -17,6 +17,11 @@ takes effect with a reload of the proxy.
   so changes to `proxy.image`, `env`, `mounts` and `resources` take effect.
   The volumes, the network, the CA, the remote's name and the host directory
   stay.
+- **Missing objects:** a crannog that lacks a container, its network or
+  its state volume is rebuilt as well, also to an unchanged setup; the
+  rebuild creates a missing network or state volume again
+  ([ADR 0021](0021-crannog-state-on-the-host.md)). The rules for running
+  sessions apply.
 - **Image first:** crannog builds the new image before it replaces the
   containers. A failing build leaves the old containers in place, so
   `destroy` can still fetch from them.

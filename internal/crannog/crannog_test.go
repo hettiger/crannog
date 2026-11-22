@@ -129,21 +129,21 @@ func TestReviewApproval(t *testing.T) {
 	src, err := f.m.readSource("main")
 	require.NoError(t, err)
 
-	_, _, err = f.m.review(tg, src, nil, 0, true)
+	_, _, err = f.m.review(tg, src, nil, 0, true, false)
 	assert.ErrorContains(t, err, "needs your approval", "no terminal")
 
 	f.m.UI.Yes = true
-	_, _, err = f.m.review(tg, src, nil, 0, true)
+	_, _, err = f.m.review(tg, src, nil, 0, true, false)
 	assert.ErrorContains(t, err, "--yes does not approve")
 
 	f.prompt.terminal = true
-	_, _, err = f.m.review(tg, src, nil, 0, true)
+	_, _, err = f.m.review(tg, src, nil, 0, true, false)
 	assert.ErrorIs(t, err, ui.ErrDeclined)
 	ok, _ := f.m.store().Has(s.Hash())
 	assert.False(t, ok, "declined content is not stored")
 
 	f.prompt.answer = true
-	c, hash, err := f.m.review(tg, src, nil, 0, true)
+	c, hash, err := f.m.review(tg, src, nil, 0, true, false)
 	require.NoError(t, err)
 	assert.Equal(t, changeCreate, c)
 	assert.Equal(t, s.Hash(), hash)
@@ -153,7 +153,7 @@ func TestReviewApproval(t *testing.T) {
 
 	// Approved once, approved always (ADR 0024).
 	f.prompt.asked = nil
-	_, _, err = f.m.review(f.target("other"), src, nil, 0, true)
+	_, _, err = f.m.review(f.target("other"), src, nil, 0, true, false)
 	require.NoError(t, err)
 	assert.Empty(t, f.prompt.asked)
 }
@@ -166,7 +166,7 @@ func TestReviewListsHostVariables(t *testing.T) {
 	src, err := f.m.readSource("main")
 	require.NoError(t, err)
 	f.prompt.terminal, f.prompt.answer = true, true
-	_, _, err = f.m.review(f.target("main"), src, nil, 0, true)
+	_, _, err = f.m.review(f.target("main"), src, nil, 0, true, false)
 	require.NoError(t, err)
 	assert.Contains(t, f.out.String(), "reads these variables from your environment: GH_TOKEN")
 }
@@ -175,7 +175,7 @@ func TestReviewPresetNeedsNoApproval(t *testing.T) {
 	f := newFixture(t)
 	src, err := f.m.readSource("main")
 	require.NoError(t, err)
-	c, hash, err := f.m.review(f.target("main"), src, nil, 0, true)
+	c, hash, err := f.m.review(f.target("main"), src, nil, 0, true, false)
 	require.NoError(t, err)
 	assert.Equal(t, changeCreate, c)
 	assert.Empty(t, f.prompt.asked)
@@ -287,24 +287,120 @@ func TestApplyRebuildsAndLeavesTheCrannogStopped(t *testing.T) {
 	assert.Equal(t, next.Hash(), hash)
 }
 
-func TestCheckoutWithMissingContainers(t *testing.T) {
+// Containers, the network and the state volume of a crannog can be made
+// again from its setup, e.g. after a cleanup with the container CLI or a
+// failed rebuild. The work volume stays as it is.
+func TestCheckoutRecreatesMissingObjects(t *testing.T) {
 	s := defaultSetup(t)
+	changed := with(s, "container/extra", "x")
+	proxyImage := "docker.io/ironsh/iron-proxy:0.54.0@sha256:6d074be2de9188f88d08013788d5500fb4de8557f16c2e5b27af4d8d2cb1e3fb"
 	for _, tc := range []struct {
-		name  string
+		name string
+		// lose removes objects of the crannog.
+		lose  func(f *fixture, tg *target)
 		setup setup.Setup
-		hint  string
+		calls func(tg *target) []string
+		state bool
 	}{
-		{"unchanged", s, "the work volume may still contain work; crannog destroy deletes it"},
-		{"rebuild", with(s, "container/extra", "x"), "crannog apply main recreates them with this setup and keeps the work volume"},
+		{
+			name: "containers",
+			lose: func(f *fixture, tg *target) {
+				delete(f.rt.containers, tg.names.Container)
+				delete(f.rt.containers, tg.names.Proxy)
+			},
+			setup: s,
+			calls: func(tg *target) []string {
+				return []string{
+					"create " + tg.names.Proxy + " " + proxyImage,
+					"create " + tg.names.Container + " " + s.ImageName(),
+				}
+			},
+		},
+		{
+			name: "all but the work volume",
+			lose: func(f *fixture, tg *target) {
+				delete(f.rt.containers, tg.names.Container)
+				delete(f.rt.containers, tg.names.Proxy)
+				delete(f.rt.networks, tg.names.Network)
+				delete(f.rt.volumes, tg.names.StateVolume)
+			},
+			setup: s,
+			calls: func(tg *target) []string {
+				return []string{
+					"network create " + tg.names.Network,
+					"volume create " + tg.names.StateVolume,
+					"create " + tg.names.Proxy + " " + proxyImage,
+					"create " + tg.names.Container + " " + s.ImageName(),
+				}
+			},
+			state: true,
+		},
+		{
+			name: "the crannog's container, with a changed setup",
+			lose: func(f *fixture, tg *target) {
+				delete(f.rt.containers, tg.names.Container)
+			},
+			setup: changed,
+			calls: func(tg *target) []string {
+				return []string{
+					"build " + changed.ImageName(),
+					"delete " + tg.names.Proxy,
+					"create " + tg.names.Proxy + " " + proxyImage,
+					"create " + tg.names.Container + " " + changed.ImageName(),
+				}
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFixture(t)
 			tg := f.existing("main", s)
-			require.NoError(t, f.rt.Delete(tg.names.Container, tg.names.Proxy))
-			err := f.m.ensureRunning(tg, &source{setup: tc.setup})
-			require.ErrorContains(t, err, "the containers of the crannog of main are missing; "+tc.hint)
+			tc.lose(f, tg)
+
+			require.NoError(t, f.m.ensureRunning(tg, &source{setup: tc.setup, preset: true}), f.out.String())
+			calls := withoutExec(f.rt.calls)
+			want := tc.calls(tg)
+			require.GreaterOrEqual(t, len(calls), len(want))
+			assert.Equal(t, want, calls[:len(want)])
+			assert.Equal(t, []string{"start " + tg.names.Proxy, "start " + tg.names.Container}, calls[len(want):])
+			assert.Contains(t, f.out.String(), "The crannog of main lacks the following resources")
+			assert.Equal(t, tc.state, strings.Contains(f.out.String(), "Agents start without the state"))
+			assert.True(t, f.rt.volumes[tg.names.WorkVolume])
+			assert.Empty(t, f.rt.callsWith("volume delete"))
+			assert.Empty(t, f.rt.callsWith("volume create "+tg.names.WorkVolume))
+			hash, err := tg.dir.Hash()
+			require.NoError(t, err)
+			assert.Equal(t, tc.setup.Hash(), hash)
 		})
 	}
+}
+
+// Without its work volume a crannog has lost the repository; checkout and
+// apply change nothing and point to destroy.
+func TestMissingWorkVolume(t *testing.T) {
+	f := newFixture(t)
+	s := defaultSetup(t)
+	tg := f.existing("main", s)
+	delete(f.rt.volumes, tg.names.WorkVolume)
+	delete(f.rt.containers, tg.names.Container)
+
+	want := "the work volume of the crannog of main is missing"
+	require.ErrorContains(t, f.m.ensureRunning(tg, &source{setup: s, preset: true}), want)
+	require.ErrorContains(t, f.m.Apply(""), want)
+	assert.Empty(t, f.rt.calls)
+}
+
+// apply recreates missing containers too and leaves them stopped.
+func TestApplyRecreatesMissingContainers(t *testing.T) {
+	f := newFixture(t)
+	tg := f.existing("main", defaultSetup(t))
+	delete(f.rt.containers, tg.names.Container)
+	delete(f.rt.containers, tg.names.Proxy)
+
+	require.NoError(t, f.m.Apply(""), f.out.String())
+	assert.NotContains(t, f.out.String(), "is up to date")
+	assert.Equal(t, runtime.StateStopped, f.rt.containers[tg.names.Container].State)
+	assert.Equal(t, runtime.StateStopped, f.rt.containers[tg.names.Proxy].State)
+	assert.Empty(t, f.rt.callsWith("start"))
 }
 
 func TestSelfRepair(t *testing.T) {

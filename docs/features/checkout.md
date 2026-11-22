@@ -53,7 +53,13 @@ confirmations, never setup approvals.
    tries again. A declined approval or a failed build leaves no host
    directory behind, so `crannog destroy` reports that there is no
    crannog.
-5. Existing crannog: if `.crannog/` differs from the crannog's copy, asks
+5. Existing crannog: if a container, the network or the state volume is
+   missing, lists what is missing and recreates it from the crannog's
+   setup with a rebuild; the work volume stays as it is, a new state
+   volume is empty. A missing work volume is an error that points to
+   `crannog destroy`
+   ([ADR 0021](../decisions/0021-crannog-state-on-the-host.md)).
+   If `.crannog/` differs from the crannog's copy, asks
    for approval (new content) or confirmation (a rebuild that ends running
    sessions), then reloads the proxy (only `iron-proxy.yaml` changed) or
    rebuilds both containers. A rebuild first ends the running sessions
@@ -101,8 +107,3 @@ session (`/etc/hosts`, git author, instruction files) and `container list`.
 Building the image, pulling the proxy image, the repository transfer and
 the session itself have no timeout. The output of build and pull is shown
 as it happens.
-
-If containers are missing, checkout explains that destroy deletes their work
-volume. When the selected setup requires a rebuild, it also suggests
-`crannog apply <branch>` with that setup, which recreates the containers
-while preserving the volumes.

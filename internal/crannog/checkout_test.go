@@ -243,7 +243,8 @@ func TestCheckoutAfterABuildThatFailedEarly(t *testing.T) {
 }
 
 // An interrupted build leaves any part of the runtime objects. Checkout and
-// destroy delete the ones that exist and get past the missing ones.
+// destroy delete the ones that exist and get past the missing ones. Destroy
+// asks nothing: no session ever ran in the crannog, so nothing can be lost.
 func TestRemainsOfAnInterruptedBuildWithMissingObjects(t *testing.T) {
 	interrupted := func(t *testing.T) (*fixture, *target) {
 		f := newFixture(t)
@@ -272,9 +273,9 @@ func TestRemainsOfAnInterruptedBuildWithMissingObjects(t *testing.T) {
 
 	t.Run("destroy", func(t *testing.T) {
 		f, tg := interrupted(t)
-		f.prompt.answer = true
-		f.prompt.terminal = true
 		require.NoError(t, f.m.Destroy("main"), f.out.String())
+		assert.Empty(t, f.prompt.asked)
+		assert.NotContains(t, f.out.String(), "may be lost")
 		assert.Equal(t, deleted(tg), f.rt.calls)
 		assert.Empty(t, f.rt.networks)
 		assert.Empty(t, f.rt.volumes)
@@ -282,6 +283,48 @@ func TestRemainsOfAnInterruptedBuildWithMissingObjects(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, exists, "host directory removed")
 	})
+}
+
+// Without the work volume nothing can be lost anymore: destroy removes
+// what is left without asking.
+func TestDestroyWithoutWorkVolumeAsksNothing(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.existing("main", defaultSetup(t))
+	delete(f.rt.volumes, tg.names.WorkVolume)
+
+	require.NoError(t, f.m.Destroy("main"), f.out.String())
+	assert.Empty(t, f.prompt.asked)
+	assert.NotContains(t, f.out.String(), "may be lost")
+	assert.Equal(t, []string{
+		"delete " + tg.names.Container + " " + tg.names.Proxy,
+		"network delete " + tg.names.Network,
+		"volume delete " + tg.names.StateVolume,
+	}, f.rt.calls)
+	exists, err := tg.dir.exists()
+	require.NoError(t, err)
+	assert.False(t, exists, "host directory removed")
+}
+
+// destroy recreates nothing for its check: with missing containers it
+// says that it cannot check what would be lost and asks.
+func TestDestroyWithMissingContainersAsksWithoutCheck(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.existing("main", defaultSetup(t))
+	delete(f.rt.containers, tg.names.Container)
+	delete(f.rt.containers, tg.names.Proxy)
+	f.prompt.terminal = true
+
+	require.ErrorIs(t, f.m.Destroy("main"), ui.ErrDeclined)
+	assert.Contains(t, f.out.String(), "cannot check what would be lost: the crannog's containers are missing")
+	assert.Equal(t, []string{"Destroy the crannog of main?"}, f.prompt.asked)
+	assert.Empty(t, f.rt.calls, "nothing created, started or deleted")
+
+	f.prompt.answer = true
+	require.NoError(t, f.m.Destroy("main"), f.out.String())
+	assert.Empty(t, f.rt.volumes)
+	assert.Empty(t, f.rt.callsWith("create "))
 }
 
 // If the proxy rejects a new iron-proxy.yaml, the old one is restored and

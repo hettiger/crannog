@@ -177,8 +177,12 @@ func TestDeclinedDestroyPreservesExistingRefs(t *testing.T) {
 	assert.Equal(t, head, testgit.Git(t, f.dir, "rev-parse", ref))
 }
 
+// The crannog was never built; the running session keeps destroy asking.
 func TestDeclinedDestroyWithMissingContainersPreservesExistingRefs(t *testing.T) {
-	f, _, ref, head := destroyFixture(t)
+	f, tg, ref, head := destroyFixture(t)
+	sess, _, err := tg.dir.registerSession()
+	require.NoError(t, err)
+	defer sess.Unlock()
 
 	assert.ErrorIs(t, f.m.Destroy("main"), ui.ErrDeclined)
 	assert.Contains(t, f.out.String(), "containers are missing")

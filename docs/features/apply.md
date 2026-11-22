@@ -21,6 +21,11 @@ crannog apply [branch] [--yes]
   `crannog checkout`.
 - Reads `.crannog/` like [checkout](checkout.md) and compares it with the
   crannog's copy. Unchanged: prints that the crannog is up to date.
+- A missing container, network or state volume is listed and recreated
+  with a rebuild, also when the setup is unchanged; the work volume stays
+  as it is. A missing work volume is an error that points to
+  `crannog destroy`
+  ([ADR 0021](../decisions/0021-crannog-state-on-the-host.md)).
 - Content not approved before needs an approval (diff to the crannog's
   copy, host variables it reads, whether running sessions end). Without a
   terminal this is an error, also with `--yes`.
@@ -34,9 +39,6 @@ crannog apply [branch] [--yes]
   the old containers. The rebuilt crannog stays stopped until the next
   session.
 
-After an interrupted rebuild, resolve its cause and retry apply with the setup
-that triggered the rebuild. If it still requires a rebuild relative to the
-recorded setup, apply recreates missing containers while preserving the work
-and state volumes. An unchanged or proxy-only setup does not recreate them;
-"up to date" describes the setup, not container health. Destroy deletes the
-volumes and is not a data-preserving recovery step.
+After an interrupted rebuild, apply or checkout recreates the missing
+containers: with the setup in `.crannog/`, or, if that is the crannog's
+copy again, with the copy. The work and state volumes stay.

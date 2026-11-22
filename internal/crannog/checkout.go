@@ -142,7 +142,7 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 				return errors.Join(err, t.dir.removeAll())
 			}
 		}
-		_, hash, err := m.review(t, src, nil, 0, true)
+		_, hash, err := m.review(t, src, nil, 0, true, false)
 		if err != nil {
 			return errors.Join(err, t.dir.removeAll())
 		}
@@ -156,22 +156,21 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 	if err != nil {
 		return err
 	}
-	st, err := m.status(t.names)
+	// Containers, the network and the state volume can be made again, the
+	// work volume cannot (ADR 0021).
+	o, err := m.objects(t)
 	if err != nil {
 		return err
 	}
-	if st.crannog == nil || st.proxy == nil {
-		hint := "the work volume may still contain work; crannog destroy deletes it"
-		if planChange(current, src.setup) == changeRebuild {
-			hint = fmt.Sprintf("crannog apply %s recreates them with this setup and keeps the work volume; crannog destroy deletes it", shell.Quote(t.branch))
-		}
-		return fmt.Errorf("the containers of the crannog of %s are missing; %s", t.branch, hint)
+	if !o.work {
+		return errWorkVolumeMissing(t)
 	}
+	incomplete := m.noteMissing(t, o)
 	sessions, err := t.dir.sessions(true)
 	if err != nil {
 		return err
 	}
-	c, next, err := m.review(t, src, current, sessions, true)
+	c, next, err := m.review(t, src, current, sessions, true, incomplete)
 	if err != nil {
 		return err
 	}
@@ -183,7 +182,7 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 	case changeRebuild:
 		return m.rebuild(t, next, true)
 	}
-	return m.start(t, st)
+	return m.start(t, o.status)
 }
 
 // lock takes the crannog's lock, waiting for other crannog processes.

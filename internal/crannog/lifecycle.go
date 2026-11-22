@@ -20,8 +20,10 @@ import (
 	"github.com/hettiger/crannog/internal/home"
 	"github.com/hettiger/crannog/internal/hostfs"
 	"github.com/hettiger/crannog/internal/instructions"
+	"github.com/hettiger/crannog/internal/naming"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
+	"github.com/hettiger/crannog/internal/shell"
 )
 
 // Conventions of the proxy causeway that crannog relies on; the default
@@ -353,11 +355,13 @@ func (m *Manager) stop(t *target) error {
 	return m.removeRemote(t.names)
 }
 
-// rebuild replaces the proxy and the crannog with containers from another
-// approved setup. Volumes, network, CA and the host directory stay. The new
-// image is built first; a failing build leaves the old containers in place
-// (ADR 0022). With start, the crannog is started afterwards; otherwise it
-// stays stopped until the next session.
+// rebuild replaces the proxy and the crannog with containers from an
+// approved setup. Volumes, network, CA and the host directory stay; a
+// missing network or state volume is created again, the caller has checked
+// that the work volume exists. The new image is built first; a failing
+// build leaves the old containers in place (ADR 0022). With start, the
+// crannog is started afterwards; otherwise it stays stopped until the next
+// session.
 func (m *Manager) rebuild(t *target, hash string, start bool) error {
 	approved, cfg, err := m.loadApproved(t, hash)
 	if err != nil {
@@ -373,19 +377,29 @@ func (m *Manager) rebuild(t *target, hash string, start bool) error {
 		return err
 	}
 	m.UI.Printf("Rebuilding the crannog of %s\n", t.branch)
-	st, err := m.status(t.names)
+	o, err := m.objects(t)
 	if err != nil {
 		return err
 	}
 	var old []string
-	if st.crannog != nil {
+	if o.crannog != nil {
 		old = append(old, t.names.Container)
 	}
-	if st.proxy != nil {
+	if o.proxy != nil {
 		old = append(old, t.names.Proxy)
 	}
 	if len(old) > 0 {
 		if err := m.Runtime.Delete(old...); err != nil {
+			return err
+		}
+	}
+	if !o.network {
+		if err := m.Runtime.CreateNetwork(t.names.Network); err != nil {
+			return err
+		}
+	}
+	if !o.state {
+		if err := m.Runtime.CreateVolume(t.names.StateVolume); err != nil {
 			return err
 		}
 	}
@@ -551,6 +565,76 @@ const authorScript = `repo=$1
 if [ "$2" = set ]; then git -C "$repo" config user.name "$3"; else git -C "$repo" config --unset-all user.name || :; fi
 if [ "$4" = set ]; then git -C "$repo" config user.email "$5"; else git -C "$repo" config --unset-all user.email || :; fi`
 
+// objects are the runtime objects that exist with a crannog's names.
+type objects struct {
+	status
+	network, work, state bool
+}
+
+// objects finds the runtime objects of a crannog.
+func (m *Manager) objects(t *target) (objects, error) {
+	st, err := m.status(t.names)
+	if err != nil {
+		return objects{}, err
+	}
+	networks, err := bounded(m.Runtime.Networks)
+	if err != nil {
+		return objects{}, err
+	}
+	volumes, err := bounded(m.Runtime.Volumes)
+	if err != nil {
+		return objects{}, err
+	}
+	return objects{
+		status:  st,
+		network: slices.Contains(networks, t.names.Network),
+		work:    slices.Contains(volumes, t.names.WorkVolume),
+		state:   slices.Contains(volumes, t.names.StateVolume),
+	}, nil
+}
+
+// describe lists the objects that exist, or the ones that are missing.
+func (o objects) describe(n naming.Names, existing bool) []string {
+	var out []string
+	for _, e := range []struct {
+		exists bool
+		name   string
+	}{
+		{o.crannog != nil, "container " + n.Container},
+		{o.proxy != nil, "container " + n.Proxy},
+		{o.network, "network " + n.Network},
+		{o.work, "volume " + n.WorkVolume},
+		{o.state, "volume " + n.StateVolume},
+	} {
+		if e.exists == existing {
+			out = append(out, e.name)
+		}
+	}
+	return out
+}
+
+// errWorkVolumeMissing says that a crannog lost its work volume. Nothing
+// replaces it: the repository in the crannog is gone with it.
+func errWorkVolumeMissing(t *target) error {
+	return fmt.Errorf("the work volume of the crannog of %s is missing, and the repository in the crannog with it; crannog destroy %s removes what is left, crannog checkout then builds the crannog anew",
+		t.branch, shell.Quote(t.branch))
+}
+
+// noteMissing says what a crannog with its work volume lacks and that it
+// is recreated. It returns whether anything is missing.
+func (m *Manager) noteMissing(t *target, o objects) bool {
+	missing := o.describe(t.names, false)
+	if len(missing) == 0 {
+		return false
+	}
+	m.UI.Printf("The crannog of %s lacks the following resources; they are recreated, the work volume stays as it is.\n  %s\n",
+		t.branch, strings.Join(missing, "\n  "))
+	if !o.state {
+		m.UI.Printf("Agents start without the state they kept in the crannog.\n")
+	}
+	return true
+}
+
 // remove deletes everything of a crannog except the image and the host
 // directory's lock: containers, network, volumes, remote and host state.
 // It deletes only the runtime objects that exist: an interrupted build
@@ -558,36 +642,29 @@ if [ "$4" = set ]; then git -C "$repo" config user.email "$5"; else git -C "$rep
 // If a runtime object or the remote cannot be deleted, the host state
 // stays, so the next checkout tries again.
 func (m *Manager) remove(t *target) error {
-	st, err := m.status(t.names)
-	if err != nil {
-		return err
-	}
-	networks, err := bounded(m.Runtime.Networks)
-	if err != nil {
-		return err
-	}
-	volumes, err := bounded(m.Runtime.Volumes)
+	o, err := m.objects(t)
 	if err != nil {
 		return err
 	}
 	var errs []error
 	var containers []string
-	if st.crannog != nil {
+	if o.crannog != nil {
 		containers = append(containers, t.names.Container)
 	}
-	if st.proxy != nil {
+	if o.proxy != nil {
 		containers = append(containers, t.names.Proxy)
 	}
 	if len(containers) > 0 {
 		errs = append(errs, m.Runtime.Delete(containers...))
 	}
-	if slices.Contains(networks, t.names.Network) {
+	if o.network {
 		errs = append(errs, m.Runtime.DeleteNetwork(t.names.Network))
 	}
-	for _, v := range []string{t.names.WorkVolume, t.names.StateVolume} {
-		if slices.Contains(volumes, v) {
-			errs = append(errs, m.Runtime.DeleteVolume(v))
-		}
+	if o.work {
+		errs = append(errs, m.Runtime.DeleteVolume(t.names.WorkVolume))
+	}
+	if o.state {
+		errs = append(errs, m.Runtime.DeleteVolume(t.names.StateVolume))
 	}
 	errs = append(errs, m.removeRemote(t.names))
 	if err := errors.Join(errs...); err != nil {
@@ -599,32 +676,9 @@ func (m *Manager) remove(t *target) error {
 // leftovers returns the containers, network and volumes that exist with the
 // crannog's names.
 func (m *Manager) leftovers(t *target) ([]string, error) {
-	var found []string
-	st, err := m.status(t.names)
+	o, err := m.objects(t)
 	if err != nil {
 		return nil, err
 	}
-	if st.crannog != nil {
-		found = append(found, "container "+t.names.Container)
-	}
-	if st.proxy != nil {
-		found = append(found, "container "+t.names.Proxy)
-	}
-	networks, err := bounded(m.Runtime.Networks)
-	if err != nil {
-		return nil, err
-	}
-	if slices.Contains(networks, t.names.Network) {
-		found = append(found, "network "+t.names.Network)
-	}
-	volumes, err := bounded(m.Runtime.Volumes)
-	if err != nil {
-		return nil, err
-	}
-	for _, v := range []string{t.names.WorkVolume, t.names.StateVolume} {
-		if slices.Contains(volumes, v) {
-			found = append(found, "volume "+v)
-		}
-	}
-	return found, nil
+	return o.describe(t.names, true), nil
 }
