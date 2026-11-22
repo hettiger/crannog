@@ -97,6 +97,13 @@ func TestValidateRefusesControlCharacters(t *testing.T) {
 		assert.ErrorContains(t, err, "line 2: control character 0x1b")
 		assert.ErrorContains(t, err, p)
 	}
+	// A carriage return without a line feed lets the rest of the line
+	// overwrite its start.
+	for _, data := range []string{"RUN evil\r# harmless\n", "a: b\r"} {
+		s := sample()
+		s[DockerfileFile] = File{Data: []byte(data)}
+		assert.ErrorContains(t, s.Validate(), "line 1: control character 0x0d", "%q", data)
+	}
 	s := sample()
 	s["container/logo.png"] = File{Data: []byte("\x89PNG\r\n\x1a\n\x00")}
 	assert.NoError(t, s.Validate(), "container/ may hold binary files")

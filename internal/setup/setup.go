@@ -131,10 +131,13 @@ func isBinary(data []byte) bool {
 
 // checkControl refuses control characters other than tab and line breaks
 // in a text file: escape sequences could hide lines of the approval diff
-// in the terminal.
+// in the terminal. A carriage return is a line break only before a line
+// feed: on its own it moves the cursor back, and the rest of the line
+// overwrites its start.
 func checkControl(data []byte) error {
 	for i, b := range data {
-		if b < 0x20 && b != '\t' && b != '\n' && b != '\r' || b == 0x7f {
+		loneCR := b == '\r' && (i+1 == len(data) || data[i+1] != '\n')
+		if b < 0x20 && b != '\t' && b != '\n' && b != '\r' || b == 0x7f || loneCR {
 			line := bytes.Count(data[:i], []byte("\n")) + 1
 			return fmt.Errorf("line %d: control character %#02x", line, b)
 		}

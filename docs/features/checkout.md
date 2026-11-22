@@ -29,7 +29,7 @@ confirmations, never setup approvals.
    preset `default`. Prints the source and a note if uncommitted changes in
    this worktree are not used. An invalid `config.yml` is an error, as is a
    text file with control characters other than tab and line breaks
-   ([setup](setup.md)), so escape sequences cannot hide lines of the
+   (LF or CRLF, [setup](setup.md)), so escape sequences cannot hide lines of the
    approval diff. A `.crannog` file or symlink is an error, as is a symlink
    anywhere in `.crannog/`; a directory deleted in the working tree counts
    as missing, even if its files are still in the index.
