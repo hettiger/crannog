@@ -80,7 +80,8 @@ variables and joins the crannog as it runs.
 
 The managed instructions block
 ([ADR 0029](../decisions/0029-managed-instructions-block.md)) is written
-where `CRANNOG_AGENTS_DIR` is mounted writable. crannog records that path
+where `CRANNOG_AGENTS_DIR` itself, not a directory below it, is mounted
+writable; without such a mount, none is written. crannog records that path
 in the crannog's `agents-dir-mount` file when it creates the containers.
 
 ### `iron-proxy.yaml`

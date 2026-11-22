@@ -66,6 +66,11 @@ env:
   PLAYWRIGHT_SKIP_BROWSER_GC: "1"
 
 mounts:
+  # Leave these three mounts as they are and add your own below: env
+  # above uses their targets, the entrypoint reads the CA, and crannog
+  # writes its instructions for the agents only where
+  # ${CRANNOG_AGENTS_DIR} itself is mounted writable.
+
   # This crannog's CA certificate (not its key).
   - source: ${CRANNOG_CA_DIR}
     target: /etc/crannog
