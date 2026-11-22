@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 // Lock is an exclusive flock on a file.
@@ -74,15 +75,17 @@ var afterLock = func(dir *os.Root, name string) {}
 // TryLock takes the lock on the file name in dir without waiting. It
 // creates the file.
 func TryLock(dir *os.Root, name string) (*Lock, error) {
-	return tryLock(dir, name, true)
+	return tryLock(dir, name, true, syscall.LOCK_EX)
 }
 
-func tryLock(dir *os.Root, name string, create bool) (*Lock, error) {
+// tryLock takes a flock of the given kind, LOCK_EX or LOCK_SH, without
+// waiting.
+func tryLock(dir *os.Root, name string, create bool, how int) (*Lock, error) {
 	f, err := open(dir, name, create)
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := syscall.Flock(int(f.Fd()), how|syscall.LOCK_NB); err != nil {
 		f.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, ErrLocked
@@ -145,18 +148,32 @@ func (l *Lock) Unlock() error {
 
 // Register creates the session file <pid> in the sessions directory dir
 // for the current process and locks it. It returns the lock and the file's
-// name. The caller must hold the crannog lock.
+// name. The caller must hold the crannog lock. Count without the crannog
+// lock can hold the new file for a moment; Register then tries again.
 func Register(dir *os.Root) (*Lock, string, error) {
 	name := strconv.Itoa(os.Getpid())
 	l, err := TryLock(dir, name)
+	for i := 0; errors.Is(err, ErrLocked) && i < registerRetries; i++ {
+		time.Sleep(registerRetry)
+		l, err = TryLock(dir, name)
+	}
 	if err != nil {
 		return nil, "", fmt.Errorf("register session: %w", err)
 	}
 	return l, name, nil
 }
 
+// registerRetries and registerRetry are how often and how long Register
+// waits for a Count that looks at its session file.
+const (
+	registerRetries = 50
+	registerRetry   = 10 * time.Millisecond
+)
+
 // Count returns the number of running sessions in the sessions directory
-// dir: session files that another process holds locked. Only regular files
+// dir: session files that another process holds locked. Count looks at a
+// file with a shared lock, so two counts at the same time do not take each
+// other's look for a running session. Only regular files
 // named like a process id are session files. With prune, files of ended
 // sessions are deleted; the caller must then hold the crannog lock, so it
 // cannot delete a session that is being registered. A session file removed
@@ -171,7 +188,7 @@ func Count(dir *os.Root, prune bool) (int, error) {
 		if !e.Type().IsRegular() || !isPID(e.Name()) {
 			continue
 		}
-		l, err := tryLock(dir, e.Name(), false)
+		l, err := tryLock(dir, e.Name(), false, syscall.LOCK_SH)
 		if errors.Is(err, ErrLocked) {
 			n++
 			continue

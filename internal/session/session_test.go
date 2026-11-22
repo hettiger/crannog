@@ -5,7 +5,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -124,9 +126,43 @@ func TestCountSkipsRemovedSessionFiles(t *testing.T) {
 	assert.False(t, testfs.Exists(t, dir, "99999999"))
 
 	// A session file removed before Count opens it is not recreated.
-	_, err = tryLock(dir, "99999999", false)
+	_, err = tryLock(dir, "99999999", false, syscall.LOCK_SH)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 	assert.False(t, testfs.Exists(t, dir, "99999999"))
+}
+
+// crannog list counts without the crannog lock. While it looks at the file
+// of an ended session, another count must not take that for a running
+// session.
+func TestCountsDoNotSeeEachOther(t *testing.T) {
+	dir, _ := testfs.TempRoot(t)
+	testfs.WriteFile(t, dir, "99999999", "", 0o644)
+	looking, err := tryLock(dir, "99999999", false, syscall.LOCK_SH)
+	require.NoError(t, err)
+	defer looking.Unlock()
+
+	n, err := Count(dir, true)
+	require.NoError(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, testfs.Exists(t, dir, "99999999"), "pruned")
+}
+
+// A count that looks at a session file while it is registered only delays
+// the registration.
+func TestRegisterWaitsForACount(t *testing.T) {
+	dir, _ := testfs.TempRoot(t)
+	name := strconv.Itoa(os.Getpid())
+	testfs.WriteFile(t, dir, name, "", 0o644)
+	looking, err := tryLock(dir, name, false, syscall.LOCK_SH)
+	require.NoError(t, err)
+	go func() {
+		time.Sleep(2 * registerRetry)
+		looking.Unlock()
+	}()
+
+	l, _, err := Register(dir)
+	require.NoError(t, err)
+	require.NoError(t, l.Unlock())
 }
 
 func TestRegisterAndCount(t *testing.T) {
