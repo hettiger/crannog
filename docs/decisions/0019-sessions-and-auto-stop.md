@@ -38,8 +38,9 @@ starts inherit it.
     so they cannot race.
 - **Ending sessions:** before `destroy` or a rebuild
   ([ADR 0022](0022-rebuilds.md)) deletes the containers, crannog sends
-  SIGTERM to the processes of the agent user in the crannog and waits until
-  no session runs, without a timeout. The programs restore their terminals
+  SIGTERM to the processes of the agent user in the crannog, except those
+  in the process session of the crannog's main process, whose end would
+  stop the crannog. It waits until no session runs, without a timeout. The programs restore their terminals
   themselves. Processes that ignore SIGTERM, as interactive shells do, get
   SIGHUP once they have no child process left, so a program in a shell's
   foreground ends first. Nothing is deleted before, so Ctrl-C leaves the

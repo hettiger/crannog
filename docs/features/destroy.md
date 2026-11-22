@@ -37,7 +37,8 @@ longer exists.
    point-in-time check; when sessions run, the output explains that work created
    after the check is deleted too. Sessions continue during confirmation.
 4. Ends the running sessions: sends SIGTERM to every process of the
-   `agent` user in the crannog and waits until no session runs, without a
+   `agent` user in the crannog, except those in the process session of the
+   crannog's main process, and waits until no session runs, without a
    timeout, with a spinner in a terminal. Their programs restore the
    terminals themselves. Processes that ignore SIGTERM, as interactive
    shells do, get SIGHUP as soon as they have no child process. Ctrl-C ends

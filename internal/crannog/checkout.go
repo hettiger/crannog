@@ -237,17 +237,28 @@ func exitCode(err error) (int, error) {
 	return exitErr.ExitCode(), nil
 }
 
-// termScript asks every process of the agent user to end. A program that
-// is killed with its container cannot restore the terminal of its session.
-const termScript = `kill -TERM -1 2>/dev/null; true`
-
-// hupScript hangs up the processes that ignore SIGTERM, as interactive
+// signalScript ends the programs of the sessions without killing them, so
+// they restore the terminals of their sessions. The runtime starts the
+// crannog's main process and every command it executes in a process
+// session of its own. The script leaves the session of the main process
+// alone, whose end would stop the crannog, and its own.
+//
+// With term, it sends SIGTERM to all other processes. With hup, it hangs
+// up those that ignore SIGTERM (bit 0x4000 of SigIgn), as interactive
 // shells do, once they have no child process left: a program in the
 // foreground of a shell restores the terminal before its session ends.
-// SIGTERM is bit 0x4000 of SigIgn.
-const hupScript = `parents=" $(sed -n 's/^PPid:[[:space:]]*//p' /proc/[0-9]*/status 2>/dev/null | tr '\n' ' ')"
+const signalScript = `sid() { sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f4; }
+main=$(sid 1)
+self=$(sid $$)
+parents=" $(sed -n 's/^PPid:[[:space:]]*//p' /proc/[0-9]*/status 2>/dev/null | tr '\n' ' ')"
 for d in /proc/[0-9]*; do
   pid=${d#/proc/}
+  s=$(sid "$pid")
+  [ -n "$s" ] && [ "$s" != "$main" ] && [ "$s" != "$self" ] || continue
+  if [ "$1" = term ]; then
+    kill -TERM "$pid" 2>/dev/null
+    continue
+  fi
   case "$parents" in *" $pid "*) continue ;; esac
   ign=$(sed -n 's/^SigIgn:[[:space:]]*//p' "$d/status" 2>/dev/null)
   [ -n "$ign" ] || continue
@@ -266,13 +277,13 @@ func (m *Manager) endSessions(t *target) error {
 	if err != nil || n == 0 {
 		return err
 	}
-	signal := func(script string) error {
-		_, err := m.exec(t.names.Container, runtime.ExecOptions{User: AgentUser}, "sh", "-c", script)
+	signal := func(mode string) error {
+		_, err := m.exec(t.names.Container, runtime.ExecOptions{User: AgentUser}, "sh", "-c", signalScript, "sh", mode)
 		return err
 	}
 	title := fmt.Sprintf("Waiting for %s in the crannog of %s to end (Ctrl-C keeps the crannog as it is)", plural(n, "session", "sessions"), t.branch)
 	err = m.UI.WaitFor(title, func(ctx context.Context) error {
-		if err := signal(termScript); err != nil {
+		if err := signal("term"); err != nil {
 			return err
 		}
 		for {
@@ -280,7 +291,7 @@ func (m *Manager) endSessions(t *target) error {
 			if err != nil || n == 0 {
 				return err
 			}
-			if err := signal(hupScript); err != nil {
+			if err := signal("hup"); err != nil {
 				return err
 			}
 			select {

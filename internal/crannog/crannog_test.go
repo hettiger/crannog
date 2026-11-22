@@ -254,7 +254,7 @@ func TestApplyRebuildsAndLeavesTheCrannogStopped(t *testing.T) {
 	defer sess.Unlock()
 	// The session ends when its program is asked to.
 	f.rt.execHook = func(name string, args []string) error {
-		if args[2] == termScript {
+		if args[2] == signalScript && args[4] == "term" {
 			sess.Unlock()
 		}
 		return nil
