@@ -1,0 +1,22 @@
+;; The Seatbelt profile of crannog and git-remote-crannog (ADR 0030).
+;; Everything is allowed except writing files: that is denied everywhere
+;; but in the places below. Later rules win. Every parameter is an
+;; absolute path with symlinks resolved.
+(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write*
+  ;; The anchors (ADR 0013): the crannog home, the user's temporary
+  ;; directory, and .crannog and its temporary siblings in the worktree.
+  (subpath (param "CRANNOG_HOME"))
+  (subpath (param "TEMP_DIR"))
+  (regex (string-append "^" (regex-quote (param "WORKTREE")) "/\\.crannog(\\.tmp-[0-9a-f]+)?(/|$)"))
+  ;; git writes refs, the index and the configuration of the repository.
+  (subpath (param "GIT_DIR"))
+  ;; container build writes the build context here.
+  (subpath (param "BUILDER_DIR"))
+  ;; The terminal and what tools expect to be writable.
+  (literal "/dev/null")
+  (literal "/dev/tty")
+  (literal "/dev/dtracehelper")
+  (regex #"^/dev/ttys[0-9]+$"))

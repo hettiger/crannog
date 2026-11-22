@@ -1,0 +1,15 @@
+;; The Seatbelt profile of crannog's tests on macOS (ADR 0030), used by
+;; the Makefile. Everything is allowed except writing files: that is
+;; denied everywhere but in the user's temporary directory and the Go
+;; build cache. Later rules win. Every parameter is an absolute path with
+;; symlinks resolved.
+(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write*
+  (subpath (param "TEMP_DIR"))
+  (subpath (param "GO_CACHE"))
+  (literal "/dev/null")
+  (literal "/dev/tty")
+  (literal "/dev/dtracehelper")
+  (regex #"^/dev/ttys[0-9]+$"))
