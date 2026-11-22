@@ -100,7 +100,7 @@ func (m *Manager) sessionCommand(t *target, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, cfg, err := m.loadApproved(t, hash)
+	_, cfg, err := m.approvedConfig(hash)
 	if err != nil {
 		return "", err
 	}

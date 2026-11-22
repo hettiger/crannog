@@ -30,8 +30,13 @@ must not differ between the working tree and a commit with the same files.
   `${VAR:-default}` and `$$`; all other variables come from the environment
   crannog is called in. Unlike Compose, an unset variable without a default
   is an error. All values are interpolated except `session.command`, which a
-  shell inside the crannog expands. Values from the host are read when the
-  crannog is built or rebuilt.
+  shell inside the crannog expands.
+- **Host values like `docker compose up`:** values from the host are read
+  when the crannog is built or rebuilt. A checkout without running
+  sessions and every `apply` read them too and rebuild the crannog if they
+  differ from the values its containers were created with
+  ([ADR 0022](0022-rebuilds.md)). A session next to running ones reads
+  none: it joins the crannog as it runs.
 - **Nothing implicit:** the crannog's environment contains only what `env`
   sets; crannog adds no variables of its own.
 - **Setup hash:** sha256 over a canonical form of the files: sorted paths,
@@ -54,6 +59,12 @@ must not differ between the working tree and a commit with the same files.
   read.
 - **Leaving unset variables empty, as Compose does:** silently puts empty
   values into a crannog.
+- **Reading host values only at a build or rebuild:** days after the last
+  session, a deliberately changed variable would not reach the crannog,
+  and no command would bring it there.
+- **Rebuilding for changed host values also with running sessions in
+  `checkout`:** two terminals with different values would end each
+  other's sessions.
 - **Image name from the hash of all of `.crannog/`:** every change to
   `config.yml` or `iron-proxy.yaml` creates another name for the same image.
 
@@ -62,8 +73,14 @@ must not differ between the working tree and a commit with the same files.
 - The `default` preset spells out everything crannog relies on apart from
   the two volumes ([ADR 0018](0018-volumes-and-repository-path.md)) and the
   network.
-- A changed host variable takes effect on the next rebuild. It does not
-  change the setup hash and does not trigger a rebuild by itself.
+- A changed host variable does not change the setup hash and needs no
+  approval. It reaches the crannog with the next `apply` or the next
+  checkout without running sessions.
+- The first session of a crannog needs the host variables of its setup; a
+  shell without them can only join running sessions.
+- crannog keeps a checksum of the interpolated `config.yml` per crannog
+  and where the agent homes are mounted
+  ([ADR 0021](0021-crannog-state-on-the-host.md)), not the values.
 - Images are built once per Mac and `container/` content. Agents start at
   the version of the build and update themselves from there.
 - Unused images remain until they are cleaned up.

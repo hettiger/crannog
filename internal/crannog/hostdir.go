@@ -17,12 +17,14 @@ import (
 
 // Names in a crannog's host directory.
 const (
-	branchFile  = "branch"
-	hashFile    = "crannog"
-	lockFile    = "lock"
-	sessionsDir = "sessions"
-	proxyDir    = "proxy"
-	caDir       = "ca"
+	branchFile   = "branch"
+	hashFile     = "crannog"
+	checksumFile = "config-checksum"
+	agentsFile   = "agents-dir-mount"
+	lockFile     = "lock"
+	sessionsDir  = "sessions"
+	proxyDir     = "proxy"
+	caDir        = "ca"
 )
 
 // HostDir is a crannog's directory on the host,
@@ -75,6 +77,21 @@ func (d HostDir) Branch() (string, error) { return d.readValue(branchFile) }
 // Hash returns the setup hash of the approved setup the crannog uses, or "" if the
 // crannog was never completely built.
 func (d HostDir) Hash() (string, error) { return d.readValue(hashFile) }
+
+// ConfigChecksum returns the checksum of the interpolated config.yml the crannog's
+// containers were created with, or "" if it was not recorded.
+func (d HostDir) ConfigChecksum() (string, error) { return d.readValue(checksumFile) }
+
+func (d HostDir) WriteConfigChecksum(checksum string) error {
+	return d.writeValue(checksumFile, checksum)
+}
+
+// AgentsDirMount returns where the agent homes are mounted writable in the
+// crannog, a path in the crannog, or "" if they are not or it was not
+// recorded.
+func (d HostDir) AgentsDirMount() (string, error) { return d.readValue(agentsFile) }
+
+func (d HostDir) WriteAgentsDirMount(target string) error { return d.writeValue(agentsFile, target) }
 
 func (d HostDir) WriteBranch(branch string) error { return d.writeValue(branchFile, branch) }
 

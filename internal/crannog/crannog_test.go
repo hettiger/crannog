@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hettiger/crannog/internal/config"
 	"github.com/hettiger/crannog/internal/home"
 	"github.com/hettiger/crannog/internal/hostfs"
 	"github.com/hettiger/crannog/internal/instructions"
@@ -78,6 +79,13 @@ func TestDecide(t *testing.T) {
 			assert.Equal(t, tt.want, decide(tt.c, tt.approved, tt.fromPreset, tt.sessions, tt.checkout))
 		})
 	}
+}
+
+// presetSource is s as readSource returns a setup from a preset.
+func presetSource(t *testing.T, s setup.Setup) *source {
+	cfg, err := config.Parse(s[setup.ConfigFile].Data)
+	require.NoError(t, err)
+	return &source{setup: s, config: cfg, preset: true}
 }
 
 func writeSetup(t *testing.T, dir string, s setup.Setup) {
@@ -166,6 +174,7 @@ func TestReviewListsHostVariables(t *testing.T) {
 	src, err := f.m.readSource("main")
 	require.NoError(t, err)
 	f.prompt.terminal, f.prompt.answer = true, true
+	f.hostEnv["GH_TOKEN"] = "t"
 	_, _, err = f.m.review(f.target("main"), src, nil, 0, true, false)
 	require.NoError(t, err)
 	assert.Contains(t, f.out.String(), "reads these variables from your environment: GH_TOKEN")
@@ -356,7 +365,7 @@ func TestCheckoutRecreatesMissingObjects(t *testing.T) {
 			tg := f.existing("main", s)
 			tc.lose(f, tg)
 
-			require.NoError(t, f.m.ensureRunning(tg, &source{setup: tc.setup, preset: true}), f.out.String())
+			require.NoError(t, f.m.ensureRunning(tg, presetSource(t, tc.setup)), f.out.String())
 			calls := withoutExec(f.rt.calls)
 			want := tc.calls(tg)
 			require.GreaterOrEqual(t, len(calls), len(want))
@@ -384,7 +393,7 @@ func TestMissingWorkVolume(t *testing.T) {
 	delete(f.rt.containers, tg.names.Container)
 
 	want := "the work volume of the crannog of main is missing"
-	require.ErrorContains(t, f.m.ensureRunning(tg, &source{setup: s, preset: true}), want)
+	require.ErrorContains(t, f.m.ensureRunning(tg, presetSource(t, s)), want)
 	require.ErrorContains(t, f.m.Apply(""), want)
 	assert.Empty(t, f.rt.calls)
 }
@@ -524,4 +533,38 @@ func TestWriteInstructions(t *testing.T) {
 	f.rt.calls = nil
 	require.NoError(t, f.m.writeInstructions(tg))
 	assert.Len(t, f.rt.calls, len(instructions.Agents), "up to date: reads only")
+}
+
+// Where the agent homes are mounted is recorded when the containers are
+// created, so a session finds them without the host's variables.
+func TestWriteInstructionsUsesTheRecordedMount(t *testing.T) {
+	agents := "    target: /home/agent/.crannog/agents\n"
+	for name, tc := range map[string]struct {
+		target string
+		want   string
+	}{
+		"a host variable in the target": {"    target: ${MY_DIR}/agents\n", "/data/agents"},
+		"read-only":                     {agents + "    readonly: true\n", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			s := defaultSetup(t)
+			cfg := string(s[setup.ConfigFile].Data)
+			require.Contains(t, cfg, agents)
+			f.hostEnv["MY_DIR"] = "/data"
+			tg := f.existing("main", with(s, setup.ConfigFile, strings.Replace(cfg, agents, tc.target, 1)))
+			f.rt.containers[tg.names.Container].State = runtime.StateRunning
+			delete(f.hostEnv, "MY_DIR")
+
+			recorded, err := tg.dir.AgentsDirMount()
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, recorded)
+			require.NoError(t, f.m.writeInstructions(tg))
+			if tc.want == "" {
+				assert.Empty(t, f.rt.calls)
+				return
+			}
+			assert.Contains(t, f.rt.files[tc.want+"/claude/CLAUDE.md"], instructions.ManagedBlock)
+		})
+	}
 }

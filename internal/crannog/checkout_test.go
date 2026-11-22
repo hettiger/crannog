@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hettiger/crannog/internal/home"
+	"github.com/hettiger/crannog/internal/instructions"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
 	"github.com/hettiger/crannog/internal/testfs"
@@ -103,6 +104,154 @@ func TestCheckoutBuildsRunsAndStops(t *testing.T) {
 	assert.False(t, exists)
 	assert.Empty(t, testgit.Git(t, f.dir, "remote"))
 	assert.Empty(t, testgit.Git(t, f.dir, "for-each-ref", "refs/crannog/"), "no temporary refs left")
+}
+
+// tokenSetup is the default setup with a value from the host.
+func tokenSetup(t *testing.T) setup.Setup {
+	s := defaultSetup(t)
+	cfg := strings.Replace(string(s[setup.ConfigFile].Data), "env:\n", "env:\n  TOKEN: ${MY_TOKEN}\n", 1)
+	return with(s, setup.ConfigFile, cfg)
+}
+
+// A checkout without running sessions gives the crannog the host's current
+// values, like docker compose up; a session next to a running one reads
+// none (ADR 0025).
+func TestCheckoutUsesTheCurrentHostValues(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.target("main")
+	f.redirectURL(tg)
+	writeSetup(t, f.dir, tokenSetup(t))
+	f.prompt.terminal, f.prompt.answer = true, true
+	f.hostEnv["MY_TOKEN"] = "old"
+	env := func() []string { return f.rt.specs[tg.names.Container].Env }
+	warm := []string{
+		"start " + tg.names.Proxy,
+		"start " + tg.names.Container,
+		"stop " + tg.names.Container + " " + tg.names.Proxy,
+	}
+
+	_, err := f.m.Checkout("", []string{"true"})
+	require.NoError(t, err, f.out.String())
+	assert.Contains(t, env(), "TOKEN=old")
+	asked := len(f.prompt.asked)
+
+	// Unchanged values: a warm start, with session.command too.
+	for name, args := range map[string][]string{"a command": {"true"}, "session.command": nil} {
+		f.rt.calls = nil
+		_, err = f.m.Checkout("", args)
+		require.NoError(t, err, name)
+		assert.Equal(t, warm, withoutExec(f.rt.calls), name)
+	}
+
+	// Another value: the containers are replaced, nothing is asked.
+	f.rt.calls = nil
+	f.out.Reset()
+	f.hostEnv["MY_TOKEN"] = "new"
+	_, err = f.m.Checkout("", []string{"true"})
+	require.NoError(t, err, f.out.String())
+	assert.Contains(t, f.out.String(), "The crannog of main was created with other values")
+	assert.Equal(t, append([]string{
+		"delete " + tg.names.Container + " " + tg.names.Proxy,
+		"create " + tg.names.Proxy + " " + f.rt.specs[tg.names.Proxy].Image,
+		"create " + tg.names.Container + " " + tokenSetup(t).ImageName(),
+	}, warm...), withoutExec(f.rt.calls))
+	assert.Contains(t, env(), "TOKEN=new")
+	assert.Len(t, f.prompt.asked, asked)
+
+	// Without the variable the first session fails and nothing changes.
+	f.rt.calls = nil
+	delete(f.hostEnv, "MY_TOKEN")
+	_, err = f.m.Checkout("", []string{"true"})
+	require.ErrorContains(t, err, "variable MY_TOKEN is not set")
+	assert.Empty(t, f.rt.calls)
+	assert.Contains(t, env(), "TOKEN=new")
+
+	// Next to a running session, it starts with the values of that one.
+	sess, _, err := tg.dir.registerSession()
+	require.NoError(t, err)
+	defer sess.Unlock()
+	src, err := f.m.readSource("main")
+	require.NoError(t, err)
+	for _, v := range []string{"", "other"} {
+		if v != "" {
+			f.hostEnv["MY_TOKEN"] = v
+		}
+		f.rt.calls = nil
+		delete(f.rt.files, "/home/agent/.crannog/agents/claude/CLAUDE.md")
+		require.NoError(t, f.m.ensureRunning(tg, src), v)
+		command, err := f.m.sessionCommand(tg, nil)
+		require.NoError(t, err, v)
+		assert.NotEmpty(t, command)
+		require.NoError(t, f.m.prepareSession(tg), v)
+		assert.Contains(t, f.rt.files["/home/agent/.crannog/agents/claude/CLAUDE.md"], instructions.ManagedBlock, v)
+		assert.Empty(t, f.rt.callsWith("delete"), v)
+		assert.Contains(t, env(), "TOKEN=new", v)
+		require.NoError(t, f.m.stop(tg))
+	}
+}
+
+// Apply gives the crannog the host's current values, also with running
+// sessions, which end after a confirmation.
+func TestApplyUsesTheCurrentHostValues(t *testing.T) {
+	f := newFixture(t)
+	f.hostEnv["MY_TOKEN"] = "old"
+	writeSetup(t, f.dir, tokenSetup(t))
+	tg := f.existing("main", tokenSetup(t))
+
+	require.NoError(t, f.m.Apply(""))
+	assert.Contains(t, f.out.String(), "is up to date")
+	assert.Empty(t, f.rt.calls)
+
+	f.hostEnv["MY_TOKEN"] = "new"
+	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
+	f.rt.containers[tg.names.Container].State = runtime.StateRunning
+	sess, _, err := tg.dir.registerSession()
+	require.NoError(t, err)
+	f.rt.execHook = func(name string, args []string) error {
+		if args[2] == signalScript && args[4] == "term" {
+			sess.Unlock()
+		}
+		return nil
+	}
+	f.prompt.terminal, f.prompt.answer = true, true
+	require.NoError(t, f.m.Apply(""), f.out.String())
+	assert.Equal(t, []string{"Rebuild the crannog of main?"}, f.prompt.asked)
+	assert.Contains(t, f.rt.specs[tg.names.Container].Env, "TOKEN=new")
+}
+
+// An unset host variable is reported before the approval of a first build
+// (ADR 0024), which leaves nothing behind.
+func TestCheckoutReportsAnUnsetVariableBeforeTheApproval(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.target("main")
+	writeSetup(t, f.dir, tokenSetup(t))
+	f.prompt.terminal, f.prompt.answer = true, true
+
+	_, err := f.m.Checkout("", []string{"true"})
+	require.ErrorContains(t, err, "env.TOKEN: variable MY_TOKEN is not set")
+	assert.Empty(t, f.prompt.asked)
+	assert.Empty(t, f.rt.calls)
+	exists, err := tg.dir.exists()
+	require.NoError(t, err)
+	assert.False(t, exists)
+}
+
+// The same before a rebuild: the crannog stays as it is.
+func TestApplyReportsAnUnsetVariableBeforeTheApproval(t *testing.T) {
+	f := newFixture(t)
+	s := defaultSetup(t)
+	tg := f.existing("main", s)
+	writeSetup(t, f.dir, tokenSetup(t))
+	f.prompt.terminal, f.prompt.answer = true, true
+
+	require.ErrorContains(t, f.m.Apply(""), "env.TOKEN: variable MY_TOKEN is not set")
+	assert.Empty(t, f.prompt.asked)
+	assert.Empty(t, f.rt.calls)
+	hash, err := tg.dir.Hash()
+	require.NoError(t, err)
+	assert.Equal(t, s.Hash(), hash)
 }
 
 // A failed build removes everything it created; the host directory goes

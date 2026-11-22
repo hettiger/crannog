@@ -22,6 +22,10 @@ takes effect with a reload of the proxy.
   rebuild creates a missing network or state volume again
   ([ADR 0021](0021-crannog-state-on-the-host.md)). The rules for running
   sessions apply.
+- **Other host values:** a crannog whose containers were created with
+  other values from the host than the current ones is rebuilt as well,
+  by `apply` and by a checkout without running sessions
+  ([ADR 0025](0025-configuration-schema.md)).
 - **Image first:** crannog builds the new image before it replaces the
   containers. A failing build leaves the old containers in place, so
   `destroy` can still fetch from them.

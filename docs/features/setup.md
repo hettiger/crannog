@@ -2,7 +2,7 @@
 
 - **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0009](../decisions/0009-iron-proxy-proxy-causeway.md), [0018](../decisions/0018-volumes-and-repository-path.md), [0020](../decisions/0020-readiness-marker.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0025](../decisions/0025-configuration-schema.md)
+- **Decisions:** [0009](../decisions/0009-iron-proxy-proxy-causeway.md), [0018](../decisions/0018-volumes-and-repository-path.md), [0020](../decisions/0020-readiness-marker.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0025](../decisions/0025-configuration-schema.md), [0029](../decisions/0029-managed-instructions-block.md)
 
 ## Summary
 
@@ -68,6 +68,20 @@ mounts:
 Interpolation supports exactly `$VAR`, `${VAR}`, `${VAR:-default}` and `$$`;
 any other `$` is an error, and a default cannot contain `$`. An unknown
 `CRANNOG_*` variable and an unset variable without a default are errors.
+
+Variables from the host are read when the crannog is built or rebuilt, by
+every `crannog apply` and by a checkout without running sessions. An unset
+one is reported before any approval or confirmation. If the values differ
+from those the crannog's containers were created with, the crannog is
+rebuilt with them, like `docker compose up` recreates a container; crannog
+compares a checksum of the interpolated `config.yml`, kept in the
+crannog's `config-checksum` file. A checkout next to running sessions reads no host
+variables and joins the crannog as it runs.
+
+The managed instructions block
+([ADR 0029](../decisions/0029-managed-instructions-block.md)) is written
+where `CRANNOG_AGENTS_DIR` is mounted writable. crannog records that path
+in the crannog's `agents-dir-mount` file when it creates the containers.
 
 ### `iron-proxy.yaml`
 

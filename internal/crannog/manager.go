@@ -112,13 +112,25 @@ func (m *Manager) vars(t *target) config.Vars {
 	}
 }
 
-// loadApproved reads an approved setup and its config.yml, interpolated.
-func (m *Manager) loadApproved(t *target, hash string) (setup.Setup, *config.Config, error) {
+// approvedConfig reads the config.yml of an approved setup as written,
+// without interpolation: what a session needs to start does not depend on
+// values from the host (ADR 0025).
+func (m *Manager) approvedConfig(hash string) (setup.Setup, *config.Config, error) {
 	s, err := m.store().Get(hash)
 	if err != nil {
 		return nil, nil, err
 	}
 	c, err := config.Parse(s[setup.ConfigFile].Data)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s, c, nil
+}
+
+// loadApproved reads an approved setup and its config.yml, interpolated
+// with the host's current environment, for a build or rebuild.
+func (m *Manager) loadApproved(t *target, hash string) (setup.Setup, *config.Config, error) {
+	s, c, err := m.approvedConfig(hash)
 	if err != nil {
 		return nil, nil, err
 	}

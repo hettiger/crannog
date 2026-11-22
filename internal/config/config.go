@@ -3,6 +3,9 @@ package config
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -188,6 +191,16 @@ func (c *Config) Expand(vars Vars, homeDir string) (*Config, error) {
 		return nil, fmt.Errorf("config.yml: %w", errors.Join(errs...))
 	}
 	return &out, nil
+}
+
+// Checksum identifies the values of an expanded config: a crannog whose
+// containers were created with another checksum runs with other values.
+func (c *Config) Checksum() string {
+	// A struct of strings, bools, a map and a slice always marshals, with
+	// sorted map keys.
+	data, _ := json.Marshal(c)
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 // EnvList returns the environment as sorted KEY=VALUE pairs.

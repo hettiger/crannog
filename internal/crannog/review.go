@@ -70,11 +70,31 @@ func decide(c change, approved, fromPreset bool, sessions int, checkout bool) qu
 // stores approved and preset setups as approved setups and returns the
 // change and the hash of the setup to use. incomplete tells that the
 // crannog lacks containers, its network or its state volume: recreating
-// them is a rebuild, also to an unchanged setup.
+// them is a rebuild, also to an unchanged setup. So is giving the crannog
+// other values from the host than its containers were created with.
 func (m *Manager) review(t *target, src *source, current setup.Setup, sessions int, checkout, incomplete bool) (change, string, error) {
 	c := planChange(current, src.setup)
 	if incomplete && c != changeCreate {
 		c = changeRebuild
+	}
+	// The host's environment is read unless a session only joins running
+	// ones, which a rebuild would end (ADR 0025). Its errors are reported
+	// before any question (ADR 0024).
+	if c == changeCreate || c == changeRebuild || !checkout || sessions == 0 {
+		expanded, err := src.config.Expand(m.vars(t), m.UserHome)
+		if err != nil {
+			return 0, "", err
+		}
+		if c == changeNone || c == changeReload {
+			built, err := t.dir.ConfigChecksum()
+			if err != nil {
+				return 0, "", err
+			}
+			if built != expanded.Checksum() {
+				m.UI.Printf("The crannog of %s was created with other values than %s gives now, e.g. from your environment; it is rebuilt with them.\n", t.branch, setup.ConfigFile)
+				c = changeRebuild
+			}
+		}
 	}
 	store := m.store()
 	hash := src.setup.Hash()

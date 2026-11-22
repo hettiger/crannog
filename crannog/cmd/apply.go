@@ -11,8 +11,9 @@ var applyYes bool
 var applyCmd = &cobra.Command{
 	Use:   "apply [branch]",
 	Short: "Apply changes to .crannog/ without opening a session",
-	Long: `Applies changes to .crannog/ to the crannog of a branch, by default the
-checked-out one, without opening a session.
+	Long: `Applies changes to .crannog/, and to the variables it reads from your
+environment, to the crannog of a branch, by default the checked-out one,
+without opening a session.
 
 New content needs your approval. If only iron-proxy.yaml changed, crannog
 reloads the proxy and running sessions continue with the new rules.

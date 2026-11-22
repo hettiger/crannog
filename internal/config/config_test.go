@@ -174,3 +174,16 @@ func TestExpandMountErrors(t *testing.T) {
 	_, err = c.Expand(vars(nil), "/Users/me")
 	assert.NoError(t, err)
 }
+
+func TestChecksum(t *testing.T) {
+	c, err := Parse([]byte(valid))
+	require.NoError(t, err)
+	sum := func(token string) string {
+		e, err := c.Expand(vars(map[string]string{"GH_TOKEN": token}), "/Users/me")
+		require.NoError(t, err)
+		return e.Checksum()
+	}
+	assert.Equal(t, sum("t"), sum("t"))
+	assert.NotEqual(t, sum("t"), sum("u"))
+	assert.NotContains(t, sum("secret"), "secret")
+}

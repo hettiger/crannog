@@ -27,6 +27,10 @@ can be interrupted at any point.
       crannogs/<slug>/          # one per crannog (ADR 0017)
         branch                  # the start branch (the slug is not reversible)
         crannog                 # hash of the approved setup it uses
+        config-checksum         # checksum of the interpolated config.yml
+                                # its containers were created with
+        agents-dir-mount        # where the agent homes are mounted
+                                # writable in the crannog, or empty
         lock                    # see ADR 0019
         sessions/<pid>          # one per running session
         proxy/                  # mounted read-only into the proxy: CA, key,

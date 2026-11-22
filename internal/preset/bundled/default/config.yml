@@ -15,7 +15,9 @@
 #   CRANNOG_PROXY_URL   the proxy's URL in the crannog
 #
 # All other variables are read from the host's environment when the
-# crannog is built; an unset variable without a default is an error.
+# crannog is built, and again by `crannog apply` and by a checkout without
+# running sessions: other values rebuild the crannog. An unset variable
+# without a default is an error.
 # session.command is not interpolated: the shell in the crannog expands it.
 
 session:

@@ -2,7 +2,7 @@
 
 - **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0010](../decisions/0010-proxy-address.md), [0013](../decisions/0013-host-file-access.md), [0014](../decisions/0014-host-stays-out-of-guest-writable-directories.md), [0015](../decisions/0015-git-causeway.md), [0016](../decisions/0016-git-author-from-the-host.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0020](../decisions/0020-readiness-marker.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0022](../decisions/0022-rebuilds.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0026](../decisions/0026-presets.md), [0027](../decisions/0027-cli-commands.md), [0029](../decisions/0029-managed-instructions-block.md)
+- **Decisions:** [0010](../decisions/0010-proxy-address.md), [0013](../decisions/0013-host-file-access.md), [0014](../decisions/0014-host-stays-out-of-guest-writable-directories.md), [0015](../decisions/0015-git-causeway.md), [0016](../decisions/0016-git-author-from-the-host.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0020](../decisions/0020-readiness-marker.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0022](../decisions/0022-rebuilds.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0025](../decisions/0025-configuration-schema.md), [0026](../decisions/0026-presets.md), [0027](../decisions/0027-cli-commands.md), [0029](../decisions/0029-managed-instructions-block.md)
 
 ## Summary
 
@@ -41,7 +41,8 @@ confirmations, never setup approvals.
    a network or volumes that already exist with the crannog's names are an
    error that lists them for the user to remove; crannog changes none of
    them ([ADR 0021](../decisions/0021-crannog-state-on-the-host.md)).
-   Asks for approval of content not
+   Reports unset host variables of `config.yml`, then
+   asks for approval of content not
    approved before (diff to the most recent approval; presets need none),
    builds the image if missing, pulls the proxy image, generates the CA
    (ECDSA P-256, valid for 20 years), creates network, volumes, proxy and
@@ -59,6 +60,11 @@ confirmations, never setup approvals.
    volume is empty. A missing work volume is an error that points to
    `crannog destroy`
    ([ADR 0021](../decisions/0021-crannog-state-on-the-host.md)).
+   Without running sessions, reads the host variables of `config.yml`: an
+   unset one is an error, and other values than the containers were
+   created with mean a rebuild, which crannog announces
+   ([setup](setup.md#variables)). Next to running sessions it reads them
+   only for a rebuild.
    If `.crannog/` differs from the crannog's copy, asks
    for approval (new content) or confirmation (a rebuild that ends running
    sessions), then reloads the proxy (only `iron-proxy.yaml` changed) or

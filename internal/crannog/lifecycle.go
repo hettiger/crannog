@@ -224,7 +224,7 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 	for _, mt := range cfg.Mounts {
 		mounts = append(mounts, runtime.Mount{Source: mt.Source, Target: mt.Target, ReadOnly: mt.ReadOnly})
 	}
-	return m.Runtime.Create(runtime.Spec{
+	if err := m.Runtime.Create(runtime.Spec{
 		Name:     t.names.Container,
 		Image:    approved.ImageName(),
 		CPUs:     cfg.Resources.CPUs,
@@ -232,7 +232,27 @@ func (m *Manager) createContainers(t *target, approved setup.Setup, cfg *config.
 		Networks: []string{t.names.Network},
 		Mounts:   mounts,
 		Env:      cfg.EnvList(),
-	})
+	}); err != nil {
+		return err
+	}
+	// What the containers run with: sessions use it without reading the
+	// host's environment again, and other values from the host are noticed
+	// later (ADR 0025).
+	if err := t.dir.WriteAgentsDirMount(agentsMount(cfg, m.CrannogHome.Abs(home.Agents))); err != nil {
+		return err
+	}
+	return t.dir.WriteConfigChecksum(cfg.Checksum())
+}
+
+// agentsMount returns where an interpolated config mounts the agent homes
+// writable in the crannog, or "".
+func agentsMount(cfg *config.Config, agents string) string {
+	for _, mt := range cfg.Mounts {
+		if filepath.Clean(mt.Source) == agents && !mt.ReadOnly {
+			return mt.Target
+		}
+	}
+	return ""
 }
 
 // writeProxyConfig gives the proxy its copy of iron-proxy.yaml.
@@ -499,20 +519,12 @@ func (m *Manager) prepareSession(t *target) error {
 
 // writeInstructions updates the managed instructions block in each agent's
 // instruction file. It runs in the crannog, so the host never writes into
-// the agent homes (ADR 0014). Without a writable mount of the agent homes
-// there is nothing to update.
+// the agent homes (ADR 0014). Their mount was recorded when the containers
+// were created; without a writable one there is nothing to update.
 func (m *Manager) writeInstructions(t *target) error {
-	hash, err := t.dir.Hash()
-	if err != nil {
+	dir, err := t.dir.AgentsDirMount()
+	if err != nil || dir == "" {
 		return err
-	}
-	_, cfg, err := m.loadApproved(t, hash)
-	if err != nil {
-		return err
-	}
-	dir := agentsMount(cfg, m.CrannogHome.Abs(home.Agents))
-	if dir == "" {
-		return nil
 	}
 	for _, a := range instructions.Agents {
 		file := path.Join(dir, a.Name, a.File)
@@ -531,17 +543,6 @@ func (m *Manager) writeInstructions(t *target) error {
 		}
 	}
 	return nil
-}
-
-// agentsMount returns where the agent homes are mounted writable in the
-// crannog, or "".
-func agentsMount(cfg *config.Config, agents string) string {
-	for _, mt := range cfg.Mounts {
-		if filepath.Clean(mt.Source) == agents && !mt.ReadOnly {
-			return mt.Target
-		}
-	}
-	return ""
 }
 
 // readInstructionsScript creates the agent home and prints the instruction
