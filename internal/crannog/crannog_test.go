@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"maps"
 	"os/exec"
+	"path"
 	"strings"
 	"testing"
 
@@ -524,7 +525,7 @@ func TestWriteInstructions(t *testing.T) {
 	require.NoError(t, f.m.writeInstructions(tg))
 	assert.Equal(t, "# mine\n\n"+instructions.ManagedBlock+"\n", f.rt.files[claude])
 	for _, a := range instructions.Agents {
-		assert.Contains(t, f.rt.files["/home/agent/.crannog/agents/"+a.Name+"/"+a.File], instructions.ManagedBlock)
+		assert.Contains(t, f.rt.files[path.Join("/home/agent/.crannog/agents", a.Name, a.File)], instructions.ManagedBlock)
 	}
 	entries, err := fs.ReadDir(f.m.CrannogHome.Root.FS(), home.Agents)
 	require.NoError(t, err)
@@ -564,7 +565,7 @@ func TestWriteInstructionsUsesTheRecordedMount(t *testing.T) {
 				assert.Empty(t, f.rt.calls)
 				return
 			}
-			assert.Contains(t, f.rt.files[tc.want+"/claude/CLAUDE.md"], instructions.ManagedBlock)
+			assert.Contains(t, f.rt.files[path.Join(tc.want, "claude", "CLAUDE.md")], instructions.ManagedBlock)
 		})
 	}
 }
