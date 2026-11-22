@@ -65,13 +65,17 @@ replaces it whenever a session starts; edits to it have no lasting effect.
 ` + End
 
 // Update returns content with the managed instructions block replaced by
-// block, or with block appended if content has none.
+// block, or with block appended if content has none. The block ends at
+// the first end marker after a begin marker and starts at the last begin
+// marker before that end: a begin marker without an end, and what follows
+// it, is not part of a block and stays.
 func Update(content, block string) string {
 	start := strings.Index(content, Begin)
 	if start >= 0 {
 		if rel := strings.Index(content[start:], End); rel >= 0 {
-			end := start + rel + len(End)
-			return content[:start] + block + content[end:]
+			end := start + rel
+			start = strings.LastIndex(content[:end], Begin)
+			return content[:start] + block + content[end+len(End):]
 		}
 	}
 	// Separate the block from existing content by one empty line.

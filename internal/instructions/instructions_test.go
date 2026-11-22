@@ -23,6 +23,12 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, want, Update(in, b), "%q", in)
 	}
 	assert.Equal(t, Update("x", b), Update(Update("x", b), b), "idempotent")
+
+	// The next update leaves the unterminated block and what follows it
+	// alone too.
+	unterminated := "a\n" + Begin + "\nold\nmine\n\n" + b + "\n"
+	assert.Equal(t, unterminated, Update(unterminated, b))
+	assert.Equal(t, "a\n"+Begin+"\nold\nmine\n\n"+b+"\n", Update("a\n"+Begin+"\nold\nmine\n\n"+Begin+"\nstale\n"+End+"\n", b))
 }
 
 func TestBlockIsMarked(t *testing.T) {
