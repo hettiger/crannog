@@ -11,13 +11,14 @@ build:
 
 # On macOS the tests run in Seatbelt and can write only to the temporary
 # directory and the Go build cache (ADR 0030). The modules are downloaded
-# before: the tests cannot write to the module cache.
+# before: the tests cannot write to the module cache. Without $TMPDIR, Go
+# uses /tmp; cd with an empty argument would stay in the repository.
 ifeq ($(shell uname -s),Darwin)
 test:
 	go mod download
 	mkdir -p "$$(go env GOCACHE)"
 	/usr/bin/sandbox-exec -f internal/seatbelt/test.sb \
-		-D "TEMP_DIR=$$(cd -P -- "$$TMPDIR" && pwd -P)" \
+		-D "TEMP_DIR=$$(cd -P -- "$${TMPDIR:-/tmp}" && pwd -P)" \
 		-D "GO_CACHE=$$(cd -P -- "$$(go env GOCACHE)" && pwd -P)" \
 		go test ./...
 else
