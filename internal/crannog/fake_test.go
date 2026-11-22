@@ -5,9 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -24,6 +26,8 @@ import (
 // fakeRuntime simulates the container CLI.
 type fakeRuntime struct {
 	containers map[string]*runtime.Container
+	networks   map[string]bool
+	volumes    map[string]bool
 	images     map[string]bool
 	specs      map[string]runtime.Spec
 	calls      []string
@@ -35,7 +39,7 @@ type fakeRuntime struct {
 }
 
 func newFakeRuntime() *fakeRuntime {
-	return &fakeRuntime{containers: map[string]*runtime.Container{}, images: map[string]bool{}, specs: map[string]runtime.Spec{}, files: map[string]string{}}
+	return &fakeRuntime{containers: map[string]*runtime.Container{}, networks: map[string]bool{}, volumes: map[string]bool{}, images: map[string]bool{}, specs: map[string]runtime.Spec{}, files: map[string]string{}}
 }
 
 func (f *fakeRuntime) record(format string, args ...any) {
@@ -69,16 +73,37 @@ func (f *fakeRuntime) Pull(ref string) error {
 	return nil
 }
 
+func (f *fakeRuntime) Networks(ctx context.Context) ([]string, error) {
+	return slices.Collect(maps.Keys(f.networks)), ctx.Err()
+}
+
+func (f *fakeRuntime) Volumes(ctx context.Context) ([]string, error) {
+	return slices.Collect(maps.Keys(f.volumes)), ctx.Err()
+}
+
 func (f *fakeRuntime) CreateNetwork(name string) error {
 	f.record("network create %s", name)
+	f.networks[name] = true
 	return nil
 }
+
 func (f *fakeRuntime) DeleteNetwork(name string) error {
 	f.record("network delete %s", name)
+	delete(f.networks, name)
 	return nil
 }
-func (f *fakeRuntime) CreateVolume(name string) error { f.record("volume create %s", name); return nil }
-func (f *fakeRuntime) DeleteVolume(name string) error { f.record("volume delete %s", name); return nil }
+
+func (f *fakeRuntime) CreateVolume(name string) error {
+	f.record("volume create %s", name)
+	f.volumes[name] = true
+	return nil
+}
+
+func (f *fakeRuntime) DeleteVolume(name string) error {
+	f.record("volume delete %s", name)
+	delete(f.volumes, name)
+	return nil
+}
 
 func (f *fakeRuntime) Create(s runtime.Spec) error {
 	f.record("create %s %s", s.Name, s.Image)

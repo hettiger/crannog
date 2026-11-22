@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -64,12 +65,19 @@ func (m *Manager) list(prefix string) ([]runtime.Container, error) {
 }
 
 // create builds a new crannog from an approved setup and starts it. On
-// failure, it removes everything it created (the image stays).
+// failure, it removes everything it created, the host directory included
+// (the image stays). The caller has checked that nothing with the crannog's
+// names existed before (leftovers), so the removal by name deletes nothing
+// else.
 func (m *Manager) create(t *target, hash string) (err error) {
 	defer func() {
 		if err != nil {
 			m.UI.Printf("Building the crannog failed, removing what was created.\n")
-			if rerr := m.remove(t); rerr != nil {
+			rerr := m.remove(t)
+			if rerr == nil {
+				rerr = t.dir.removeAll()
+			}
+			if rerr != nil {
 				m.UI.Printf("Warning: %v\n", rerr)
 			}
 		}
@@ -572,6 +580,39 @@ func (m *Manager) remove(t *target) error {
 		return err
 	}
 	return t.dir.clear()
+}
+
+// leftovers returns the containers, network and volumes that exist with the
+// crannog's names.
+func (m *Manager) leftovers(t *target) ([]string, error) {
+	var found []string
+	st, err := m.status(t.names)
+	if err != nil {
+		return nil, err
+	}
+	if st.crannog != nil {
+		found = append(found, "container "+t.names.Container)
+	}
+	if st.proxy != nil {
+		found = append(found, "container "+t.names.Proxy)
+	}
+	networks, err := bounded(m.Runtime.Networks)
+	if err != nil {
+		return nil, err
+	}
+	if slices.Contains(networks, t.names.Network) {
+		found = append(found, "network "+t.names.Network)
+	}
+	volumes, err := bounded(m.Runtime.Volumes)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range []string{t.names.WorkVolume, t.names.StateVolume} {
+		if slices.Contains(volumes, v) {
+			found = append(found, "volume "+v)
+		}
+	}
+	return found, nil
 }
 
 // ignoreMissing ignores errors about objects that do not exist.

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -68,8 +69,12 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 		sess, name, err = t.dir.registerSession()
 	}
 	if err != nil {
-		if serr := m.stopIdle(t); serr != nil {
-			m.UI.Printf("Warning: %v\n", serr)
+		// Without a host directory there is no crannog to stop: a first
+		// checkout that did not build removed it.
+		if exists, eerr := t.dir.exists(); eerr != nil || exists {
+			if serr := m.stopIdle(t); serr != nil {
+				m.UI.Printf("Warning: %v\n", serr)
+			}
 		}
 		return 0, err
 	}
@@ -115,7 +120,9 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 	if hash == "" {
 		// A recorded branch without a hash: the remains of an interrupted
 		// build (ADR 0021). A fresh crannog has neither, and nothing to
-		// remove.
+		// remove: containers, a network or volumes with its names are not
+		// from a build crannog knows of, so the user removes them. A first
+		// checkout that does not build leaves no host directory behind.
 		recorded, err := t.dir.Branch()
 		if err != nil {
 			return err
@@ -124,11 +131,20 @@ func (m *Manager) ensureRunning(t *target, src *source) error {
 			if err := m.remove(t); err != nil {
 				return err
 			}
+		} else {
+			found, err := m.leftovers(t)
+			if err != nil {
+				return err
+			}
+			if len(found) > 0 {
+				err := fmt.Errorf("cannot check out %s: the following resources already exist\n  %s\nRemove them, then run crannog checkout again.",
+					t.branch, strings.Join(found, "\n  "))
+				return errors.Join(err, t.dir.removeAll())
+			}
 		}
 		_, hash, err := m.review(t, src, nil, 0, true)
 		if err != nil {
-			_ = t.dir.clear()
-			return err
+			return errors.Join(err, t.dir.removeAll())
 		}
 		if err := t.dir.WriteBranch(t.branch); err != nil {
 			return err

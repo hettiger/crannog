@@ -133,6 +133,10 @@ type Runtime interface {
 	ImageExists(name string) (bool, error)
 	Build(tag, contextDir string) error
 	Pull(ref string) error
+	// Networks returns the names of all networks.
+	Networks(ctx context.Context) ([]string, error)
+	// Volumes returns the names of all volumes.
+	Volumes(ctx context.Context) ([]string, error)
 	CreateNetwork(name string) error
 	DeleteNetwork(name string) error
 	CreateVolume(name string) error
@@ -302,6 +306,16 @@ func (c CLI) Build(tag, contextDir string) error {
 
 func (c CLI) Pull(ref string) error {
 	return c.runVisible("image", "pull", ref)
+}
+
+func (c CLI) Networks(ctx context.Context) ([]string, error) {
+	out, err := c.runContext(ctx, "network", "list", "--quiet")
+	return strings.Fields(string(out)), err
+}
+
+func (c CLI) Volumes(ctx context.Context) ([]string, error) {
+	out, err := c.runContext(ctx, "volume", "list", "--quiet")
+	return strings.Fields(string(out)), err
 }
 
 func (c CLI) CreateNetwork(name string) error {

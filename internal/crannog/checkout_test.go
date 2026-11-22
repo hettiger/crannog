@@ -13,6 +13,7 @@ import (
 	"github.com/hettiger/crannog/internal/setup"
 	"github.com/hettiger/crannog/internal/testfs"
 	"github.com/hettiger/crannog/internal/testgit"
+	"github.com/hettiger/crannog/internal/ui"
 )
 
 // The whole life of a crannog on the fake runtime: the first checkout
@@ -103,8 +104,8 @@ func TestCheckoutBuildsRunsAndStops(t *testing.T) {
 	assert.Empty(t, testgit.Git(t, f.dir, "for-each-ref", "refs/crannog/"), "no temporary refs left")
 }
 
-// A failed build removes everything it created; the host state goes too,
-// so the next checkout starts from scratch.
+// A failed build removes everything it created; the host directory goes
+// too, so the next checkout starts from scratch.
 func TestCheckoutRemovesAFailedBuild(t *testing.T) {
 	f := newFixture(t)
 	stubHelper(t)
@@ -128,12 +129,9 @@ func TestCheckoutRemovesAFailedBuild(t *testing.T) {
 	}, deletes)
 	assert.Nil(t, f.rt.containers[tg.names.Container])
 	assert.Nil(t, f.rt.containers[tg.names.Proxy])
-	hash, err := tg.dir.Hash()
+	exists, err := tg.dir.exists()
 	require.NoError(t, err)
-	assert.Empty(t, hash)
-	branch, err := tg.dir.Branch()
-	require.NoError(t, err)
-	assert.Empty(t, branch, "host state cleared")
+	assert.False(t, exists, "host directory removed")
 	assert.Empty(t, testgit.Git(t, f.dir, "remote"))
 	assert.True(t, f.rt.images[defaultSetup(t).ImageName()], "the image stays")
 	ok, err := f.m.store().Has(defaultSetup(t).Hash())
@@ -143,6 +141,50 @@ func TestCheckoutRemovesAFailedBuild(t *testing.T) {
 	list, err := f.m.List()
 	require.NoError(t, err)
 	assert.Empty(t, list, "a directory without a branch is no crannog")
+}
+
+// Containers, a network or volumes with the names of a crannog the host
+// does not know, e.g. after its host directory was deleted, are for the
+// user to remove: checkout refuses, touches none of them and leaves no host
+// directory behind.
+func TestCheckoutRefusesExistingResources(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.target("main")
+	f.rt.containers[tg.names.Container] = &runtime.Container{Name: tg.names.Container, State: runtime.StateRunning}
+	f.rt.networks[tg.names.Network] = true
+	f.rt.volumes[tg.names.WorkVolume] = true
+
+	_, err := f.m.Checkout("", []string{"true"})
+	require.EqualError(t, err, "cannot check out main: the following resources already exist\n"+
+		"  container "+tg.names.Container+"\n"+
+		"  network "+tg.names.Network+"\n"+
+		"  volume "+tg.names.WorkVolume+"\n"+
+		"Remove them, then run crannog checkout again.")
+	assert.Empty(t, f.rt.calls, "nothing built, stopped or deleted")
+	assert.Empty(t, f.prompt.asked, "refused before the approval")
+	exists, err := tg.dir.exists()
+	require.NoError(t, err)
+	assert.False(t, exists)
+	assert.ErrorContains(t, f.m.Destroy("main"), "there is no crannog for main")
+}
+
+// A declined first approval leaves no host directory behind, so destroy
+// knows there is no crannog.
+func TestDeclinedFirstCheckoutLeavesNoHostDirectory(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.target("main")
+	writeSetup(t, f.dir, with(defaultSetup(t), "container/extra", "x"))
+	f.prompt.terminal = true
+
+	_, err := f.m.Checkout("", []string{"true"})
+	require.ErrorIs(t, err, ui.ErrDeclined)
+	assert.Empty(t, f.rt.calls)
+	exists, err := tg.dir.exists()
+	require.NoError(t, err)
+	assert.False(t, exists)
+	assert.ErrorContains(t, f.m.Destroy("main"), "there is no crannog for main")
 }
 
 // Remains of a build that was interrupted before it recorded its hash are

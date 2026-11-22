@@ -42,9 +42,17 @@ can be interrupted at any point.
   directory with a `branch` but no hash is the remains of an interrupted
   build; `checkout` removes them and builds anew. A directory with neither
   is new, and nothing is removed. If a first build fails, crannog removes
-  everything it created (containers, network, volumes, remote, host state
-  except the lock); the image stays. If a removal fails, the host state
+  everything it created (containers, network, volumes, remote, host
+  directory); the image stays. If a removal fails, the host state
   stays so the next `checkout` tries again.
+- **A first `checkout` that builds nothing leaves no host directory:** a
+  declined approval or a failed build removes it, so a host directory
+  always stands for a crannog or the remains of one.
+- **Existing resources are refused:** if containers, a network or volumes
+  with a new crannog's names already exist, for example after its host
+  directory was deleted by hand, `checkout` names them and stops. This is
+  a state crannog did not create; it changes nothing and the user removes
+  them.
 - **Removal:** destroy removes `crannogs/<slug>/`; removing
   `repositories/<id>/` removes everything crannog knows about a repository.
 - Access to these files follows
@@ -54,6 +62,14 @@ can be interrupted at any point.
 
 - **Leaving a failed build in place:** the user has to clean up or
   `destroy` a crannog that never worked.
+- **Deleting existing resources in `checkout`, with or without asking:**
+  a second place besides `destroy` that deletes work.
+- **Letting `destroy` remove existing resources without a host
+  directory:** more code for a state only manual changes to `~/.crannog`
+  produce.
+- **Removing only what the failed build created:** keeps the existing
+  resources, but the build still fails on the first name in use, with the
+  runtime's error.
 
 ## Consequences
 

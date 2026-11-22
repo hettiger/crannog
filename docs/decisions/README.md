@@ -45,7 +45,7 @@ current state ([ADR 0004](0004-knowledge-base.md)). New ADRs use
 | [0018](0018-volumes-and-repository-path.md) Volumes and repository path | `/work` and `/state` volumes; the repository at `/work/<host path>` |
 | [0019](0019-sessions-and-auto-stop.md) Sessions and auto-stop | Several sessions per crannog, counted with `flock` on the host; stop after the last one; self-repair |
 | [0020](0020-readiness-marker.md) Readiness marker | Entrypoint writes the boot id to `/tmp/ready`; crannog waits up to 60 seconds |
-| [0021](0021-crannog-state-on-the-host.md) Crannog state on the host | Layout of `~/.crannog`, repository id, when a crannog exists, cleanup of failed builds |
+| [0021](0021-crannog-state-on-the-host.md) Crannog state on the host | Layout of `~/.crannog`, repository id, when a crannog exists, cleanup of failed builds, existing resources refused |
 | [0022](0022-rebuilds.md) Rebuilds | What a rebuild replaces, proxy-only reloads, `apply` never starts, confirmation with running sessions |
 
 ## Configuration

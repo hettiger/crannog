@@ -36,7 +36,11 @@ confirmations, never setup approvals.
 3. Records the repository's git common dir in `repositories/<id>/path`
    and takes the crannog's lock, waiting for other crannog commands.
 4. New crannog: removes the remains of an interrupted build first (a
-   recorded branch without a hash). Asks for approval of content not
+   recorded branch without a hash). Without a recorded branch, containers,
+   a network or volumes that already exist with the crannog's names are an
+   error that lists them for the user to remove; crannog changes none of
+   them ([ADR 0021](../decisions/0021-crannog-state-on-the-host.md)).
+   Asks for approval of content not
    approved before (diff to the most recent approval; presets need none),
    builds the image if missing, pulls the proxy image, generates the CA
    (ECDSA P-256, valid for 20 years), creates network, volumes, proxy and
@@ -45,7 +49,9 @@ confirmations, never setup approvals.
    all tags and the start branch directly to the crannog URL, ignoring a
    remote's separate `pushurl`. On failure, everything created is removed
    again; if that fails in part, the host state stays and the next checkout
-   tries again.
+   tries again. A declined approval or a failed build leaves no host
+   directory behind, so `crannog destroy` reports that there is no
+   crannog.
 5. Existing crannog: if `.crannog/` differs from the crannog's copy, asks
    for approval (new content) or confirmation (a rebuild that ends running
    sessions), then reloads the proxy (only `iron-proxy.yaml` changed) or
