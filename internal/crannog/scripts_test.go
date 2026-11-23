@@ -25,8 +25,8 @@ func TestAuthorScript(t *testing.T) {
 	assert.Equal(t, "ada@example.com", testgit.Git(t, dir, "config", "user.email"))
 
 	runScript(t, authorScript, dir, "unset", "", "set", "new@example.com")
-	cmd := exec.Command("git", "-C", dir, "config", "user.name")
-	assert.Error(t, cmd.Run(), "removed")
+	_, err := testgit.Try(t, dir, "config", "user.name")
+	assert.Error(t, err, "removed")
 	assert.Equal(t, "new@example.com", testgit.Git(t, dir, "config", "user.email"))
 
 	runScript(t, authorScript, dir, "unset", "", "unset", "")

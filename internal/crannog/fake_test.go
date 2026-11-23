@@ -260,8 +260,9 @@ func stubHelper(t *testing.T) {
 // repository instead, so the initial transfer and the destroy check work
 // without a crannog. It returns the bare repository.
 func (f *fixture) redirectURL(tg *target) string {
-	bare := filepath.Join(f.t.TempDir(), "bare.git")
-	testgit.Git(f.t, "", "init", "--bare", "-q", bare)
+	dir := f.t.TempDir()
+	bare := filepath.Join(dir, "bare.git")
+	testgit.Git(f.t, dir, "init", "--bare", "-q", "bare.git")
 	testgit.Git(f.t, f.dir, "config", "url."+bare+".insteadOf", tg.names.URL)
 	return bare
 }
