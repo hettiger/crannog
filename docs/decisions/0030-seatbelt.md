@@ -86,6 +86,10 @@ to rely on one small, fixed list of places crannog can write to.
 - The runtime's daemon is not confined: what a guest can write to on the
   host follows from the mounts crannog passes, which stay a matter of
   review ([ADR 0014](0014-host-stays-out-of-guest-writable-directories.md)).
+- Seatbelt does not confine what crannog asks git and `container` to do,
+  e.g. which remote git removes or which container is deleted. That is
+  reviewable in one file per program
+  ([ADR 0031](0031-process-starts.md)).
 - The temporary directory is writable as a whole. That crannog only
   creates `crannog-*` directories in it is enforced by `hostfs`, not by
   Seatbelt.
