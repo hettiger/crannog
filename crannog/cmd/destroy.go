@@ -14,9 +14,9 @@ var destroyCmd = &cobra.Command{
 	Long: `Destroys the crannog of a branch, by default the checked-out one: its
 containers, network, volumes, remote and state on the host. The image stays.
 
-Before that, crannog fetches the crannog's branches and shows what would be
-lost: branches with commits that are not in your repository and worktrees
-with uncommitted changes. It asks for confirmation.`,
+Commits that are not in your repository and uncommitted changes in the
+crannog are lost: fetch what you want to keep first. crannog asks for
+confirmation.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		m, err := crannog.New(newUI(destroyYes))

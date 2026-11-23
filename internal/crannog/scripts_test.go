@@ -2,8 +2,6 @@ package crannog
 
 import (
 	"os/exec"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,14 +30,4 @@ func TestAuthorScript(t *testing.T) {
 	assert.Equal(t, "new@example.com", testgit.Git(t, dir, "config", "user.email"))
 
 	runScript(t, authorScript, dir, "unset", "", "unset", "")
-}
-
-func TestDirtyScript(t *testing.T) {
-	dir := testgit.Init(t)
-	wt := filepath.Join(filepath.Dir(dir), "wt dir")
-	testgit.Git(t, dir, "worktree", "add", "-q", "-b", "agent", wt)
-	assert.Empty(t, runScript(t, dirtyScript, dir))
-
-	testgit.WriteFile(t, wt, "new.txt", "", 0o644)
-	assert.Equal(t, []string{wt}, strings.Split(strings.TrimSpace(runScript(t, dirtyScript, dir)), "\n"))
 }
