@@ -11,6 +11,9 @@ import (
 // URLPrefix is the prefix of a crannog remote's URL.
 const URLPrefix = "crannog::"
 
+// RemotePrefix is the prefix of the name of a crannog's remote.
+const RemotePrefix = "crannog-"
+
 // Names are the names of one crannog.
 type Names struct {
 	Slug        string
@@ -37,7 +40,7 @@ func New(id8, slug string) Names {
 		Network:     base + "-net",
 		WorkVolume:  base + "-work",
 		StateVolume: base + "-state",
-		Remote:      "crannog-" + slug,
+		Remote:      RemotePrefix + slug,
 		URL:         URLPrefix + slug,
 	}
 }

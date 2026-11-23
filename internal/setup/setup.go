@@ -309,7 +309,7 @@ func checkDirectory(dir string) error {
 // not. Symlinks are an error, and so is a .crannog that is a file or a
 // symlink. A missing .crannog/ gives an empty setup.
 func ReadWorktree(dir string) (Setup, error) {
-	out, err := git.Output(dir, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", Dir)
+	out, err := git.Files(dir, Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +394,7 @@ func checkDirs(root *os.Root, rel string, checked map[string]bool) error {
 // directory. A missing .crannog/ gives an empty
 // setup.
 func ReadCommit(dir, rev string) (Setup, error) {
-	out, err := git.Output(dir, "ls-tree", "-r", "-z", "--full-tree", rev, "--", Dir)
+	out, err := git.Tree(dir, rev, Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +419,7 @@ func ReadCommit(dir, rev string) (Setup, error) {
 		if kind != "blob" || (mode != "100644" && mode != "100755") {
 			return nil, fmt.Errorf("%s in %s is not a regular file (mode %s)", name, rev, mode)
 		}
-		data, err := git.Output(dir, "cat-file", "blob", object)
+		data, err := git.Blob(dir, object)
 		if err != nil {
 			return nil, err
 		}
@@ -431,7 +431,7 @@ func ReadCommit(dir, rev string) (Setup, error) {
 // HasChanges reports whether the worktree at dir has uncommitted changes
 // to .crannog/, untracked files included.
 func HasChanges(dir string) (bool, error) {
-	out, err := git.Run(dir, "status", "--porcelain", "--untracked-files=all", "--", Dir)
+	out, err := git.Status(dir, Dir)
 	if err != nil {
 		return false, err
 	}

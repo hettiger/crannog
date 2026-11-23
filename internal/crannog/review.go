@@ -182,8 +182,7 @@ func (m *Manager) latestApproved() setup.Setup {
 	return s
 }
 
-// showDiff prints the difference between two setups with git diff
-// --no-index. A nil base shows everything as new.
+// showDiff prints the difference between two setups. A nil base shows everything as new.
 func (m *Manager) showDiff(base, next setup.Setup) error {
 	tmp, err := hostfs.NewTempDir("diff")
 	if err != nil {
@@ -200,18 +199,7 @@ func (m *Manager) showDiff(base, next setup.Setup) error {
 		return err
 	}
 
-	args := []string{"-c", "core.quotepath=false"}
-	if !m.UI.Interactive() {
-		args = append(args, "--no-pager")
-	}
-	args = append(args, "diff", "--no-index", "--no-prefix", "--", "approved", setup.Dir)
-	cmd := git.Command(tmp.Dir, args...)
-	cmd.Stdout = m.UI.Out
-	cmd.Stderr = m.UI.Out
-	if err := cmd.Run(); err != nil && git.ExitCode(err) != 1 {
-		return fmt.Errorf("git diff: %w", err)
-	}
-	return nil
+	return git.DiffDirs(tmp.Dir, "approved", setup.Dir, m.UI.Out, m.UI.Interactive())
 }
 
 func plural(n int, one, many string) string {

@@ -248,8 +248,8 @@ func (f *fixture) target(branch string) *target {
 	return t
 }
 
-// stubHelper puts a git-remote-crannog on PATH that fails, so checkHelper
-// passes and nothing reaches a real crannog.
+// stubHelper puts a git-remote-crannog on PATH that fails, so the check
+// for it passes and nothing reaches a real crannog.
 func stubHelper(t *testing.T) {
 	t.Helper()
 	helperDir := t.TempDir()

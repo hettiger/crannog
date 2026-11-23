@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/session"
 	"github.com/hettiger/crannog/internal/setup"
@@ -27,7 +28,7 @@ exec "${shell:-/bin/sh}" -l -c "$1"`
 // starting the crannog as needed (ADR 0027). args replaces session.command.
 // It returns the session's exit code.
 func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
-	if err := checkHelper(); err != nil {
+	if err := git.CheckHelper(); err != nil {
 		return 0, err
 	}
 	branch, err := m.Repo.StartBranch(branchArg)
