@@ -97,8 +97,8 @@ the agent homes.
 ## Detached session
 
 A session without a terminal that keeps running after `crannog checkout -d`
-has returned. It only waits, or runs the command after `--`. It ends with
-`crannog stop`, a rebuild or `destroy`.
+has returned. It only waits, or runs the command after `--`. It ends when
+its command ends, or with `crannog stop`, a rebuild or `destroy`.
 
 ## Git causeway
 

@@ -20,8 +20,10 @@ longer exists. Without a crannog for the branch, stop is an error.
 
 ## Behavior
 
-1. Repairs the repository's crannogs like [checkout](checkout.md) and
-   takes the crannog's lock, waiting for other crannog commands.
+1. Takes the crannog's lock, waiting for other crannog commands, then
+   repairs the repository's other crannogs like [checkout](checkout.md).
+   If the crannog was destroyed meanwhile, stop is an error and leaves no
+   host directory behind.
 2. If the crannog is not running, says so and ends without an error.
 3. Ends the running sessions like [destroy](destroy.md),
    [detached sessions](checkout.md#detached-sessions) and sessions on

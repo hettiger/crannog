@@ -52,8 +52,9 @@ crannog stop                          # end its sessions and stop it
 
 The first `checkout` builds the crannog, which takes a few minutes. When
 the last session ends, the crannog stops; the next session starts it again.
-With `-d`, crannog starts a session in the background that only waits, or
-runs the command after `--`, and returns.
+With `-d`, crannog starts a detached session, which only waits or runs the
+command after `--`, and returns: the crannog keeps running in the
+background.
 
 While a session runs, the crannog is a git remote of your repository:
 
@@ -65,7 +66,7 @@ git push crannog-<slug> main          # your new commits into the crannog
 | Command | Does |
 | ------- | ---- |
 | `crannog checkout [branch] [-- command...]` | Opens a session in the crannog of a branch |
-| `crannog checkout -d [branch] [-- command...]` | Starts a session in the background and returns |
+| `crannog checkout -d [branch] [-- command...]` | Starts a detached session and returns |
 | `crannog apply [branch]` | Applies changes to `.crannog/` without opening a session |
 | `crannog stop [branch]` | Ends the sessions of the crannog and stops it |
 | `crannog destroy [branch]` | Destroys the crannog after a confirmation |

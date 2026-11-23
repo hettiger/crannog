@@ -3,6 +3,7 @@ package crannog
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -183,7 +184,19 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 }
 
 func (f *fakeRuntime) Attach(name string, o runtime.ExecOptions, files []*os.File, args ...string) (int, error) {
-	return 0, nil
+	return 0, checkSession(o, args)
+}
+
+// checkSession fails unless a session runs as the agent user in a working
+// directory, through the session script.
+func checkSession(o runtime.ExecOptions, args []string) error {
+	if o.User != AgentUser || !strings.HasPrefix(o.Workdir, "/work/") {
+		return fmt.Errorf("a session must run as %s in the repository, not as %q in %q", AgentUser, o.User, o.Workdir)
+	}
+	if len(args) != 5 || args[2] != sessionScript {
+		return fmt.Errorf("a session must run the session script, not %q", args)
+	}
+	return nil
 }
 
 // Detach keeps the files open like the container CLI in the background,
@@ -191,6 +204,12 @@ func (f *fakeRuntime) Attach(name string, o runtime.ExecOptions, files []*os.Fil
 func (f *fakeRuntime) Detach(name string, o runtime.ExecOptions, files []*os.File, args ...string) error {
 	if c := f.containers[name]; c == nil || c.State != runtime.StateRunning {
 		return fmt.Errorf("container %s is not running", name)
+	}
+	if err := checkSession(o, args); err != nil {
+		return err
+	}
+	if o.Interactive || o.TTY {
+		return errors.New("a detached session has no terminal and no input")
 	}
 	f.record("detach %s %s", name, args[len(args)-1])
 	if f.detachErr != nil {

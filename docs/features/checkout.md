@@ -112,7 +112,8 @@ unrelated refs.
 The session file is named with a UUID of version 7 and holds, as YAML,
 the command the session runs in the login shell (`command`), whether the
 session is detached (`detached`) and when it was registered
-(`started_at`). It is deleted when the session has ended.
+(`started_at`). It is deleted when the session has ended, that of a
+detached session by the next crannog command in the repository.
 
 The 60-second deadline for the proxy health and the readiness marker
 ([ADR 0020](../decisions/0020-readiness-marker.md)) also ends a probe that

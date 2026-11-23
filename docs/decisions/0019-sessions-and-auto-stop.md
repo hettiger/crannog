@@ -30,6 +30,8 @@ a long-running command, or a service the user connects to.
   and holds the session file. So a detached session is counted, keeps the
   crannog running and is ended like any other session. Without a command it
   only waits: `session.command` is usually an agent that needs a terminal.
+  If its command ends by itself, no crannog process is left to stop the
+  crannog; the next crannog call in the repository does.
 - **Stopping:** `crannog stop` ends all sessions of a crannog as `destroy`
   does, then stops the crannog as after the last session. It asks nothing:
   nothing is deleted.
@@ -49,15 +51,15 @@ a long-running command, or a service the user connects to.
   - Ending: crannog deletes its file, takes `lock` and counts the sessions.
     If none is left, it stops the crannog. Start and stop both hold `lock`,
     so they cannot race.
-- **Ending sessions:** before `destroy` or a rebuild
-  ([ADR 0022](0022-rebuilds.md)) deletes the containers, crannog sends
+- **Ending sessions:** before `stop` stops the containers, or `destroy` or
+  a rebuild ([ADR 0022](0022-rebuilds.md)) deletes them, crannog sends
   SIGTERM to the processes of the agent user in the crannog, except those
   in the process session of the crannog's main process, whose end would
   stop the crannog. It waits until no session runs, without a timeout. The programs restore their terminals
   themselves. Processes that ignore SIGTERM, as interactive shells do, get
   SIGHUP once they have no child process left, so a program in a shell's
-  foreground ends first. Nothing is deleted before, so Ctrl-C leaves the
-  crannog as it was.
+  foreground ends first. Nothing is stopped or deleted before, so Ctrl-C
+  leaves the crannog as it was.
 - **Self-repair:** `checkout`, `apply`, `stop`, `destroy` and `list` first
   stop running crannogs of the repository with no session whose `lock` nobody
   holds, and remove `crannog-*` remotes with a `crannog::` URL whose crannog
@@ -104,8 +106,8 @@ a long-running command, or a service the user connects to.
 - `crannog list` counts sessions on the host, without entering the VM.
 - Background services in a crannog only run while a session does; a
   detached session is enough.
-- A crannog with a detached session uses memory until `crannog stop`.
-  `crannog list` shows it.
+- A crannog with a detached session uses memory until that session ends,
+  usually with `crannog stop`. `crannog list` shows it.
 - Loops that start a session per iteration start and stop the VM each time.
 - Processes started in a crannog outside `crannog checkout` (e.g. a manual
   `container exec`) are not sessions and do not keep the crannog running.

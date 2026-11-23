@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -17,7 +16,12 @@ import (
 )
 
 // ended is the name of the session file of a session that has ended.
-const ended = "6f1c1a4e-58a0-4c5e-9d0b-3a1f0c2b7e11"
+const ended = "0193a5b2-58a0-7c5e-9d0b-3a1f0c2b7e11"
+
+// upperCase is a UUID as Register never writes it. It differs from ended
+// in more than its case: a Mac's file system would take them for the same
+// file.
+const upperCase = "0193A5B2-7C44-7D1E-8F3A-5B6C7D8E9F01"
 
 func TestTryLock(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
@@ -197,7 +201,7 @@ func TestRegisterAndCount(t *testing.T) {
 	// Files not named like a session file are none.
 	testfs.WriteFile(t, dir, "notes.txt", "", 0o644)
 	testfs.WriteFile(t, dir, "0123", "", 0o644)
-	testfs.WriteFile(t, dir, strings.ToUpper(ended), "", 0o644)
+	testfs.WriteFile(t, dir, upperCase, "", 0o644)
 
 	n, err = Count(dir, false)
 	require.NoError(t, err)
@@ -211,7 +215,7 @@ func TestRegisterAndCount(t *testing.T) {
 	assert.True(t, testfs.Exists(t, dir, name), "running session kept")
 	assert.True(t, testfs.Exists(t, dir, "notes.txt"), "no session file, kept")
 	assert.True(t, testfs.Exists(t, dir, "0123"), "no session file, kept")
-	assert.True(t, testfs.Exists(t, dir, strings.ToUpper(ended)), "no session file, kept")
+	assert.True(t, testfs.Exists(t, dir, upperCase), "no session file, kept")
 
 	require.NoError(t, l.Unlock())
 	n, err = Count(dir, true)

@@ -157,3 +157,21 @@ func TestStopWithoutCrannog(t *testing.T) {
 	assert.ErrorContains(t, f.m.Stop(""), "there is no crannog for main")
 	assert.ErrorContains(t, f.m.Stop("feature/x"), "there is no crannog for feature/x")
 }
+
+// A crannog that runs without a session, e.g. after the command of a
+// detached session ended by itself, is stopped by stop itself, which says
+// so once.
+func TestStopOfACrannogWithoutSessions(t *testing.T) {
+	f := newFixture(t)
+	tg := f.existing("main", defaultSetup(t))
+	other := f.existing("other", defaultSetup(t))
+	for _, c := range []string{tg.names.Proxy, tg.names.Container, other.names.Proxy, other.names.Container} {
+		f.rt.containers[c].State = runtime.StateRunning
+	}
+
+	require.NoError(t, f.m.Stop("main"), f.out.String())
+	assert.Equal(t, "The crannog of other runs without a session.\nStopping the crannog of other\nStopping the crannog of main\n", f.out.String(),
+		"self-repair stops the other crannog, stop this one")
+	assert.Equal(t, runtime.StateStopped, f.rt.containers[tg.names.Container].State)
+	assert.Equal(t, runtime.StateStopped, f.rt.containers[other.names.Container].State)
+}

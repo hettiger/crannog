@@ -27,9 +27,9 @@ The session runs session.command from .crannog/config.yml, or the command
 after --. The session's exit code becomes crannog's exit code.
 
 With --detach, crannog starts a detached session and returns: the crannog
-keeps running in the background until crannog stop. The detached session
-has no terminal. It only waits, or runs the command after --, whose output
-is discarded.`,
+keeps running in the background while that session runs. The detached
+session has no terminal. It only waits, or runs the command after --, whose
+output is discarded. crannog stop ends it.`,
 	Example: `  crannog checkout
   crannog checkout feature/x
   crannog checkout feature/x -- zsh

@@ -11,8 +11,7 @@ import (
 // parse parses args like Cobra does for checkout.
 func parse(t *testing.T, args ...string) (*cobra.Command, []string) {
 	c := &cobra.Command{Use: "checkout"}
-	c.Flags().BoolP("yes", "y", false, "")
-	c.Flags().BoolP("detach", "d", false, "")
+	c.Flags().AddFlagSet(checkoutCmd.Flags())
 	require.NoError(t, c.ParseFlags(args))
 	return c, c.Flags().Args()
 }

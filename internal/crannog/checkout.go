@@ -232,26 +232,30 @@ func (m *Manager) waiting(t *target) func() {
 // runSession runs the command in the crannog as the agent user in the
 // repository and returns its exit code.
 func (m *Manager) runSession(t *target, sess *session.Lock, command string) (int, error) {
-	o := runtime.ExecOptions{
-		User:        AgentUser,
-		Workdir:     m.Repo.PathInCrannog(),
-		Interactive: true,
-		TTY:         m.UI.Interactive(),
-	}
+	o, args := m.sessionExec(command)
+	o.Interactive = true
+	o.TTY = m.UI.Interactive()
 	// crannog outlives the session to clean up: the runtime does not pass
 	// Ctrl-C on, the terminal sends it to the session itself. The session
 	// file stays open in the session's process (ADR 0019).
-	return m.Runtime.Attach(t.names.Container, o, []*os.File{sess.File()}, "sh", "-c", sessionScript, "crannog", command)
+	return m.Runtime.Attach(t.names.Container, o, []*os.File{sess.File()}, args...)
+}
+
+// sessionExec returns how every session runs its command in the crannog:
+// as the agent user in the repository, in the agent's login shell.
+func (m *Manager) sessionExec(command string) (runtime.ExecOptions, []string) {
+	o := runtime.ExecOptions{
+		User:    AgentUser,
+		Workdir: m.Repo.PathInCrannog(),
+	}
+	return o, []string{"sh", "-c", sessionScript, "crannog", command}
 }
 
 // detachSession starts the command in the crannog like runSession, but in
 // the background and without a terminal, and does not wait for it.
 func (m *Manager) detachSession(t *target, sess *session.Lock, command string) error {
-	o := runtime.ExecOptions{
-		User:    AgentUser,
-		Workdir: m.Repo.PathInCrannog(),
-	}
-	return m.Runtime.Detach(t.names.Container, o, []*os.File{sess.File()}, "sh", "-c", sessionScript, "crannog", command)
+	o, args := m.sessionExec(command)
+	return m.Runtime.Detach(t.names.Container, o, []*os.File{sess.File()}, args...)
 }
 
 // signalScript ends the programs of the sessions without killing them, so

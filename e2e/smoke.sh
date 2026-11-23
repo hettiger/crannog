@@ -89,7 +89,8 @@ wait_until() {
   "$@" >/dev/null 2>&1
 }
 
-# Background session in the crannog of a branch that runs until stopped.
+# Session in the crannog of a branch that runs until stopped, started by a
+# crannog command in the background of this script.
 start_bg() {
   (cd "$REPO" && crannog checkout "$1" -- sh -c \
     'touch /tmp/bg-started; while [ ! -e /tmp/bg-stop ]; do sleep 1; done; rm -f /tmp/bg-stop' \
@@ -239,8 +240,9 @@ check "remote exists while the detached session runs" ok has_remote "$REMOTE"
 check "the detached session only waits (tail)" ok in_main \
   'for f in /proc/[0-9]*/comm; do [ "$(cat "$f" 2>/dev/null)" = tail ] && exit 0; done; exit 1'
 check "the crannog keeps running after a session next to it" ok [ "$(status_of main)" = "running 1" ]
-check "checkout -d with a command" ok cn checkout -d -- sh -c 'touch /tmp/detached-ran; exec sleep 600'
-check "the command runs in the background" ok wait_until in_main 'test -e /tmp/detached-ran'
+check "checkout -d with a command" ok cn checkout -d -- sh -c \
+  '[ "$(id -un)" = agent ] && [ "$(pwd)" = "$1" ] && touch /tmp/detached-ran; exec sleep 600' sh "$REPO_IN"
+check "the command runs in the background, as agent in the repository" ok wait_until in_main 'test -e /tmp/detached-ran'
 check "crannog list: 2 sessions" ok [ "$(status_of main)" = "running 2" ]
 check "stop ends the sessions without asking" ok cn stop
 check "crannog stopped" ok is_stopped main
