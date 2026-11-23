@@ -1,22 +1,15 @@
-// Package rules holds rules for the whole repository that no single
-// package owns.
 package rules
 
 import (
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"io/fs"
-	"path"
+	"slices"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/hettiger/crannog/internal/testfs"
 )
 
 // processImports are the packages that start processes or open network
@@ -48,38 +41,18 @@ var allowedProcesses = map[string]string{
 // Every process start is in one of the allowed files. Tests follow the
 // same rule.
 func TestProcessStartsAreAllowed(t *testing.T) {
-	repo := testfs.Repo(t)
 	var violations []string
 	used := map[string]bool{}
-	err := fs.WalkDir(repo, ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			switch d.Name() {
-			case ".git", ".tickets", "dist", "e2e", "testdata":
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(p, ".go") {
-			return nil
-		}
-		src, err := fs.ReadFile(repo, p)
-		if err != nil {
-			return err
-		}
-		for _, v := range processStarts(t, p, src) {
-			key := p + " " + v.what
+	goFiles(t, func(name string, src []byte) {
+		for _, v := range processStarts(t, name, src) {
+			key := name + " " + v.what
 			if _, ok := allowedProcesses[key]; ok {
 				used[key] = true
 				continue
 			}
 			violations = append(violations, fmt.Sprintf("%s: %s", v.pos, v.what))
 		}
-		return nil
 	})
-	require.NoError(t, err)
 	assert.Empty(t, violations, "start processes in the package of their program (ADR 0031)")
 	for key := range allowedProcesses {
 		assert.True(t, used[key], "%s is allowed but not used", key)
@@ -119,24 +92,14 @@ type processStart struct {
 // processStarts returns the imports and function uses in a file that can
 // start a process or open a network connection.
 func processStarts(t *testing.T, name string, src []byte) []processStart {
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, name, src, 0)
-	require.NoError(t, err)
+	fset, f, imports := parse(t, name, src)
 
 	var out []processStart
-	imports := map[string]string{}
 	for _, imp := range f.Imports {
 		p, err := strconv.Unquote(imp.Path.Value)
 		require.NoError(t, err)
-		local := path.Base(p)
-		if imp.Name != nil {
-			local = imp.Name.Name
-		}
-		imports[local] = p
-		for _, forbidden := range processImports {
-			if p == forbidden {
-				out = append(out, processStart{fset.Position(imp.Pos()), p})
-			}
+		if slices.Contains(processImports, p) {
+			out = append(out, processStart{fset.Position(imp.Pos()), p})
 		}
 	}
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -144,14 +107,9 @@ func processStarts(t *testing.T, name string, src []byte) []processStart {
 		if !ok {
 			return true
 		}
-		id, ok := sel.X.(*ast.Ident)
-		if !ok || id.Obj != nil {
-			return true
-		}
-		pkg := imports[id.Name]
-		for _, fn := range processFuncs[pkg] {
-			if sel.Sel.Name == fn {
-				out = append(out, processStart{fset.Position(sel.Pos()), pkg + "." + fn})
+		for pkg, funcs := range processFuncs {
+			if selects(imports, sel, pkg, funcs...) {
+				out = append(out, processStart{fset.Position(sel.Pos()), pkg + "." + sel.Sel.Name})
 			}
 		}
 		return true

@@ -1,20 +1,13 @@
-package hostfs
+package rules
 
 import (
 	"fmt"
 	"go/ast"
-	"go/parser"
-	"go/token"
-	"io/fs"
 	"path"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	"github.com/hettiger/crannog/internal/testfs"
 )
 
 // pathFuncs are the functions that access the file system by path. Code
@@ -36,11 +29,9 @@ var pathFuncs = map[string][]string{
 // renameioFuncs write by path unless they get renameio.WithRoot.
 var renameioFuncs = []string{"NewPendingFile", "Symlink", "TempFile", "WriteFile"}
 
-const renameio = "github.com/google/renameio/v2"
-
-// allowed are the uses of path functions outside this package, by file
-// and function, with the reason.
-var allowed = map[string]string{
+// allowedFileAccess are the uses of path functions outside of package
+// hostfs, by file and function, with the reason.
+var allowedFileAccess = map[string]string{
 	// The anchors of the tests (ADR 0013).
 	"internal/testfs/testfs.go os.OpenRoot":           "opens a temporary directory or the repository",
 	"internal/testfs/testfs.go filepath.EvalSymlinks": "resolves a directory before checking it is temporary",
@@ -52,61 +43,31 @@ var allowed = map[string]string{
 	"internal/crannog/lifecycle.go os.Stat": "checks that approved mount sources exist",
 }
 
-// Every file system access by path outside this package is one of the
-// allowed ones. Tests follow the same rule.
+// Every file system access by path outside of package hostfs is one of
+// the allowed ones. Tests follow the same rule, those of hostfs too.
 func TestFileSystemAccessIsAnchored(t *testing.T) {
-	repo := testfs.Repo(t)
 	var violations []string
-	err := fs.WalkDir(repo, ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	goFiles(t, func(name string, src []byte) {
+		if path.Dir(name) == "internal/hostfs" && !strings.HasSuffix(name, "_test.go") {
+			return
 		}
-		if d.IsDir() {
-			switch d.Name() {
-			case ".git", ".tickets", "dist", "e2e", "testdata":
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(p, ".go") || (path.Dir(p) == "internal/hostfs" && !strings.HasSuffix(p, "_test.go")) {
-			return nil
-		}
-		src, err := fs.ReadFile(repo, p)
-		if err != nil {
-			return err
-		}
-		violations = append(violations, check(t, p, src)...)
-		return nil
+		violations = append(violations, fileAccess(t, name, src)...)
 	})
-	require.NoError(t, err)
 	assert.Empty(t, violations, "use an os.Root (ADR 0013)")
 }
 
-func check(t *testing.T, name string, src []byte) []string {
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, name, src, 0)
-	require.NoError(t, err)
-	imports := map[string]string{}
-	for _, imp := range f.Imports {
-		p, err := strconv.Unquote(imp.Path.Value)
-		require.NoError(t, err)
-		local := path.Base(p)
-		if p == renameio {
-			local = "renameio"
-		}
-		if imp.Name != nil {
-			local = imp.Name.Name
-		}
-		imports[local] = p
-	}
+// fileAccess returns the uses of path functions in a file that are not
+// allowed.
+func fileAccess(t *testing.T, name string, src []byte) []string {
+	fset, f, imports := parse(t, name, src)
 
 	var out []string
 	report := func(n ast.Node, what string) {
 		pkg, _, _ := strings.Cut(what, ".")
-		if _, ok := allowed[name+" "+what]; ok {
+		if _, ok := allowedFileAccess[name+" "+what]; ok {
 			return
 		}
-		if _, ok := allowed[name+" "+pkg]; ok {
+		if _, ok := allowedFileAccess[name+" "+pkg]; ok {
 			return
 		}
 		out = append(out, fmt.Sprintf("%s: %s", fset.Position(n.Pos()), what))
@@ -144,19 +105,4 @@ func check(t *testing.T, name string, src []byte) []string {
 		return true
 	})
 	return out
-}
-
-// selects reports whether sel selects one of funcs of the package with
-// import path pkg.
-func selects(imports map[string]string, sel *ast.SelectorExpr, pkg string, funcs ...string) bool {
-	id, ok := sel.X.(*ast.Ident)
-	if !ok || id.Obj != nil || imports[id.Name] != pkg {
-		return false
-	}
-	for _, f := range funcs {
-		if sel.Sel.Name == f {
-			return true
-		}
-	}
-	return false
 }
