@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -96,6 +97,26 @@ func fakeCLI(t *testing.T, script string) {
 	dir := t.TempDir()
 	testfs.WriteFile(t, testfs.Root(t, dir), "container", "#!/bin/sh\n"+script+"\n", 0o755)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// Tests cannot run the container CLI of the user: a file in the
+// repository stands in for it, directly and through a symlink in the
+// temporary directory.
+func TestTestsCannotRunTheRealCLI(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	realCLI := filepath.Join(wd, "runtime.go")
+	if checkTestCLI(realCLI) == nil {
+		t.Skip("the repository is in the temporary directory")
+	}
+	assert.ErrorContains(t, checkTestCLI(realCLI), "tests must run a fake container CLI")
+
+	root, dir := testfs.TempRoot(t)
+	require.NoError(t, root.Symlink(realCLI, "container"))
+	assert.ErrorContains(t, checkTestCLI(filepath.Join(dir, "container")), "tests must run a fake container CLI")
+
+	testfs.WriteFile(t, root, "fake", "#!/bin/sh\n", 0o755)
+	assert.NoError(t, checkTestCLI(filepath.Join(dir, "fake")))
 }
 
 func TestAttachReturnsTheExitCode(t *testing.T) {

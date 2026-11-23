@@ -111,19 +111,30 @@ func resolveTestTempDir() (string, error) {
 	return filepath.EvalSymlinks(os.TempDir())
 }
 
+// BelowTestTempDir reports whether p is below the temporary directory
+// the tests started with, with symlinks resolved. Outside of tests it
+// fails.
+func BelowTestTempDir(p string) (bool, error) {
+	if testTempDirErr != nil {
+		return false, testTempDirErr
+	}
+	resolved, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return false, err
+	}
+	rel, err := filepath.Rel(testTempDir, resolved)
+	return err == nil && rel != "." && filepath.IsLocal(rel), nil
+}
+
 // checkTestHome fails unless the home directory h is below the temporary
 // directory, with symlinks resolved, so tests never touch the user's
 // crannog home.
 func checkTestHome(h string) error {
-	if testTempDirErr != nil {
-		return testTempDirErr
-	}
-	resolved, err := filepath.EvalSymlinks(h)
+	ok, err := BelowTestTempDir(h)
 	if err != nil {
 		return err
 	}
-	rel, err := filepath.Rel(testTempDir, resolved)
-	if err != nil || rel == "." || !filepath.IsLocal(rel) {
+	if !ok {
 		return fmt.Errorf("tests must set HOME to a temporary directory, not %s", h)
 	}
 	return nil

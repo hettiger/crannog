@@ -42,6 +42,9 @@ should be able to read one file per program instead, as with package
   the options that make git work elsewhere (`-C`, `--git-dir`,
   `--work-tree`). Other programs tests run (`sh`, `cat`) are on the list
   file by file.
+- In tests, package `runtime` refuses a `container` that is not below the
+  temporary directory, so tests run a fake and never reach the user's
+  containers, images and volumes.
 
 ## Alternatives
 

@@ -16,6 +16,9 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"testing"
+
+	"github.com/hettiger/crannog/internal/hostfs"
 )
 
 // Container states as reported by container list.
@@ -168,8 +171,35 @@ const cli = "container"
 
 // CheckCLI fails if the container CLI is not installed.
 func CheckCLI() error {
-	if _, err := exec.LookPath(cli); err != nil {
-		return errors.New("the container CLI of Apple Containers is not in PATH (https://github.com/apple/container)")
+	_, err := cliPath()
+	return err
+}
+
+// cliPath returns the path of the container CLI to run.
+func cliPath() (string, error) {
+	p, err := exec.LookPath(cli)
+	if err != nil {
+		return "", errors.New("the container CLI of Apple Containers is not in PATH (https://github.com/apple/container)")
+	}
+	if testing.Testing() {
+		if err := checkTestCLI(p); err != nil {
+			return "", err
+		}
+	}
+	return p, nil
+}
+
+// checkTestCLI fails unless the container CLI at p is below the temporary
+// directory, with symlinks resolved. Tests must run a fake: Seatbelt does
+// not confine the runtime's daemon, so the real CLI would act on the
+// user's containers, images and volumes (ADR 0031).
+func checkTestCLI(p string) error {
+	ok, err := hostfs.BelowTestTempDir(p)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("tests must run a fake container CLI in a temporary directory, not %s", p)
 	}
 	return nil
 }
@@ -222,7 +252,11 @@ func (c CLI) runContext(ctx context.Context, args ...string) ([]byte, error) {
 }
 
 func (CLI) runInput(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, cli, args...)
+	path, err := cliPath()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Stdin = stdin
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -238,7 +272,11 @@ func (CLI) runInput(ctx context.Context, stdin io.Reader, args ...string) ([]byt
 
 // runVisible runs a command with its output on the progress writer.
 func (c CLI) runVisible(args ...string) error {
-	cmd := exec.Command(cli, args...)
+	path, err := cliPath()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(path, args...)
 	cmd.Stdout = c.progress()
 	cmd.Stderr = c.progress()
 	if err := cmd.Run(); err != nil {
@@ -390,7 +428,11 @@ func execArgs(name string, o ExecOptions, args []string) []string {
 }
 
 func (CLI) Attach(name string, o ExecOptions, files []*os.File, args ...string) (int, error) {
-	cmd := exec.Command(cli, execArgs(name, o, args)...)
+	path, err := cliPath()
+	if err != nil {
+		return 0, err
+	}
+	cmd := exec.Command(path, execArgs(name, o, args)...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -415,7 +457,7 @@ func (CLI) Attach(name string, o ExecOptions, files []*os.File, args ...string) 
 			}
 		}
 	}()
-	err := cmd.Wait()
+	err = cmd.Wait()
 	close(done)
 	return attachedExitCode(err)
 }
@@ -441,7 +483,7 @@ func attachedExitCode(err error) (int, error) {
 // process. It only returns on errors. The remote helper ends this way
 // (ADR 0015).
 func (CLI) Replace(name string, o ExecOptions, args ...string) error {
-	path, err := exec.LookPath(cli)
+	path, err := cliPath()
 	if err != nil {
 		return err
 	}
