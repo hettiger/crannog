@@ -279,19 +279,14 @@ check "crannog list shows main" ok has '^main' cn list
 # --- 7. Destroy ---------------------------------------------------------------
 
 say "7. Destroy"
-check "agent leaves an unmerged branch and a dirty worktree" ok in_main \
-  'git switch -qc lost && echo x >lost.txt && git add lost.txt && git commit -qm Lost && echo wip >>lost.txt'
 check "destroy without a terminal and without --yes fails" fail cn destroy main
-check "crannog stopped again after the check" ok [ "$(status_of main)" = "stopped 0" ]
-cn destroy --yes main >"$WORK/destroy.log" 2>&1
-check "destroy reports the unmerged branch" ok grep -q 'lost (1 commit)' "$WORK/destroy.log"
-check "destroy reports the dirty worktree" ok grep -q "$REPO_IN" "$WORK/destroy.log"
+check "crannog still stopped" ok [ "$(status_of main)" = "stopped 0" ]
+check "destroy main" ok cn destroy --yes main
 NAME="crannog-${ID:0:8}-${REMOTE#crannog-}"
 check "containers deleted" fail has "^$NAME" container list --all --quiet
 check "volumes deleted" fail has "^$NAME" container volume list --quiet
 check "network deleted" fail has "^$NAME" container network list --quiet
 check "host directory deleted" fail test -d "$HOME/.crannog/repositories/$ID/crannogs/${REMOTE#crannog-}"
-check "no temporary refs left" ok [ -z "$(g for-each-ref refs/crannog/)" ]
 check "destroy of a missing crannog fails" fail cn destroy --yes main
 check "destroy feature/smoke" ok cn destroy --yes feature/smoke
 check "crannog list empty" ok has 'No crannogs' cn list

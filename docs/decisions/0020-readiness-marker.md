@@ -31,7 +31,7 @@ file exists before the entrypoint has run.
   error that names the marker, so users of their own Dockerfile know what
   their entrypoint must do. The same 60 seconds bound every other command
   crannog runs itself in a crannog or against the runtime: the scripts
-  before a session, the destroy check, the proxy reload, `container list`.
+  before a session, the proxy reload, `container list`.
   Image builds, pulls, the repository transfer and sessions have no
   timeout; their duration depends on the setup and the user.
 - The `default` preset's entrypoint follows the contract. Images in

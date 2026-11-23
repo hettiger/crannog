@@ -84,26 +84,23 @@ func TestCheckoutBuildsRunsAndStops(t *testing.T) {
 	}, withoutExec(f.rt.calls))
 	assert.NotContains(t, f.out.String(), "Transferring")
 
-	// Destroy: the check fetches from the bare repository, then everything
-	// goes except the image.
+	// Destroy: everything goes except the image. The stopped crannog is
+	// not started.
 	f.rt.calls = nil
 	f.m.UI.Yes = true
 	require.NoError(t, f.m.Destroy(""), f.out.String())
-	assert.Contains(t, f.out.String(), "all branch commits of the crannog of main were in your repository")
+	assert.Contains(t, f.out.String(), "uncommitted changes in the crannog of main are lost")
 	assert.Equal(t, []string{
-		"start " + tg.names.Proxy,
-		"start " + tg.names.Container,
 		"delete " + tg.names.Container + " " + tg.names.Proxy,
 		"network delete " + tg.names.Network,
 		"volume delete " + tg.names.WorkVolume,
 		"volume delete " + tg.names.StateVolume,
-	}, withoutExec(f.rt.calls))
+	}, f.rt.calls)
 	assert.True(t, f.rt.images[s.ImageName()], "the image stays")
 	exists, err := tg.dir.exists()
 	require.NoError(t, err)
 	assert.False(t, exists)
 	assert.Empty(t, testgit.Git(t, f.dir, "remote"))
-	assert.Empty(t, testgit.Git(t, f.dir, "for-each-ref", "refs/crannog/"), "no temporary refs left")
 }
 
 // tokenSetup is the default setup with a value from the host.
@@ -424,7 +421,7 @@ func TestRemainsOfAnInterruptedBuildWithMissingObjects(t *testing.T) {
 		f, tg := interrupted(t)
 		require.NoError(t, f.m.Destroy("main"), f.out.String())
 		assert.Empty(t, f.prompt.asked)
-		assert.NotContains(t, f.out.String(), "may be lost")
+		assert.NotContains(t, f.out.String(), "are lost")
 		assert.Equal(t, deleted(tg), f.rt.calls)
 		assert.Empty(t, f.rt.networks)
 		assert.Empty(t, f.rt.volumes)
@@ -438,13 +435,12 @@ func TestRemainsOfAnInterruptedBuildWithMissingObjects(t *testing.T) {
 // what is left without asking.
 func TestDestroyWithoutWorkVolumeAsksNothing(t *testing.T) {
 	f := newFixture(t)
-	stubHelper(t)
 	tg := f.existing("main", defaultSetup(t))
 	delete(f.rt.volumes, tg.names.WorkVolume)
 
 	require.NoError(t, f.m.Destroy("main"), f.out.String())
 	assert.Empty(t, f.prompt.asked)
-	assert.NotContains(t, f.out.String(), "may be lost")
+	assert.NotContains(t, f.out.String(), "are lost")
 	assert.Equal(t, []string{
 		"delete " + tg.names.Container + " " + tg.names.Proxy,
 		"network delete " + tg.names.Network,
@@ -455,18 +451,34 @@ func TestDestroyWithoutWorkVolumeAsksNothing(t *testing.T) {
 	assert.False(t, exists, "host directory removed")
 }
 
-// destroy recreates nothing for its check: with missing containers it
-// says that it cannot check what would be lost and asks.
-func TestDestroyWithMissingContainersAsksWithoutCheck(t *testing.T) {
+// A running session makes destroy say that it ends. Declining leaves
+// everything as it is.
+func TestDeclinedDestroyWithARunningSession(t *testing.T) {
 	f := newFixture(t)
-	stubHelper(t)
+	tg := f.existing("main", defaultSetup(t))
+	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
+	f.rt.containers[tg.names.Container].State = runtime.StateRunning
+	sess, _, err := tg.dir.registerSession()
+	require.NoError(t, err)
+	defer sess.Unlock()
+	f.prompt.terminal = true
+
+	require.ErrorIs(t, f.m.Destroy("main"), ui.ErrDeclined)
+	assert.Contains(t, f.out.String(), "1 session running in this crannog end.")
+	assert.Empty(t, withoutExec(f.rt.calls), "nothing stopped or deleted")
+}
+
+// destroy does not look into the crannog: with missing containers it asks
+// like for an intact crannog and recreates nothing.
+func TestDestroyWithMissingContainersAsks(t *testing.T) {
+	f := newFixture(t)
 	tg := f.existing("main", defaultSetup(t))
 	delete(f.rt.containers, tg.names.Container)
 	delete(f.rt.containers, tg.names.Proxy)
 	f.prompt.terminal = true
 
 	require.ErrorIs(t, f.m.Destroy("main"), ui.ErrDeclined)
-	assert.Contains(t, f.out.String(), "cannot check what would be lost: the crannog's containers are missing")
+	assert.Contains(t, f.out.String(), "uncommitted changes in the crannog of main are lost")
 	assert.Equal(t, []string{"Destroy the crannog of main?"}, f.prompt.asked)
 	assert.Empty(t, f.rt.calls, "nothing created, started or deleted")
 

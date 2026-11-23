@@ -40,7 +40,7 @@ small: what crannog can decide from the state, it does without a command.
   crannog's and ask for a setup approval
   ([ADR 0024](0024-setup-approval.md)) or a confirmation before a rebuild
   ([ADR 0022](0022-rebuilds.md)); declining aborts.
-- **`destroy`** shows what would be lost and asks for confirmation
+- **`destroy`** asks for confirmation
   ([ADR 0015](0015-git-causeway.md)), also saying how many running sessions
   end.
 - **`preset publish`** asks before replacing an existing `.crannog/`.

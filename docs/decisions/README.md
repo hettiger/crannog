@@ -34,7 +34,7 @@ current state ([ADR 0004](0004-knowledge-base.md)). New ADRs use
 
 | ADR | Decides |
 | --- | ------- |
-| [0015](0015-git-causeway.md) Git causeway | Remote helper over `container exec`, a `crannog-<slug>` remote while the crannog runs, initial transfer, the check before destroy |
+| [0015](0015-git-causeway.md) Git causeway | Remote helper over `container exec`, a `crannog-<slug>` remote while the crannog runs, initial transfer, the confirmation before destroy |
 | [0016](0016-git-author-from-the-host.md) Git author | `user.name` and `user.email` mirrored from the host before every session |
 
 ## Crannogs

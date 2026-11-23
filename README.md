@@ -62,7 +62,7 @@ git push crannog-<slug> main          # your new commits into the crannog
 | ------- | ---- |
 | `crannog checkout [branch] [-- command...]` | Opens a session in the crannog of a branch |
 | `crannog apply [branch]` | Applies changes to `.crannog/` without opening a session |
-| `crannog destroy [branch]` | Destroys the crannog after showing what would be lost |
+| `crannog destroy [branch]` | Destroys the crannog after a confirmation |
 | `crannog list` | Lists the repository's crannogs |
 | `crannog preset publish [name]` | Writes a preset to `.crannog/` |
 | `crannog preset list` | Lists all presets |

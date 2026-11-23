@@ -28,7 +28,7 @@ takes effect with a reload of the proxy.
   ([ADR 0025](0025-configuration-schema.md)).
 - **Image first:** crannog builds the new image before it replaces the
   containers. A failing build leaves the old containers in place, so
-  `destroy` can still fetch from them.
+  the crannog still runs and its work can be fetched.
 - **Only `iron-proxy.yaml` changed:** crannog writes the proxy's copy and
   reloads the proxy; no session ends and nothing is asked beyond the setup
   approval. If the proxy is stopped, crannog only writes the copy.

@@ -44,18 +44,17 @@ repository, including `origin`.
   Only committed history enters a crannog: uncommitted changes and untracked
   files (e.g. `.env`) stay on the host.
 - **Destroy** happens only when the user asks for it, never automatically.
-  Before destroying, crannog fetches directly via `crannog::<slug>`,
-  starting the crannog if needed, and shows what would be lost: branches
-  with commits not reachable from the user's own refs, and worktrees with
-  uncommitted changes. The user confirms; `--yes` answers the confirmation.
-  If the crannog cannot be started or fetched, crannog says that it cannot
-  check what would be lost and asks all the same. Nothing is recreated or
-  built for the check.
+  crannog says that commits that are not in the user's repository and
+  uncommitted changes in the crannog are lost, and the user confirms;
+  `--yes` answers the confirmation. crannog does not look into the
+  crannog to find out what that is: whoever destroys a crannog fetches
+  what they want to keep first. Nothing is started, fetched, recreated or
+  built before a destroy, and crannog writes no refs in the user's
+  repository.
 - **Nothing to lose, nothing to ask:** work is in the work volume of a
   crannog that was built. The remains of an interrupted first build, in
   which no session ever ran, and a crannog without its work volume are
-  destroyed without the check and without the confirmation, unless
-  sessions run.
+  destroyed without the confirmation, unless sessions run.
 - **No changes to `~/.ssh`:** git and crannog's own shell access use
   `container exec`. SSH is only needed for IDEs.
 
@@ -83,11 +82,16 @@ Containers.
 - **A remote from build to destroy:** the number of remotes grows with the
   crannogs lying around, and fetching a stopped crannog would need the
   helper to start it.
-- **No `destroy` without a successful check, or a separate `--force`:** a
-  broken crannog could not be destroyed, or needs another flag.
-- **Recreating missing containers in `destroy` for the check:** builds
-  what is deleted a moment later, and fails in new ways, e.g. on an image
-  that no longer builds.
+- **Showing what would be lost before a destroy** (branches with commits
+  that are not in the user's repository, worktrees with uncommitted
+  changes): crannog had to start a stopped crannog only to destroy it,
+  fetch into temporary refs in the user's repository and delete them
+  again, and handle a crannog it cannot check. That is a lot of code
+  acting on the user's repository to tell users what a command named
+  `destroy` does.
+- **The same check without temporary refs** (`git ls-remote`, then a
+  fetch without a destination): writes no refs, but still starts the
+  crannog and still needs the case that it cannot check.
 
 ## Consequences
 
@@ -97,8 +101,10 @@ Containers.
 - Removing a remote also removes upstream settings pointing to it.
 - Work must be merged or branched in the user's repository to survive a
   destroy.
-- A crannog that cannot start can still be destroyed, at the risk of losing
-  unfetched work.
+- `destroy` does not tell which branches or changes exist only in the
+  crannog. Once a crannog is stopped, its remote-tracking refs are gone
+  too, so only a session shows what is in it.
+- A crannog that cannot start can still be destroyed.
 - `git fetch origin` fails inside the crannog; agents need to be told.
 - Git LFS objects and submodules are not transferred by the helper and need
   extra handling if required.

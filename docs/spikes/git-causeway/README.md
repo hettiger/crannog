@@ -24,6 +24,8 @@ spike: it supports only `connect` and pipes `git-upload-pack` and
 5. **Destroy summary:** branches with commits not reachable from the user's
    own refs and dirty worktrees are detected; removing the remote removes its
    remote-tracking refs, merged work stays.
+   crannog no longer shows such a summary before a destroy (ADR 0015);
+   the spike still checks that it can be computed.
 
 ## Running
 
