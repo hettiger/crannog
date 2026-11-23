@@ -177,7 +177,7 @@ func TestCheckoutUsesTheCurrentHostValues(t *testing.T) {
 		f.rt.calls = nil
 		delete(f.rt.files, "/home/agent/.crannog/agents/claude/CLAUDE.md")
 		require.NoError(t, f.m.ensureRunning(tg, src), v)
-		command, err := f.m.sessionCommand(tg, nil)
+		command, err := f.m.sessionCommand(tg, nil, false)
 		require.NoError(t, err, v)
 		assert.NotEmpty(t, command)
 		require.NoError(t, f.m.prepareSession(tg), v)

@@ -46,10 +46,14 @@ In any git repository:
 crannog checkout                      # session in the crannog of the checked-out branch
 crannog checkout feature/x -- zsh     # a shell in the crannog of feature/x
 crannog checkout -- claude -p "Fix the failing test"
+crannog checkout -d                   # keep the crannog running in the background
+crannog stop                          # end its sessions and stop it
 ```
 
 The first `checkout` builds the crannog, which takes a few minutes. When
 the last session ends, the crannog stops; the next session starts it again.
+With `-d`, crannog starts a session in the background that only waits, or
+runs the command after `--`, and returns.
 
 While a session runs, the crannog is a git remote of your repository:
 
@@ -61,7 +65,9 @@ git push crannog-<slug> main          # your new commits into the crannog
 | Command | Does |
 | ------- | ---- |
 | `crannog checkout [branch] [-- command...]` | Opens a session in the crannog of a branch |
+| `crannog checkout -d [branch] [-- command...]` | Starts a session in the background and returns |
 | `crannog apply [branch]` | Applies changes to `.crannog/` without opening a session |
+| `crannog stop [branch]` | Ends the sessions of the crannog and stops it |
 | `crannog destroy [branch]` | Destroys the crannog after a confirmation |
 | `crannog list` | Lists the repository's crannogs |
 | `crannog preset publish [name]` | Writes a preset to `.crannog/` |

@@ -164,6 +164,13 @@ type Runtime interface {
 	// terminate this process are passed on; an interrupt is not, the
 	// terminal sends it to the command itself.
 	Attach(name string, o ExecOptions, files []*os.File, args ...string) (int, error)
+	// Detach starts a command in a running container in the background, as
+	// a detached session does, and returns without waiting for it. The
+	// command has no terminal and no input, and its output is discarded.
+	// It keeps running when this process ends and when the terminal of
+	// this process closes. The files stay open in the process that runs
+	// the command.
+	Detach(name string, o ExecOptions, files []*os.File, args ...string) error
 }
 
 // cli is the name of the container CLI.
@@ -476,6 +483,24 @@ func attachedExitCode(err error) (int, error) {
 		return 128 + int(ws.Signal()), nil
 	}
 	return exitErr.ExitCode(), nil
+}
+
+func (CLI) Detach(name string, o ExecOptions, files []*os.File, args ...string) error {
+	path, err := cliPath()
+	if err != nil {
+		return err
+	}
+	// Without files of its own, the command reads from and writes to
+	// /dev/null.
+	cmd := exec.Command(path, execArgs(name, o, args)...)
+	cmd.ExtraFiles = files
+	// A process session of its own: a closing terminal hangs up the
+	// session of this process only.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
 }
 
 // Replace replaces this process with a command in a running container,

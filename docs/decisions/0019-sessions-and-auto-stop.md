@@ -13,6 +13,9 @@ an environment variable crannog adds to each session, which
 [ADR 0025](0025-configuration-schema.md) rules out, and processes a session
 starts inherit it.
 
+Some things in a crannog must keep running without a terminal on the host:
+a long-running command, or a service the user connects to.
+
 ## Decision
 
 - **Sessions:** several sessions can run in one crannog at the same time.
@@ -20,8 +23,16 @@ starts inherit it.
   starting a session while another one runs, crannog asks for confirmation.
 - **Auto-stop:** when the last session ends, however it ends, crannog stops
   the crannog and its proxy and removes its remote. Background processes end
-  with it. The next session starts the crannog again. There is no stop
-  command.
+  with it. The next session starts the crannog again.
+- **Detached sessions:** `crannog checkout -d` starts a
+  [detached session](../glossary.md#detached-session) and returns. Its
+  `container exec` runs in the background, in a process session of its own,
+  and holds the session file. So a detached session is counted, keeps the
+  crannog running and is ended like any other session. Without a command it
+  only waits: `session.command` is usually an agent that needs a terminal.
+- **Stopping:** `crannog stop` ends all sessions of a crannog as `destroy`
+  does, then stops the crannog as after the last session. It asks nothing:
+  nothing is deleted.
 - **Sessions are counted on the host:** the crannog's host directory
   ([ADR 0021](0021-crannog-state-on-the-host.md)) has a `lock` file and a
   `sessions/` directory.
@@ -45,8 +56,8 @@ starts inherit it.
   SIGHUP once they have no child process left, so a program in a shell's
   foreground ends first. Nothing is deleted before, so Ctrl-C leaves the
   crannog as it was.
-- **Self-repair:** `checkout`, `apply`, `destroy` and `list` first stop
-  running crannogs of the repository with no session whose `lock` nobody
+- **Self-repair:** `checkout`, `apply`, `stop`, `destroy` and `list` first
+  stop running crannogs of the repository with no session whose `lock` nobody
   holds, and remove `crannog-*` remotes with a `crannog::` URL whose crannog
   is not running. The preset commands, which work without the runtime, do
   not.
@@ -55,6 +66,15 @@ starts inherit it.
 
 - **Keeping crannogs running after the last session:** forgotten crannogs use
   memory until someone stops them.
+- **A marker that keeps a crannog running without a session:** a second
+  reason for a crannog to run, which auto-stop, self-repair, `list`,
+  `destroy` and rebuilds would all have to know. A detached session is a
+  session.
+- **A crannog process in the background that stops the crannog when the
+  command of a detached session ends:** one more process that can be
+  killed. The next crannog call stops the crannog instead.
+- **A confirmation before `stop` ends sessions:** ending them is what the
+  command is for, and nothing is deleted.
 - **Lock files without `flock`:** stay behind when crannog is killed; the
   kernel releases a `flock` when the process ends.
 - **One shared lock for all sessions:** shows whether sessions run, not how
@@ -75,11 +95,18 @@ starts inherit it.
 ## Consequences
 
 - A session whose program ends on neither SIGTERM nor SIGHUP blocks
-  `destroy` and rebuilds until the user ends it.
+  `stop`, `destroy` and rebuilds until the user ends it.
 - `crannog list` counts sessions on the host, without entering the VM.
-- Background services in a crannog only run while a session does.
+- Background services in a crannog only run while a session does; a
+  detached session is enough.
+- A crannog with a detached session uses memory until `crannog stop`.
+  `crannog list` shows it.
 - Loops that start a session per iteration start and stop the VM each time.
 - Processes started in a crannog outside `crannog checkout` (e.g. a manual
   `container exec`) are not sessions and do not keep the crannog running.
-- If crannog is killed after its session ended, the crannog keeps running
-  until the next crannog call in the repository.
+- If crannog is killed after its session ended, or the command of a
+  detached session ends by itself, the crannog keeps running until the next
+  crannog call in the repository.
+- The session file of a detached session is named after a crannog process
+  that has ended. A later crannog process with the same id cannot register
+  its session; running the command again works.

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,6 +38,10 @@ type fakeRuntime struct {
 	execHook func(name string, args []string) error
 	// buildErr, if set, fails Build.
 	buildErr error
+	// detached are the session files of the detached sessions that run.
+	detached []*os.File
+	// detachErr, if set, fails Detach.
+	detachErr error
 }
 
 func newFakeRuntime() *fakeRuntime {
@@ -158,6 +163,9 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 		return nil, fmt.Errorf("container %s is not running", name)
 	}
 	f.record("exec %s %s", name, args[0])
+	if len(args) == 5 && args[2] == signalScript && args[4] == "term" {
+		f.endDetached()
+	}
 	if f.execHook != nil {
 		if err := f.execHook(name, args); err != nil {
 			return nil, err
@@ -176,6 +184,34 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 
 func (f *fakeRuntime) Attach(name string, o runtime.ExecOptions, files []*os.File, args ...string) (int, error) {
 	return 0, nil
+}
+
+// Detach keeps the files open like the container CLI in the background,
+// until the programs in the crannog are asked to end.
+func (f *fakeRuntime) Detach(name string, o runtime.ExecOptions, files []*os.File, args ...string) error {
+	if c := f.containers[name]; c == nil || c.State != runtime.StateRunning {
+		return fmt.Errorf("container %s is not running", name)
+	}
+	f.record("detach %s %s", name, args[len(args)-1])
+	if f.detachErr != nil {
+		return f.detachErr
+	}
+	for _, file := range files {
+		fd, err := syscall.Dup(int(file.Fd()))
+		if err != nil {
+			return err
+		}
+		f.detached = append(f.detached, os.NewFile(uintptr(fd), file.Name()))
+	}
+	return nil
+}
+
+// endDetached ends the detached sessions.
+func (f *fakeRuntime) endDetached() {
+	for _, file := range f.detached {
+		file.Close()
+	}
+	f.detached = nil
 }
 
 // fixture is a repository with a manager on a fake runtime.
@@ -217,6 +253,7 @@ func newFixture(t *testing.T) *fixture {
 		out:     &bytes.Buffer{},
 		hostEnv: map[string]string{},
 	}
+	t.Cleanup(f.rt.endDetached)
 	userHome := t.TempDir()
 	t.Setenv("HOME", userHome)
 	h, err := home.OpenCrannogHome()

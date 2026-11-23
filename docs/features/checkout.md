@@ -7,18 +7,21 @@
 ## Summary
 
 Opens a session in the crannog of a start branch, building, updating or
-starting the crannog as needed.
+starting the crannog as needed. With `-d` the session is detached: crannog
+returns and the crannog keeps running in the background.
 
 ## Usage
 
 ```sh
 crannog checkout [branch] [-- command...] [--yes]
+crannog checkout -d [branch] [-- command...] [--yes]
 ```
 
 `branch` defaults to the checked-out branch and must be a local branch.
 The command after `--` replaces `session.command`; each argument is passed
 unchanged (`crannog checkout -- claude -p "say hi"`). `--yes` answers
-confirmations, never setup approvals.
+confirmations, never setup approvals. `-d` (`--detach`) starts a
+[detached session](#detached-sessions).
 
 ## Behavior
 
@@ -113,3 +116,31 @@ session (`/etc/hosts`, git author, instruction files) and `container list`.
 Building the image, pulling the proxy image, the repository transfer and
 the session itself have no timeout. The output of build and pull is shown
 as it happens.
+
+## Detached sessions
+
+`crannog checkout -d` does steps 1 to 6, with the same questions. Then it
+registers the session, starts the command in the background, says that the
+crannog runs in the background and how to stop it, and exits with 0. It
+does not wait for the command and stops nothing.
+
+- The command is the one after `--`. Without one, the session runs
+  `tail -f /dev/null`, which only waits, not `session.command`.
+- It runs like any session: as `agent` in the agent's login shell in the
+  repository. It has no terminal and no input, and its output is
+  discarded.
+- On the host, `container exec` runs it in a process session of its own, so
+  it keeps running when crannog has returned and the terminal is closed. It
+  holds the session file: the session counts in [list](list.md), and the
+  crannog and its remote stay until the session ends.
+- [stop](stop.md), a rebuild and [destroy](destroy.md) end it like any
+  session.
+- If the command ends by itself, the crannog keeps running without a
+  session until the next crannog command in the repository stops it (step
+  1).
+- If `container exec` cannot be started, crannog removes the session and
+  stops the crannog if no other session runs.
+
+The session file keeps the name of the crannog process that started the
+detached session. If a later crannog process gets the same process id while
+the session runs, it fails to register its session; running it again works.

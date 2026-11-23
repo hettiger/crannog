@@ -141,6 +141,36 @@ func TestAttachReturnsTheExitCode(t *testing.T) {
 	assert.Error(t, CheckCLI())
 }
 
+// A detached command runs in the background with the files it was given:
+// Detach returns before the command ends.
+func TestDetachDoesNotWait(t *testing.T) {
+	root, dir := testfs.TempRoot(t)
+	t.Setenv("DETACH_DIR", dir)
+	// The fake waits until the test lets it go, then writes its arguments
+	// and what it reads from the file it inherited.
+	fakeCLI(t, `cd "$DETACH_DIR" || exit 1
+i=0
+while [ ! -e go ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
+[ -e go ] || exit 1
+{ echo "$*"; cat <&3; cat; } >out.tmp
+mv out.tmp out`)
+	testfs.WriteFile(t, root, "session", "the session file\n", 0o644)
+	file, err := root.Open("session")
+	require.NoError(t, err)
+
+	require.NoError(t, CLI{}.Detach("c", ExecOptions{User: "agent"}, []*os.File{file}, "sh", "-c", "true"))
+	require.NoError(t, file.Close())
+	assert.False(t, testfs.Exists(t, root, "out"), "the command still runs")
+
+	testfs.WriteFile(t, root, "go", "", 0o644)
+	require.Eventually(t, func() bool { return testfs.Exists(t, root, "out") }, 10*time.Second, 20*time.Millisecond)
+	assert.Equal(t, "exec --user agent c sh -c true\nthe session file\n", testfs.ReadFile(t, root, "out"),
+		"the arguments, the inherited file and an empty standard input")
+
+	t.Setenv("PATH", t.TempDir())
+	assert.Error(t, CLI{}.Detach("c", ExecOptions{}, nil, "true"))
+}
+
 func TestCleanStderr(t *testing.T) {
 	assert.Equal(t, "Error: not found; hint", cleanStderr("[0/6] [0s]\nError: not found\n\n hint \n"))
 }

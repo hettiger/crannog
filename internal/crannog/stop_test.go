@@ -1,0 +1,137 @@
+package crannog
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/hettiger/crannog/internal/runtime"
+	"github.com/hettiger/crannog/internal/testgit"
+)
+
+// A detached checkout starts the crannog and returns while its session
+// runs: the session only waits, counts like any other and keeps the
+// crannog running until stop ends it.
+func TestDetachedCheckoutAndStop(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.existing("main", defaultSetup(t))
+
+	require.NoError(t, f.m.CheckoutDetached("", nil), f.out.String())
+	assert.Equal(t, []string{
+		"start " + tg.names.Proxy,
+		"start " + tg.names.Container,
+		"detach " + tg.names.Container + " " + waitCommand,
+	}, withoutExec(f.rt.calls), "started and not stopped")
+	assert.Contains(t, f.out.String(), "The crannog of main runs in the background. Stop it with: crannog stop main")
+	assert.Equal(t, tg.names.Remote, testgit.Git(t, f.dir, "remote"), "the remote stays while the crannog runs")
+	list, err := f.m.List()
+	require.NoError(t, err)
+	assert.Equal(t, []Info{{Branch: "main", Status: runtime.StateRunning, Sessions: 1}}, list,
+		"self-repair leaves the crannog alone")
+
+	// Another session next to the detached one: crannog warns as next to
+	// any session, and the crannog keeps running when that session ends.
+	f.rt.calls = nil
+	f.out.Reset()
+	src, err := f.m.readSource("main")
+	require.NoError(t, err)
+	require.NoError(t, f.m.ensureRunning(tg, src))
+	assert.Contains(t, f.out.String(), "1 session is already running in this crannog.")
+	require.NoError(t, f.m.endSession(tg))
+	assert.Empty(t, withoutExec(f.rt.calls))
+
+	f.out.Reset()
+	require.NoError(t, f.m.Stop(""), f.out.String())
+	assert.Empty(t, f.prompt.asked, "stop asks nothing")
+	assert.Equal(t, []string{"stop " + tg.names.Container + " " + tg.names.Proxy}, withoutExec(f.rt.calls))
+	assert.Contains(t, f.out.String(), "Waiting for 1 session in the crannog of main to end")
+	assert.Contains(t, f.out.String(), "Stopping the crannog of main")
+	assert.Empty(t, testgit.Git(t, f.dir, "remote"))
+	n, err := tg.dir.sessions(false)
+	require.NoError(t, err)
+	assert.Equal(t, 0, n)
+
+	// Stopping a stopped crannog is no error.
+	f.rt.calls = nil
+	f.out.Reset()
+	require.NoError(t, f.m.Stop("main"))
+	assert.Equal(t, "The crannog of main is not running\n", f.out.String())
+	assert.Empty(t, f.rt.calls)
+}
+
+// With a command after --, the detached session runs it instead of
+// waiting. session.command is not used.
+func TestDetachedCheckoutRunsTheCommand(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.existing("main", defaultSetup(t))
+
+	require.NoError(t, f.m.CheckoutDetached("main", []string{"npm", "run", "dev server"}), f.out.String())
+	assert.Equal(t, []string{"detach " + tg.names.Container + " npm run 'dev server'"}, f.rt.callsWith("detach"))
+}
+
+// A detached session that cannot be started leaves no session behind, and
+// the crannog stops again.
+func TestDetachedCheckoutThatFailsToStart(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.existing("main", defaultSetup(t))
+	f.rt.detachErr = assert.AnError
+
+	require.ErrorIs(t, f.m.CheckoutDetached("", nil), assert.AnError)
+	assert.NotContains(t, f.out.String(), "runs in the background")
+	assert.Equal(t, runtime.StateStopped, f.rt.containers[tg.names.Container].State)
+	assert.Equal(t, runtime.StateStopped, f.rt.containers[tg.names.Proxy].State)
+	n, err := tg.dir.sessions(false)
+	require.NoError(t, err)
+	assert.Equal(t, 0, n)
+}
+
+// When the command of a detached session ends by itself, nobody is left
+// to stop the crannog: the next crannog command does (ADR 0019).
+func TestDetachedSessionThatEndsByItself(t *testing.T) {
+	f := newFixture(t)
+	stubHelper(t)
+	tg := f.existing("main", defaultSetup(t))
+	require.NoError(t, f.m.CheckoutDetached("", []string{"true"}), f.out.String())
+	f.rt.endDetached()
+	assert.Equal(t, runtime.StateRunning, f.rt.containers[tg.names.Container].State)
+
+	list, err := f.m.List()
+	require.NoError(t, err)
+	assert.Equal(t, []Info{{Branch: "main", Status: runtime.StateStopped}}, list)
+	assert.Contains(t, f.out.String(), "The crannog of main runs without a session.")
+	assert.Empty(t, testgit.Git(t, f.dir, "remote"))
+}
+
+// stop ends every session without a confirmation, which would be an error
+// here, without a terminal. It needs the crannog, but not its branch,
+// which was deleted here.
+func TestStopEndsSessions(t *testing.T) {
+	f := newFixture(t)
+	tg := f.existing("gone", defaultSetup(t))
+	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
+	f.rt.containers[tg.names.Container].State = runtime.StateRunning
+	sess, _, err := tg.dir.registerSession()
+	require.NoError(t, err)
+	defer sess.Unlock()
+	f.rt.execHook = func(name string, args []string) error {
+		if args[2] == signalScript && args[4] == "term" {
+			sess.Unlock()
+		}
+		return nil
+	}
+
+	require.NoError(t, f.m.Stop("gone"), f.out.String())
+	assert.Empty(t, f.prompt.asked)
+	assert.Contains(t, f.out.String(), "Waiting for 1 session in the crannog of gone to end")
+	assert.Equal(t, []string{"stop " + tg.names.Container + " " + tg.names.Proxy}, withoutExec(f.rt.calls))
+}
+
+func TestStopWithoutCrannog(t *testing.T) {
+	f := newFixture(t)
+	assert.ErrorContains(t, f.m.Stop(""), "there is no crannog for main")
+	assert.ErrorContains(t, f.m.Stop("feature/x"), "there is no crannog for feature/x")
+}
