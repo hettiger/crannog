@@ -1,14 +1,31 @@
 package crannog
 
 import (
+	"io/fs"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hettiger/crannog/internal/runtime"
+	"github.com/hettiger/crannog/internal/testfs"
 	"github.com/hettiger/crannog/internal/testgit"
 )
+
+// sessionFiles returns the contents of the session files of a crannog.
+func sessionFiles(t *testing.T, tg *target) []string {
+	t.Helper()
+	r, err := tg.dir.open(sessionsDir, false)
+	require.NoError(t, err)
+	defer r.Close()
+	entries, err := fs.ReadDir(r.FS(), ".")
+	require.NoError(t, err)
+	var files []string
+	for _, e := range entries {
+		files = append(files, testfs.ReadFile(t, r, e.Name()))
+	}
+	return files
+}
 
 // A detached checkout starts the crannog and returns while its session
 // runs: the session only waits, counts like any other and keeps the
@@ -26,6 +43,9 @@ func TestDetachedCheckoutAndStop(t *testing.T) {
 	}, withoutExec(f.rt.calls), "started and not stopped")
 	assert.Contains(t, f.out.String(), "The crannog of main runs in the background. Stop it with: crannog stop main")
 	assert.Equal(t, tg.names.Remote, testgit.Git(t, f.dir, "remote"), "the remote stays while the crannog runs")
+	files := sessionFiles(t, tg)
+	require.Len(t, files, 1)
+	assert.Contains(t, files[0], "command: "+waitCommand+"\ndetached: true\nstarted_at: ")
 	list, err := f.m.List()
 	require.NoError(t, err)
 	assert.Equal(t, []Info{{Branch: "main", Status: runtime.StateRunning, Sessions: 1}}, list,
@@ -35,12 +55,14 @@ func TestDetachedCheckoutAndStop(t *testing.T) {
 	// any session, and the crannog keeps running when that session ends.
 	f.rt.calls = nil
 	f.out.Reset()
-	src, err := f.m.readSource("main")
-	require.NoError(t, err)
-	require.NoError(t, f.m.ensureRunning(tg, src))
+	code, err := f.m.Checkout("", []string{"true"})
+	require.NoError(t, err, f.out.String())
+	assert.Equal(t, 0, code)
 	assert.Contains(t, f.out.String(), "1 session is already running in this crannog.")
-	require.NoError(t, f.m.endSession(tg))
 	assert.Empty(t, withoutExec(f.rt.calls))
+	n, err := tg.dir.sessions(false)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n, "the detached session")
 
 	f.out.Reset()
 	require.NoError(t, f.m.Stop(""), f.out.String())
@@ -49,7 +71,7 @@ func TestDetachedCheckoutAndStop(t *testing.T) {
 	assert.Contains(t, f.out.String(), "Waiting for 1 session in the crannog of main to end")
 	assert.Contains(t, f.out.String(), "Stopping the crannog of main")
 	assert.Empty(t, testgit.Git(t, f.dir, "remote"))
-	n, err := tg.dir.sessions(false)
+	n, err = tg.dir.sessions(false)
 	require.NoError(t, err)
 	assert.Equal(t, 0, n)
 
@@ -114,7 +136,7 @@ func TestStopEndsSessions(t *testing.T) {
 	tg := f.existing("gone", defaultSetup(t))
 	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
-	sess, _, err := tg.dir.registerSession()
+	sess, _, err := tg.dir.registerSession("true", false)
 	require.NoError(t, err)
 	defer sess.Unlock()
 	f.rt.execHook = func(name string, args []string) error {

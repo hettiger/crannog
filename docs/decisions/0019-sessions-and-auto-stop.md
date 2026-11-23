@@ -37,8 +37,10 @@ a long-running command, or a service the user connects to.
   ([ADR 0021](0021-crannog-state-on-the-host.md)) has a `lock` file and a
   `sessions/` directory.
   - Starting: crannog takes an exclusive `flock` on `lock`, starts the
-    crannog if needed, creates `sessions/<pid>` with its own process id and
-    takes an exclusive `flock` on it. Then it releases `lock` and runs the
+    crannog if needed, creates `sessions/<uuid>` with a new UUID and
+    takes an exclusive `flock` on it. The file says what the session runs,
+    whether it is detached and when it started; counting does not read
+    it. Then crannog releases `lock` and runs the
     session with `container exec`, which inherits the file descriptor. If
     crannog is killed, the lock lasts as long as the session runs.
   - Counting: crannog tries to lock each file in `sessions/` without
@@ -75,6 +77,9 @@ a long-running command, or a service the user connects to.
   killed. The next crannog call stops the crannog instead.
 - **A confirmation before `stop` ends sessions:** ending them is what the
   command is for, and nothing is deleted.
+- **Session files named after crannog's process id:** the session can
+  outlive crannog, always so when it is detached. A later crannog process
+  with the same id could not register its session.
 - **Lock files without `flock`:** stay behind when crannog is killed; the
   kernel releases a `flock` when the process ends.
 - **One shared lock for all sessions:** shows whether sessions run, not how
@@ -107,6 +112,3 @@ a long-running command, or a service the user connects to.
 - If crannog is killed after its session ended, or the command of a
   detached session ends by itself, the crannog keeps running until the next
   crannog call in the repository.
-- The session file of a detached session is named after a crannog process
-  that has ended. A later crannog process with the same id cannot register
-  its session; running the command again works.

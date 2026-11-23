@@ -79,7 +79,7 @@ confirmations, never setup approvals. `-d` (`--detach`) starts a
 6. Before the session: writes `crannog-proxy` to `/etc/hosts`, mirrors
    `user.name` and `user.email` of the host repository and updates the
    managed instructions block in each agent home, from inside the crannog.
-7. Registers the session (`sessions/<pid>`, locked), releases the lock and
+7. Registers the session (`sessions/<uuid>`, locked), releases the lock and
    runs the command as `agent` in the agent's login shell in the
    repository, with a terminal if stdin and stdout are terminals. crannog
    ignores Ctrl-C (the terminal passes it to the session) and passes
@@ -108,6 +108,11 @@ crannog's own messages go to stderr.
 A lock removed or replaced while checkout waits to start a session is an
 error with a retry hint. Remote cleanup refuses changed fetch mappings rather than deleting
 unrelated refs.
+
+The session file is named with a UUID of version 7 and holds, as YAML,
+the command the session runs in the login shell (`command`), whether the
+session is detached (`detached`) and when it was registered
+(`started_at`). It is deleted when the session has ended.
 
 The 60-second deadline for the proxy health and the readiness marker
 ([ADR 0020](../decisions/0020-readiness-marker.md)) also ends a probe that
@@ -140,7 +145,3 @@ does not wait for the command and stops nothing.
   1).
 - If `container exec` cannot be started, crannog removes the session and
   stops the crannog if no other session runs.
-
-The session file keeps the name of the crannog process that started the
-detached session. If a later crannog process gets the same process id while
-the session runs, it fails to register its session; running it again works.

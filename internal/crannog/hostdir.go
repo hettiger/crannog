@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/renameio/v2"
 
@@ -167,15 +168,19 @@ func (d HostDir) tryLock() (*session.Lock, error) {
 	return session.TryLock(r, lockFile)
 }
 
-// registerSession creates and locks the session file of this process and
-// returns its name. The caller holds the crannog's lock.
-func (d HostDir) registerSession() (*session.Lock, string, error) {
+// registerSession creates and locks the file of a new session that runs
+// command, and returns its name. The caller holds the crannog's lock.
+func (d HostDir) registerSession(command string, detached bool) (*session.Lock, string, error) {
 	r, err := d.open(sessionsDir, true)
 	if err != nil {
 		return nil, "", err
 	}
 	defer r.Close()
-	return session.Register(r)
+	return session.Register(r, session.Info{
+		Command:   command,
+		Detached:  detached,
+		StartedAt: time.Now().Truncate(time.Second),
+	})
 }
 
 // removeSession deletes a session file registerSession created.

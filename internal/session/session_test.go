@@ -4,16 +4,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hettiger/crannog/internal/testfs"
 )
+
+// ended is the name of the session file of a session that has ended.
+const ended = "6f1c1a4e-58a0-4c5e-9d0b-3a1f0c2b7e11"
 
 func TestTryLock(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
@@ -117,18 +121,18 @@ func TestLockWaiterAfterDirectoryRemoval(t *testing.T) {
 
 func TestCountSkipsRemovedSessionFiles(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
-	testfs.WriteFile(t, dir, "99999999", "", 0o644)
+	testfs.WriteFile(t, dir, ended, "", 0o644)
 	// The session ends and removes its file while Count looks at it.
 	setAfterLock(t, func(dir *os.Root, name string) { require.NoError(t, dir.Remove(name)) })
 	n, err := Count(dir, false)
 	require.NoError(t, err)
 	assert.Equal(t, 0, n)
-	assert.False(t, testfs.Exists(t, dir, "99999999"))
+	assert.False(t, testfs.Exists(t, dir, ended))
 
 	// A session file removed before Count opens it is not recreated.
-	_, err = tryLock(dir, "99999999", false, syscall.LOCK_SH)
+	_, err = tryLock(dir, ended, false, syscall.LOCK_SH)
 	assert.ErrorIs(t, err, os.ErrNotExist)
-	assert.False(t, testfs.Exists(t, dir, "99999999"))
+	assert.False(t, testfs.Exists(t, dir, ended))
 }
 
 // crannog list counts without the crannog lock. While it looks at the file
@@ -136,22 +140,24 @@ func TestCountSkipsRemovedSessionFiles(t *testing.T) {
 // session.
 func TestCountsDoNotSeeEachOther(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
-	testfs.WriteFile(t, dir, "99999999", "", 0o644)
-	looking, err := tryLock(dir, "99999999", false, syscall.LOCK_SH)
+	testfs.WriteFile(t, dir, ended, "", 0o644)
+	looking, err := tryLock(dir, ended, false, syscall.LOCK_SH)
 	require.NoError(t, err)
 	defer looking.Unlock()
 
 	n, err := Count(dir, true)
 	require.NoError(t, err)
 	assert.Equal(t, 0, n)
-	assert.False(t, testfs.Exists(t, dir, "99999999"), "pruned")
+	assert.False(t, testfs.Exists(t, dir, ended), "pruned")
 }
 
 // A count that looks at a session file while it is registered only delays
 // the registration.
 func TestRegisterWaitsForACount(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
-	name := strconv.Itoa(os.Getpid())
+	name := ended
+	newName = func() string { return name }
+	t.Cleanup(func() { newName = func() string { return uuid.NewV7().String() } })
 	testfs.WriteFile(t, dir, name, "", 0o644)
 	looking, err := tryLock(dir, name, false, syscall.LOCK_SH)
 	require.NoError(t, err)
@@ -160,7 +166,7 @@ func TestRegisterWaitsForACount(t *testing.T) {
 		looking.Unlock()
 	}()
 
-	l, _, err := Register(dir)
+	l, _, err := Register(dir, Info{})
 	require.NoError(t, err)
 	require.NoError(t, l.Unlock())
 }
@@ -172,29 +178,40 @@ func TestRegisterAndCount(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, n, "empty dir")
 
-	l, name, err := Register(dir)
+	info := Info{Command: "npm run 'dev server'", Detached: true, StartedAt: time.Date(2026, 11, 23, 14, 2, 11, 0, time.FixedZone("", 3600))}
+	l, name, err := Register(dir, info)
 	require.NoError(t, err)
-	assert.Equal(t, strconv.Itoa(os.Getpid()), name)
+	assert.Equal(t, "command: npm run 'dev server'\ndetached: true\nstarted_at: 2026-11-23T14:02:11+01:00\n",
+		testfs.ReadFile(t, dir, name), "the file says what the session runs")
+	_, err = uuid.Parse(name)
+	assert.NoError(t, err, "named with a UUID")
+	second, other, err := Register(dir, Info{})
+	require.NoError(t, err)
+	assert.NotEqual(t, name, other, "one process can register several sessions")
+	require.NoError(t, second.Unlock())
+	require.NoError(t, dir.Remove(other))
 	assert.True(t, testfs.Exists(t, dir, name))
 
 	// A session that ended without cleaning up.
-	testfs.WriteFile(t, dir, "99999999", "", 0o644)
-	// Files not named like a process id are no session files.
+	testfs.WriteFile(t, dir, ended, "", 0o644)
+	// Files not named like a session file are none.
 	testfs.WriteFile(t, dir, "notes.txt", "", 0o644)
 	testfs.WriteFile(t, dir, "0123", "", 0o644)
+	testfs.WriteFile(t, dir, strings.ToUpper(ended), "", 0o644)
 
 	n, err = Count(dir, false)
 	require.NoError(t, err)
 	assert.Equal(t, 1, n)
-	assert.True(t, testfs.Exists(t, dir, "99999999"), "kept without prune")
+	assert.True(t, testfs.Exists(t, dir, ended), "kept without prune")
 
 	n, err = Count(dir, true)
 	require.NoError(t, err)
 	assert.Equal(t, 1, n)
-	assert.False(t, testfs.Exists(t, dir, "99999999"), "pruned")
+	assert.False(t, testfs.Exists(t, dir, ended), "pruned")
 	assert.True(t, testfs.Exists(t, dir, name), "running session kept")
 	assert.True(t, testfs.Exists(t, dir, "notes.txt"), "no session file, kept")
 	assert.True(t, testfs.Exists(t, dir, "0123"), "no session file, kept")
+	assert.True(t, testfs.Exists(t, dir, strings.ToUpper(ended)), "no session file, kept")
 
 	require.NoError(t, l.Unlock())
 	n, err = Count(dir, true)
@@ -206,7 +223,7 @@ func TestRegisterAndCount(t *testing.T) {
 // running after the parent released its descriptor (ADR 0019).
 func TestChildKeepsTheSession(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
-	l, _, err := Register(dir)
+	l, _, err := Register(dir, Info{})
 	require.NoError(t, err)
 
 	cmd := exec.Command("cat")

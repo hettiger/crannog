@@ -165,7 +165,7 @@ func TestCheckoutUsesTheCurrentHostValues(t *testing.T) {
 	assert.Contains(t, env(), "TOKEN=new")
 
 	// Next to a running session, it starts with the values of that one.
-	sess, _, err := tg.dir.registerSession()
+	sess, _, err := tg.dir.registerSession("true", false)
 	require.NoError(t, err)
 	defer sess.Unlock()
 	src, err := f.m.readSource("main")
@@ -203,7 +203,7 @@ func TestApplyUsesTheCurrentHostValues(t *testing.T) {
 	f.hostEnv["MY_TOKEN"] = "new"
 	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
-	sess, _, err := tg.dir.registerSession()
+	sess, _, err := tg.dir.registerSession("true", false)
 	require.NoError(t, err)
 	f.rt.execHook = func(name string, args []string) error {
 		if args[2] == signalScript && args[4] == "term" {
@@ -458,7 +458,7 @@ func TestDeclinedDestroyWithARunningSession(t *testing.T) {
 	tg := f.existing("main", defaultSetup(t))
 	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
-	sess, _, err := tg.dir.registerSession()
+	sess, _, err := tg.dir.registerSession("true", false)
 	require.NoError(t, err)
 	defer sess.Unlock()
 	f.prompt.terminal = true
@@ -496,7 +496,7 @@ func TestReloadRestoresTheOldProxyConfig(t *testing.T) {
 	tg := f.existing("main", s)
 	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
-	sess, _, err := tg.dir.registerSession()
+	sess, _, err := tg.dir.registerSession("true", false)
 	require.NoError(t, err)
 	defer sess.Unlock()
 	reloads := 0

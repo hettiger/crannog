@@ -80,7 +80,7 @@ func (m *Manager) checkout(branchArg string, args []string, detached bool) (int,
 	if err == nil {
 		// The session file stays locked while the session runs, also by
 		// the container CLI if crannog is killed (ADR 0019).
-		sess, name, err = t.dir.registerSession()
+		sess, name, err = t.dir.registerSession(command, detached)
 	}
 	if err != nil {
 		// Without a host directory there is no crannog to stop: a first

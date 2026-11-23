@@ -237,7 +237,7 @@ func TestApplyReloadsTheProxy(t *testing.T) {
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
 
 	// A running session.
-	sess, _, err := tg.dir.registerSession()
+	sess, _, err := tg.dir.registerSession("true", false)
 	require.NoError(t, err)
 	defer sess.Unlock()
 
@@ -261,7 +261,7 @@ func TestApplyRebuildsAndLeavesTheCrannogStopped(t *testing.T) {
 	tg := f.existing("main", s)
 	f.rt.containers[tg.names.Proxy].State = runtime.StateRunning
 	f.rt.containers[tg.names.Container].State = runtime.StateRunning
-	sess, _, err := tg.dir.registerSession()
+	sess, _, err := tg.dir.registerSession("true", false)
 	require.NoError(t, err)
 	defer sess.Unlock()
 	// The session ends when its program is asked to.
@@ -422,7 +422,7 @@ func TestSelfRepair(t *testing.T) {
 		f.rt.containers[tg.names.Container].State = runtime.StateRunning
 		require.NoError(t, f.m.addRemote(tg.names))
 	}
-	sess, _, err := busy.dir.registerSession()
+	sess, _, err := busy.dir.registerSession("true", false)
 	require.NoError(t, err)
 	defer sess.Unlock()
 
@@ -457,7 +457,7 @@ func TestList(t *testing.T) {
 	f.existing("main", s)
 	b := f.existing("feature/x", s)
 	f.rt.containers[b.names.Container].State = runtime.StateRunning
-	sess, _, err := b.dir.registerSession()
+	sess, _, err := b.dir.registerSession("true", false)
 	require.NoError(t, err)
 	defer sess.Unlock()
 	gone := f.existing("gone", s)
