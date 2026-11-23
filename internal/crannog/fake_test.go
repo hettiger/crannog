@@ -7,7 +7,6 @@ import (
 	"io"
 	"maps"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -175,8 +174,8 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 	return nil, nil
 }
 
-func (f *fakeRuntime) ExecCommand(name string, o runtime.ExecOptions, args ...string) *exec.Cmd {
-	return exec.Command("true")
+func (f *fakeRuntime) Attach(name string, o runtime.ExecOptions, files []*os.File, args ...string) (int, error) {
+	return 0, nil
 }
 
 // fixture is a repository with a manager on a fake runtime.

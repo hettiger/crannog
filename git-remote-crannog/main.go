@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"syscall"
 
 	"github.com/hettiger/crannog/internal/naming"
 	"github.com/hettiger/crannog/internal/repository"
@@ -125,13 +123,11 @@ func connect(branchSlug, service string) error {
 	if p := os.Getenv("GIT_PROTOCOL"); p != "" {
 		o.Env = []string{"GIT_PROTOCOL=" + p}
 	}
-	cmd := runtime.CLI{}.ExecCommand(n.Container, o, service, repo.PathInCrannog())
-	path, err := exec.LookPath(cmd.Path)
-	if err != nil {
+	if err := runtime.CheckCLI(); err != nil {
 		return err
 	}
 	if _, err := os.Stdout.WriteString("\n"); err != nil {
 		return err
 	}
-	return syscall.Exec(path, cmd.Args, os.Environ())
+	return runtime.CLI{}.Replace(n.Container, o, service, repo.PathInCrannog())
 }

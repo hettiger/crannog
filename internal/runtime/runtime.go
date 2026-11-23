@@ -1,4 +1,7 @@
-// Package runtime calls Apple Containers' container CLI (ADR 0008).
+// Package runtime calls Apple Containers' container CLI (ADR 0008). It is
+// the only place that starts it: callers name containers, images, mounts
+// and the commands to run in a container, never arguments of the CLI
+// itself (ADR 0031).
 package runtime
 
 import (
@@ -10,7 +13,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 )
 
 // Container states as reported by container list.
@@ -149,9 +154,24 @@ type Runtime interface {
 	Delete(names ...string) error
 	// Exec runs a command in a running container and returns its stdout.
 	Exec(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error)
-	// ExecCommand returns a command that runs args in a container, for
-	// sessions and the remote helper.
-	ExecCommand(name string, o ExecOptions, args ...string) *exec.Cmd
+	// Attach runs a command in a running container on the standard input
+	// and outputs of this process, as a session does, and returns its exit
+	// code; a command ended by a signal gives 128 plus the signal. The
+	// files stay open in the process that runs the command. Requests to
+	// terminate this process are passed on; an interrupt is not, the
+	// terminal sends it to the command itself.
+	Attach(name string, o ExecOptions, files []*os.File, args ...string) (int, error)
+}
+
+// cli is the name of the container CLI.
+const cli = "container"
+
+// CheckCLI fails if the container CLI is not installed.
+func CheckCLI() error {
+	if _, err := exec.LookPath(cli); err != nil {
+		return errors.New("the container CLI of Apple Containers is not in PATH (https://github.com/apple/container)")
+	}
+	return nil
 }
 
 // CLI runs the container CLI. Output of long-running commands (build,
@@ -177,8 +197,8 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
-// ExitCode returns the exit code of a failed command, or -1.
-func ExitCode(err error) int {
+// exitCode returns the exit code of a failed command, or -1.
+func exitCode(err error) int {
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		return exitErr.ExitCode()
@@ -202,7 +222,7 @@ func (c CLI) runContext(ctx context.Context, args ...string) ([]byte, error) {
 }
 
 func (CLI) runInput(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "container", args...)
+	cmd := exec.CommandContext(ctx, cli, args...)
 	cmd.Stdin = stdin
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -218,7 +238,7 @@ func (CLI) runInput(ctx context.Context, stdin io.Reader, args ...string) ([]byt
 
 // runVisible runs a command with its output on the progress writer.
 func (c CLI) runVisible(args ...string) error {
-	cmd := exec.Command("container", args...)
+	cmd := exec.Command(cli, args...)
 	cmd.Stdout = c.progress()
 	cmd.Stderr = c.progress()
 	if err := cmd.Run(); err != nil {
@@ -294,7 +314,7 @@ func (c CLI) ImageExists(name string) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if ExitCode(err) > 0 {
+	if exitCode(err) > 0 {
 		return false, nil
 	}
 	return false, err
@@ -359,13 +379,71 @@ func (c CLI) Delete(names ...string) error {
 }
 
 func (c CLI) Exec(ctx context.Context, name string, o ExecOptions, args ...string) ([]byte, error) {
-	a := append([]string{"exec"}, o.args()...)
-	a = append(a, name)
-	return c.runInput(ctx, o.Stdin, append(a, args...)...)
+	return c.runInput(ctx, o.Stdin, execArgs(name, o, args)...)
 }
 
-func (CLI) ExecCommand(name string, o ExecOptions, args ...string) *exec.Cmd {
+// execArgs returns the arguments of container exec.
+func execArgs(name string, o ExecOptions, args []string) []string {
 	a := append([]string{"exec"}, o.args()...)
 	a = append(a, name)
-	return exec.Command("container", append(a, args...)...)
+	return append(a, args...)
+}
+
+func (CLI) Attach(name string, o ExecOptions, files []*os.File, args ...string) (int, error) {
+	cmd := exec.Command(cli, execArgs(name, o, args)...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.ExtraFiles = files
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
+	defer signal.Stop(signals)
+	if err := cmd.Start(); err != nil {
+		return 0, err
+	}
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case s := <-signals:
+				if s == syscall.SIGTERM || s == syscall.SIGHUP {
+					_ = cmd.Process.Signal(s)
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+	err := cmd.Wait()
+	close(done)
+	return attachedExitCode(err)
+}
+
+// attachedExitCode returns the exit code of an attached command from the
+// error of waiting for it.
+func attachedExitCode(err error) (int, error) {
+	if err == nil {
+		return 0, nil
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return 0, err
+	}
+	if ws, ok := exitErr.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+		return 128 + int(ws.Signal()), nil
+	}
+	return exitErr.ExitCode(), nil
+}
+
+// Replace replaces this process with a command in a running container,
+// with the standard input and outputs and the environment of this
+// process. It only returns on errors. The remote helper ends this way
+// (ADR 0015).
+func (CLI) Replace(name string, o ExecOptions, args ...string) error {
+	path, err := exec.LookPath(cli)
+	if err != nil {
+		return err
+	}
+	return syscall.Exec(path, append([]string{cli}, execArgs(name, o, args)...), os.Environ())
 }

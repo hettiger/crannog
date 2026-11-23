@@ -4,10 +4,8 @@ package crannog
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/google/renameio/v2"
 
@@ -39,8 +37,8 @@ type Manager struct {
 
 // New returns a manager for the repository of the current directory.
 func New(u *ui.UI) (*Manager, error) {
-	if _, err := exec.LookPath("container"); err != nil {
-		return nil, errors.New("the container CLI of Apple Containers is not in PATH (https://github.com/apple/container)")
+	if err := runtime.CheckCLI(); err != nil {
+		return nil, err
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
