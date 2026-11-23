@@ -25,7 +25,9 @@ through plain git remotes, via a remote helper over `container exec`; crannog
 does not touch the user's SSH configuration
 ([ADR 0015](decisions/0015-git-causeway.md)). On the host, crannog itself
 runs in the macOS sandbox and can write files only where it has to
-([ADR 0030](decisions/0030-seatbelt.md)).
+([ADR 0030](decisions/0030-seatbelt.md)), and it runs git and `container`
+only through a fixed set of operations
+([ADR 0031](decisions/0031-process-starts.md)).
 
 Each repository configures its crannogs in `.crannog/` (image, environment,
 mounts, proxy) ([ADR 0023](decisions/0023-repository-configuration.md)),

@@ -61,6 +61,9 @@ next one open. Directories a guest can write to are covered by
   they exist.
 - Runtime objects (containers, volumes, networks) are not covered; their
   names are global and need their own ownership check.
+- The programs crannog runs are not covered either; what crannog makes
+  them do is confined in the same way, to one file per program
+  ([ADR 0031](0031-process-starts.md)).
 - The kernel enforces the anchors as well, more coarsely and for the
   programs crannog runs too, and on macOS it confines the tests
   ([ADR 0030](0030-seatbelt.md)).

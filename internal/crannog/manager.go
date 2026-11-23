@@ -4,10 +4,8 @@ package crannog
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/google/renameio/v2"
 
@@ -39,8 +37,8 @@ type Manager struct {
 
 // New returns a manager for the repository of the current directory.
 func New(u *ui.UI) (*Manager, error) {
-	if _, err := exec.LookPath("container"); err != nil {
-		return nil, errors.New("the container CLI of Apple Containers is not in PATH (https://github.com/apple/container)")
+	if err := runtime.CheckCLI(); err != nil {
+		return nil, err
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -172,21 +170,9 @@ func (m *Manager) status(n naming.Names) (status, error) {
 	return s, nil
 }
 
-// checkHelper fails early if git cannot find the remote helper.
-func checkHelper() error {
-	if _, err := exec.LookPath("git-remote-crannog"); err != nil {
-		return errors.New("git-remote-crannog is not in PATH; install it next to crannog")
-	}
-	return nil
-}
-
 // remoteURL returns the URL of a remote, or "" if it does not exist.
 func (m *Manager) remoteURL(name string) (string, error) {
-	url, err := m.Repo.Git("config", "--get", "remote."+name+".url")
-	if git.ExitCode(err) == 1 {
-		return "", nil
-	}
-	return url, err
+	return git.RemoteURL(m.Repo.Dir, name)
 }
 
 // checkRemote fails if a remote with the crannog's remote name but another
@@ -229,28 +215,11 @@ func (m *Manager) addRemote(n naming.Names) error {
 	case url != "":
 		return fmt.Errorf("a remote named %s already exists (%s); rename or remove it", n.Remote, url)
 	}
-	if _, err := m.Repo.Git("remote", "add", n.Remote, n.URL); err != nil {
-		return err
-	}
-	_, err = m.Repo.Git("config", "remote."+n.Remote+".followRemoteHEAD", "never")
-	return err
+	return git.AddRemote(m.Repo.Dir, n.Remote, n.URL)
 }
 
 // removeRemote removes the crannog's remote, but never a remote of that
-// name with another URL.
+// name with another URL or other fetch mappings.
 func (m *Manager) removeRemote(n naming.Names) error {
-	url, err := m.remoteURL(n.Remote)
-	if err != nil || url != n.URL {
-		return err
-	}
-	mappings, err := m.Repo.Git("config", "--get-all", "remote."+n.Remote+".fetch")
-	if err != nil && git.ExitCode(err) != 1 {
-		return err
-	}
-	want := "+refs/heads/*:refs/remotes/" + n.Remote + "/*"
-	if err != nil || mappings != want {
-		return fmt.Errorf("refusing to remove remote %s: unexpected fetch mappings", n.Remote)
-	}
-	_, err = m.Repo.Git("remote", "remove", n.Remote)
-	return err
+	return git.RemoveRemote(m.Repo.Dir, n.Remote, n.URL)
 }

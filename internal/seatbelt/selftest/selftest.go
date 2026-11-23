@@ -39,10 +39,10 @@ func Run(dir string) error {
 
 // init stops a test binary on macOS before any test runs unless it runs
 // in Seatbelt, so tests started without it fail instead of running
-// unconfined. Every test binary links this package; a test in it checks
-// that. The self-test runs in the user's real home directory, before any
-// test can change $HOME. In the binaries init does nothing: they run the
-// self-test after entering Seatbelt.
+// unconfined. Every test binary links this package; a test in package
+// rules checks that. The self-test runs in the user's real home
+// directory, before any test can change $HOME. In the binaries init does
+// nothing: they run the self-test after entering Seatbelt.
 func init() {
 	if !testing.Testing() {
 		return

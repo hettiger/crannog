@@ -2,7 +2,6 @@ package crannog
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/naming"
@@ -97,22 +96,14 @@ func (m *Manager) repairOne(n naming.Names, d HostDir, running map[string]bool, 
 // crannogRemotes returns the slugs of the remotes crannog-<slug> with the
 // URL crannog::<slug>. Other remotes are the user's.
 func (m *Manager) crannogRemotes() (map[string]bool, error) {
-	out, err := m.Repo.Git("config", "--get-regexp", `^remote\.crannog-.*\.url$`)
-	if git.ExitCode(err) == 1 {
-		return nil, nil
-	}
+	urls, err := git.RemoteURLs(m.Repo.Dir)
 	if err != nil {
 		return nil, err
 	}
 	slugs := map[string]bool{}
-	for _, l := range lines(out) {
-		key, url, ok := strings.Cut(l, " ")
-		if !ok {
-			continue
-		}
-		name := strings.TrimSuffix(strings.TrimPrefix(key, "remote."), ".url")
+	for name, url := range urls {
 		s, ok := naming.SlugFromURL(url)
-		if ok && name == "crannog-"+s {
+		if ok && name == naming.RemotePrefix+s {
 			slugs[s] = true
 		}
 	}

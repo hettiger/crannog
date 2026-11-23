@@ -7,7 +7,6 @@ import (
 	"io"
 	"maps"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -175,8 +174,8 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 	return nil, nil
 }
 
-func (f *fakeRuntime) ExecCommand(name string, o runtime.ExecOptions, args ...string) *exec.Cmd {
-	return exec.Command("true")
+func (f *fakeRuntime) Attach(name string, o runtime.ExecOptions, files []*os.File, args ...string) (int, error) {
+	return 0, nil
 }
 
 // fixture is a repository with a manager on a fake runtime.
@@ -248,8 +247,8 @@ func (f *fixture) target(branch string) *target {
 	return t
 }
 
-// stubHelper puts a git-remote-crannog on PATH that fails, so checkHelper
-// passes and nothing reaches a real crannog.
+// stubHelper puts a git-remote-crannog on PATH that fails, so the check
+// for it passes and nothing reaches a real crannog.
 func stubHelper(t *testing.T) {
 	t.Helper()
 	helperDir := t.TempDir()
@@ -261,8 +260,9 @@ func stubHelper(t *testing.T) {
 // repository instead, so the initial transfer and the destroy check work
 // without a crannog. It returns the bare repository.
 func (f *fixture) redirectURL(tg *target) string {
-	bare := filepath.Join(f.t.TempDir(), "bare.git")
-	testgit.Git(f.t, "", "init", "--bare", "-q", bare)
+	dir := f.t.TempDir()
+	bare := filepath.Join(dir, "bare.git")
+	testgit.Git(f.t, dir, "init", "--bare", "-q", "bare.git")
 	testgit.Git(f.t, f.dir, "config", "url."+bare+".insteadOf", tg.names.URL)
 	return bare
 }

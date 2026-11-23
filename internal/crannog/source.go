@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hettiger/crannog/internal/config"
+	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/preset"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/setup"
@@ -44,7 +45,7 @@ func (m *Manager) readSource(branch string) (*source, error) {
 		}
 	} else {
 		var commit string
-		commit, err = m.Repo.Git("rev-parse", "--short", "refs/heads/"+branch)
+		commit, err = git.BranchCommit(m.Repo.Dir, branch)
 		if err != nil {
 			return nil, err
 		}

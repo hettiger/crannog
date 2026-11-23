@@ -1,9 +1,6 @@
 package crannog
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 // Destroy destroys the crannog of a start branch after asking for
 // confirmation (ADR 0015, ADR 0027). The branch does not need to exist
@@ -74,14 +71,4 @@ func (m *Manager) confirmDestroy(t *target, sessions int) error {
 		m.UI.Printf("%s running in this crannog end.\n", plural(sessions, "session", "sessions"))
 	}
 	return m.UI.AskConfirmation(fmt.Sprintf("Destroy the crannog of %s?", t.branch))
-}
-
-func lines(s string) []string {
-	var out []string
-	for _, l := range strings.Split(s, "\n") {
-		if l = strings.TrimSpace(l); l != "" {
-			out = append(out, l)
-		}
-	}
-	return out
 }

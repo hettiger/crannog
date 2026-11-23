@@ -52,13 +52,11 @@ func TestRemoveRemoteFetchMappings(t *testing.T) {
 func TestInitialTransferIgnoresPushURL(t *testing.T) {
 	f := newFixture(t)
 	parent := t.TempDir()
-	destination := filepath.Join(parent, "destination.git")
 	foreign := filepath.Join(parent, "foreign.git")
-	testgit.Git(t, "", "init", "--bare", "-q", destination)
-	testgit.Git(t, "", "init", "--bare", "-q", foreign)
+	testgit.Git(t, parent, "init", "--bare", "-q", "foreign.git")
 	tg := f.target("main")
-	tg.names.URL = destination
-	testgit.Git(t, f.dir, "remote", "add", tg.names.Remote, destination)
+	destination := f.redirectURL(tg)
+	testgit.Git(t, f.dir, "remote", "add", tg.names.Remote, tg.names.URL)
 	testgit.Git(t, f.dir, "config", "remote."+tg.names.Remote+".pushurl", foreign)
 	require.NoError(t, f.m.transferRepository(tg))
 	head := testgit.Git(t, f.dir, "rev-parse", "HEAD")

@@ -25,7 +25,8 @@ Direct dependencies besides Cobra ([ADR 0001](0001-go-and-cobra.md)):
 Everything else uses the standard library or the tools crannog already
 requires:
 
-- git and `container` are called with `os/exec`, not through libraries.
+- git and `container` are called with `os/exec`, not through libraries,
+  each in one file ([ADR 0031](0031-process-starts.md)).
 - The approval diff is `git diff --no-index` on the two directories.
 - Locks use `syscall.Flock`; the bundled presets use `embed`.
 - The CA is generated with `crypto/x509`.

@@ -3,7 +3,6 @@ package crannog
 import (
 	"io/fs"
 	"maps"
-	"os/exec"
 	"path"
 	"strings"
 	"testing"
@@ -497,20 +496,6 @@ func TestRemotes(t *testing.T) {
 	assert.ErrorContains(t, f.m.addRemote(n), "already exists")
 	require.NoError(t, f.m.removeRemote(n))
 	assert.Equal(t, n.Remote, testgit.Git(t, f.dir, "remote"), "the user's remote stays")
-}
-
-func TestExitCode(t *testing.T) {
-	code, err := exitCode(exec.Command("sh", "-c", "exit 42").Run())
-	require.NoError(t, err)
-	assert.Equal(t, 42, code)
-	code, err = exitCode(exec.Command("sh", "-c", "kill -TERM $$").Run())
-	require.NoError(t, err)
-	assert.Equal(t, 143, code)
-	code, err = exitCode(nil)
-	require.NoError(t, err)
-	assert.Equal(t, 0, code)
-	_, err = exitCode(exec.Command("/nonexistent").Run())
-	assert.Error(t, err)
 }
 
 // The managed instructions block is written in the crannog, not on the host.

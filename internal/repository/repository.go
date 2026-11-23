@@ -35,7 +35,7 @@ type Repository struct {
 
 // Open finds the repository of the worktree that contains dir.
 func Open(dir string) (*Repository, error) {
-	top, err := git.Run(dir, "rev-parse", "--show-toplevel")
+	top, err := git.TopLevel(dir)
 	if err != nil {
 		return nil, fmt.Errorf("not in a git worktree: %w", err)
 	}
@@ -50,11 +50,11 @@ func Open(dir string) (*Repository, error) {
 // Locate finds the repository from dir without requiring a worktree, as
 // the remote helper does: git runs it with GIT_DIR set.
 func Locate(dir string) (*Repository, error) {
-	common, err := git.Run(dir, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	common, err := git.CommonDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("not in a git repository: %w", err)
 	}
-	list, err := git.Run(dir, "worktree", "list", "--porcelain")
+	list, err := git.Worktrees(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -99,35 +99,21 @@ func (r *Repository) PathInCrannog() string {
 	return path.Join(WorkDir, r.MainWorktree)
 }
 
-// Git runs git in the current worktree.
-func (r *Repository) Git(args ...string) (string, error) {
-	return git.Run(r.Dir, args...)
-}
-
 // CurrentBranch returns the branch checked out in the current worktree.
 func (r *Repository) CurrentBranch() (string, error) {
-	b, err := r.Git("symbolic-ref", "--quiet", "--short", "HEAD")
+	b, err := git.CurrentBranch(r.Dir)
 	if err != nil {
-		if git.ExitCode(err) == 1 {
-			return "", ErrDetached
-		}
 		return "", err
+	}
+	if b == "" {
+		return "", ErrDetached
 	}
 	return b, nil
 }
 
-// HasBranch reports whether branch is a local branch. show-ref takes the
-// name literally; rev-parse would also accept revision expressions such
-// as main^ or main@{1}.
+// HasBranch reports whether branch is a local branch.
 func (r *Repository) HasBranch(branch string) (bool, error) {
-	_, err := r.Git("show-ref", "--verify", "--quiet", "refs/heads/"+branch)
-	if err != nil {
-		if git.ExitCode(err) == 1 {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+	return git.HasBranch(r.Dir, branch)
 }
 
 // StartBranch resolves the [branch] argument of a command: the given

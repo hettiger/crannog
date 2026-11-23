@@ -139,13 +139,7 @@ func (m *Manager) create(t *target, hash string) (err error) {
 
 // transferRepository pushes directly to the crannog, not a configured push URL.
 func (m *Manager) transferRepository(t *target) error {
-	push := git.Command(m.Repo.Dir, "push", "--quiet", t.names.URL,
-		"refs/heads/*:refs/remotes/origin/*",
-		"refs/tags/*:refs/tags/*",
-		"refs/heads/"+t.branch+":refs/heads/"+t.branch)
-	push.Stdout = m.UI.Out
-	push.Stderr = m.UI.Out
-	if err := push.Run(); err != nil {
+	if err := git.PushToCrannog(m.Repo.Dir, t.names.URL, t.branch, m.UI.Out); err != nil {
 		return fmt.Errorf("initial transfer of the repository: %w", err)
 	}
 	return nil
@@ -500,15 +494,15 @@ func (m *Manager) prepareSession(t *target) error {
 
 	args := []string{"sh", "-c", authorScript, "sh", m.Repo.PathInCrannog()}
 	for _, key := range []string{"user.name", "user.email"} {
-		v, err := m.Repo.Git("config", key)
+		v, ok, err := git.Config(m.Repo.Dir, key)
 		switch {
-		case err == nil:
+		case err != nil:
+			return err
+		case ok:
 			args = append(args, "set", v)
-		case git.ExitCode(err) == 1:
+		default:
 			m.UI.Printf("Warning: git %s is not set for this repository on the host; commits in the crannog will fail.\n", key)
 			args = append(args, "unset", "")
-		default:
-			return err
 		}
 	}
 	if _, err := m.exec(t.names.Container, runtime.ExecOptions{User: AgentUser}, args...); err != nil {

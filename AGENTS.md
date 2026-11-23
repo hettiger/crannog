@@ -33,6 +33,9 @@ All relevant commands are in the `Makefile`:
   file paths of a setup use `path`. Never concatenate `"/"`.
 - Validate names from outside (branch slugs, setup hashes, preset names)
   before joining them: `Join` cleans `..` away.
+- Programs on the host are started only in the file of their program
+  (`internal/git/git.go`, `internal/runtime/runtime.go`), through a
+  function per operation; tests run git through `testgit` (ADR 0031).
 
 ## Language
 

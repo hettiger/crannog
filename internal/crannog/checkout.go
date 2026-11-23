@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
+	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/session"
 	"github.com/hettiger/crannog/internal/setup"
@@ -27,7 +25,7 @@ exec "${shell:-/bin/sh}" -l -c "$1"`
 // starting the crannog as needed (ADR 0027). args replaces session.command.
 // It returns the session's exit code.
 func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
-	if err := checkHelper(); err != nil {
+	if err := git.CheckHelper(); err != nil {
 		return 0, err
 	}
 	branch, err := m.Repo.StartBranch(branchArg)
@@ -206,50 +204,10 @@ func (m *Manager) runSession(t *target, sess *session.Lock, command string) (int
 		Interactive: true,
 		TTY:         m.UI.Interactive(),
 	}
-	cmd := m.Runtime.ExecCommand(t.names.Container, o, "sh", "-c", sessionScript, "crannog", command)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.ExtraFiles = []*os.File{sess.File()}
-
-	// crannog outlives the session to clean up. The terminal sends Ctrl-C
-	// to the session itself; termination requests are passed on.
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
-	defer signal.Stop(signals)
-	if err := cmd.Start(); err != nil {
-		return 0, err
-	}
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case s := <-signals:
-				if s == syscall.SIGTERM || s == syscall.SIGHUP {
-					_ = cmd.Process.Signal(s)
-				}
-			case <-done:
-				return
-			}
-		}
-	}()
-	err := cmd.Wait()
-	close(done)
-	return exitCode(err)
-}
-
-func exitCode(err error) (int, error) {
-	if err == nil {
-		return 0, nil
-	}
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
-		return 0, err
-	}
-	if ws, ok := exitErr.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
-		return 128 + int(ws.Signal()), nil
-	}
-	return exitErr.ExitCode(), nil
+	// crannog outlives the session to clean up: the runtime does not pass
+	// Ctrl-C on, the terminal sends it to the session itself. The session
+	// file stays open in the session's process (ADR 0019).
+	return m.Runtime.Attach(t.names.Container, o, []*os.File{sess.File()}, "sh", "-c", sessionScript, "crannog", command)
 }
 
 // signalScript ends the programs of the sessions without killing them, so

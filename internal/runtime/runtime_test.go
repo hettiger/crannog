@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -86,8 +87,58 @@ func TestExecArgs(t *testing.T) {
 	assert.Equal(t, []string{"--interactive", "--tty", "--user", "agent", "--workdir", "/work/r", "--env", "A=1"}, o.args())
 	assert.Empty(t, ExecOptions{}.args())
 
-	cmd := CLI{}.ExecCommand("c", ExecOptions{User: "root"}, "sh", "-c", "true")
-	assert.Equal(t, []string{"container", "exec", "--user", "root", "c", "sh", "-c", "true"}, cmd.Args)
+	assert.Equal(t, []string{"exec", "--user", "root", "c", "sh", "-c", "true"},
+		execArgs("c", ExecOptions{User: "root"}, []string{"sh", "-c", "true"}))
+}
+
+// fakeCLI puts a container CLI on PATH that runs script.
+func fakeCLI(t *testing.T, script string) {
+	t.Helper()
+	dir := t.TempDir()
+	testfs.WriteFile(t, testfs.Root(t, dir), "container", "#!/bin/sh\n"+script+"\n", 0o755)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// Tests cannot run the container CLI of the user: a file in the
+// repository stands in for it, directly and through a symlink in the
+// temporary directory.
+func TestTestsCannotRunTheRealCLI(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	realCLI := filepath.Join(wd, "runtime.go")
+	if checkTestCLI(realCLI) == nil {
+		t.Skip("the repository is in the temporary directory")
+	}
+	assert.ErrorContains(t, checkTestCLI(realCLI), "tests must run a fake container CLI")
+
+	root, dir := testfs.TempRoot(t)
+	require.NoError(t, root.Symlink(realCLI, "container"))
+	assert.ErrorContains(t, checkTestCLI(filepath.Join(dir, "container")), "tests must run a fake container CLI")
+
+	testfs.WriteFile(t, root, "fake", "#!/bin/sh\n", 0o755)
+	assert.NoError(t, checkTestCLI(filepath.Join(dir, "fake")))
+}
+
+func TestAttachReturnsTheExitCode(t *testing.T) {
+	fakeCLI(t, `[ "$*" = "exec --user agent c sh -c true" ] || exit 99; exit 42`)
+	code, err := CLI{}.Attach("c", ExecOptions{User: "agent"}, nil, "sh", "-c", "true")
+	require.NoError(t, err)
+	assert.Equal(t, 42, code)
+
+	fakeCLI(t, "kill -TERM $$")
+	code, err = CLI{}.Attach("c", ExecOptions{}, nil, "true")
+	require.NoError(t, err)
+	assert.Equal(t, 143, code)
+
+	fakeCLI(t, "exit 0")
+	code, err = CLI{}.Attach("c", ExecOptions{}, nil, "true")
+	require.NoError(t, err)
+	assert.Equal(t, 0, code)
+
+	t.Setenv("PATH", t.TempDir())
+	_, err = CLI{}.Attach("c", ExecOptions{}, nil, "true")
+	assert.Error(t, err)
+	assert.Error(t, CheckCLI())
 }
 
 func TestCleanStderr(t *testing.T) {
@@ -95,10 +146,8 @@ func TestCleanStderr(t *testing.T) {
 }
 
 func TestReadinessCommandsCancelBlockedProcess(t *testing.T) {
-	dir := t.TempDir()
 	// exec keeps sleep in the CLI process, so cancellation must reap it.
-	testfs.WriteFile(t, testfs.Root(t, dir), "container", "#!/bin/sh\necho 'probe started' >&2\nexec sleep 30\n", 0o755)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	fakeCLI(t, "echo 'probe started' >&2\nexec sleep 30")
 	for _, command := range []string{"exec", "list"} {
 		t.Run(command, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)

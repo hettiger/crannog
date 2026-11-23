@@ -61,8 +61,8 @@ no option to turn it off.
   any test runs, with `on macOS, tests must run in Seatbelt (make test)`.
 - Every package with tests has a `selftest_test.go` that imports package
   `selftest` blank; its `init` runs the self-test.
-  `TestEveryPackageWithTestsImportsTheSelfTest` fails for a package with
-  tests that does not. It reads the packages itself, not through
+  `TestEveryPackageWithTestsImportsTheSelfTest` in `internal/rules` fails
+  for a package with tests that does not. It reads the packages itself, not through
   `go list`, so the test cache notices a `selftest_test.go` that was
   added or deleted.
 - On other systems the tests run without Seatbelt.
