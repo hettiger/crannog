@@ -21,10 +21,26 @@ import (
 const sessionScript = `shell=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
 exec "${shell:-/bin/sh}" -l -c "$1"`
 
+// waitCommand is what a detached session runs without a command: it only
+// waits until it is ended.
+const waitCommand = "tail -f /dev/null"
+
 // Checkout opens a session in the crannog of a start branch, building or
 // starting the crannog as needed (ADR 0027). args replaces session.command.
 // It returns the session's exit code.
 func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
+	return m.checkout(branchArg, args, false)
+}
+
+// CheckoutDetached starts a detached session in the crannog of a start
+// branch, building or starting the crannog as needed, and returns while
+// the session runs (ADR 0019). The session runs args, or only waits.
+func (m *Manager) CheckoutDetached(branchArg string, args []string) error {
+	_, err := m.checkout(branchArg, args, true)
+	return err
+}
+
+func (m *Manager) checkout(branchArg string, args []string, detached bool) (int, error) {
 	if err := git.CheckHelper(); err != nil {
 		return 0, err
 	}
@@ -54,7 +70,7 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 	err = m.ensureRunning(t, src)
 	var command string
 	if err == nil {
-		command, err = m.sessionCommand(t, args)
+		command, err = m.sessionCommand(t, args, detached)
 	}
 	if err == nil {
 		err = m.prepareSession(t)
@@ -64,7 +80,7 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 	if err == nil {
 		// The session file stays locked while the session runs, also by
 		// the container CLI if crannog is killed (ADR 0019).
-		sess, name, err = t.dir.registerSession()
+		sess, name, err = t.dir.registerSession(command, detached)
 	}
 	if err != nil {
 		// Without a host directory there is no crannog to stop: a first
@@ -78,7 +94,20 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 	}
 	lock.Unlock()
 
-	code, runErr := m.runSession(t, sess, command)
+	var code int
+	var runErr error
+	if detached {
+		runErr = m.detachSession(t, sess, command)
+		if runErr == nil {
+			// The session file stays locked by the container CLI in the
+			// background, and the crannog keeps running.
+			sess.Unlock()
+			m.UI.Printf("The crannog of %s runs in the background. Stop it with: crannog stop %s\n", t.branch, shell.Quote(t.branch))
+			return 0, nil
+		}
+	} else {
+		code, runErr = m.runSession(t, sess, command)
+	}
 
 	sess.Unlock()
 	_ = t.dir.removeSession(name)
@@ -89,10 +118,15 @@ func (m *Manager) Checkout(branchArg string, args []string) (int, error) {
 }
 
 // sessionCommand returns the command a session runs: the arguments after
-// --, quoted, or session.command of the crannog's copy.
-func (m *Manager) sessionCommand(t *target, args []string) (string, error) {
+// --, quoted, or session.command of the crannog's copy. A detached session
+// without arguments only waits instead: session.command is usually an
+// agent that needs a terminal.
+func (m *Manager) sessionCommand(t *target, args []string, detached bool) (string, error) {
 	if len(args) > 0 {
 		return shell.Join(args), nil
+	}
+	if detached {
+		return waitCommand, nil
 	}
 	hash, err := t.dir.Hash()
 	if err != nil {
@@ -198,16 +232,30 @@ func (m *Manager) waiting(t *target) func() {
 // runSession runs the command in the crannog as the agent user in the
 // repository and returns its exit code.
 func (m *Manager) runSession(t *target, sess *session.Lock, command string) (int, error) {
-	o := runtime.ExecOptions{
-		User:        AgentUser,
-		Workdir:     m.Repo.PathInCrannog(),
-		Interactive: true,
-		TTY:         m.UI.Interactive(),
-	}
+	o, args := m.sessionExec(command)
+	o.Interactive = true
+	o.TTY = m.UI.Interactive()
 	// crannog outlives the session to clean up: the runtime does not pass
 	// Ctrl-C on, the terminal sends it to the session itself. The session
 	// file stays open in the session's process (ADR 0019).
-	return m.Runtime.Attach(t.names.Container, o, []*os.File{sess.File()}, "sh", "-c", sessionScript, "crannog", command)
+	return m.Runtime.Attach(t.names.Container, o, []*os.File{sess.File()}, args...)
+}
+
+// sessionExec returns how every session runs its command in the crannog:
+// as the agent user in the repository, in the agent's login shell.
+func (m *Manager) sessionExec(command string) (runtime.ExecOptions, []string) {
+	o := runtime.ExecOptions{
+		User:    AgentUser,
+		Workdir: m.Repo.PathInCrannog(),
+	}
+	return o, []string{"sh", "-c", sessionScript, "crannog", command}
+}
+
+// detachSession starts the command in the crannog like runSession, but in
+// the background and without a terminal, and does not wait for it.
+func (m *Manager) detachSession(t *target, sess *session.Lock, command string) error {
+	o, args := m.sessionExec(command)
+	return m.Runtime.Detach(t.names.Container, o, []*os.File{sess.File()}, args...)
 }
 
 // signalScript ends the programs of the sessions without killing them, so
@@ -243,8 +291,9 @@ true`
 var sessionPoll = 500 * time.Millisecond
 
 // endSessions asks the programs in the crannog to end and waits until no
-// session runs, without a timeout: nothing is deleted before, so Ctrl-C
-// leaves the crannog as it is (ADR 0019). The caller holds the lock.
+// session runs, without a timeout: nothing is stopped or deleted before,
+// so Ctrl-C leaves the crannog as it is (ADR 0019). The caller holds the
+// lock.
 func (m *Manager) endSessions(t *target) error {
 	n, err := t.dir.sessions(true)
 	if err != nil || n == 0 {
@@ -275,7 +324,7 @@ func (m *Manager) endSessions(t *target) error {
 		}
 	})
 	if err != nil {
-		return fmt.Errorf("ending the sessions in the crannog of %s: %w; nothing was deleted", t.branch, err)
+		return fmt.Errorf("ending the sessions in the crannog of %s: %w; the crannog stays as it is", t.branch, err)
 	}
 	return nil
 }

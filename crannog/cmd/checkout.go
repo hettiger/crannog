@@ -8,7 +8,10 @@ import (
 	"github.com/hettiger/crannog/internal/crannog"
 )
 
-var checkoutYes bool
+var (
+	checkoutYes    bool
+	checkoutDetach bool
+)
 
 var checkoutCmd = &cobra.Command{
 	Use:   "checkout [branch] [-- command...]",
@@ -21,11 +24,18 @@ the difference and asks for approval before it rebuilds the crannog or
 reloads its proxy. When the last session ends, the crannog stops.
 
 The session runs session.command from .crannog/config.yml, or the command
-after --. The session's exit code becomes crannog's exit code.`,
+after --. The session's exit code becomes crannog's exit code.
+
+With --detach, crannog starts a detached session and returns: the crannog
+keeps running in the background while that session runs. The detached
+session has no terminal. It only waits, or runs the command after --, whose
+output is discarded. crannog stop ends it.`,
 	Example: `  crannog checkout
   crannog checkout feature/x
   crannog checkout feature/x -- zsh
-  crannog checkout -- claude -p "Fix the failing test"`,
+  crannog checkout -- claude -p "Fix the failing test"
+  crannog checkout -d
+  crannog checkout -d feature/x -- npm run dev`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if branchArgs(cmd, args) > 1 {
 			return errors.New("takes at most one branch; put the command after --")
@@ -45,6 +55,9 @@ after --. The session's exit code becomes crannog's exit code.`,
 		if err != nil {
 			return err
 		}
+		if checkoutDetach {
+			return m.CheckoutDetached(branch, command)
+		}
 		exitCode, err = m.Checkout(branch, command)
 		return err
 	},
@@ -60,5 +73,6 @@ func branchArgs(cmd *cobra.Command, args []string) int {
 
 func init() {
 	addYesFlag(checkoutCmd, &checkoutYes)
+	checkoutCmd.Flags().BoolVarP(&checkoutDetach, "detach", "d", false, "start a detached session and return; crannog stop ends it")
 	rootCmd.AddCommand(checkoutCmd)
 }

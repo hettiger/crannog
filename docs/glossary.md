@@ -94,6 +94,12 @@ the agent homes.
   within it
 - **In code:** `home.CrannogHome`, `hostfs.OpenCrannogHome`
 
+## Detached session
+
+A session without a terminal that keeps running after `crannog checkout -d`
+has returned. It only waits, or runs the command after `--`. It ends when
+its command ends, or with `crannog stop`, a rebuild or `destroy`.
+
 ## Git causeway
 
 The causeway through which code enters a crannog and the agent's results
@@ -161,7 +167,8 @@ runtime's builder directory ([ADR 0030](decisions/0030-seatbelt.md)).
 A process the user starts in a crannog with `crannog checkout`: usually an
 interactive agent, also a shell or a non-interactive command. A crannog runs
 while it has sessions. What a session runs by default is configured in
-`.crannog/config.yml`.
+`.crannog/config.yml`. A [detached session](#detached-session) runs in the
+background.
 
 - **Not to be confused with:** an agent's own sessions (conversations it
   stores, e.g. for resuming)

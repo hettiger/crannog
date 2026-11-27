@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"strconv"
+	"strings"
 	"syscall"
 	"time"
+	"uuid"
+
+	"go.yaml.in/yaml/v3"
 )
 
 // Lock is an exclusive flock on a file.
@@ -146,12 +149,29 @@ func (l *Lock) Unlock() error {
 	return err
 }
 
-// Register creates the session file <pid> in the sessions directory dir
-// for the current process and locks it. It returns the lock and the file's
-// name. The caller must hold the crannog lock. Count without the crannog
-// lock can hold the new file for a moment; Register then tries again.
-func Register(dir *os.Root) (*Lock, string, error) {
-	name := strconv.Itoa(os.Getpid())
+// Info is what a session file says about its session, as YAML.
+type Info struct {
+	// Command is the command the session runs in the login shell.
+	Command  string `yaml:"command"`
+	Detached bool   `yaml:"detached"`
+	// StartedAt is when the session was registered.
+	StartedAt time.Time `yaml:"started_at"`
+}
+
+// Register creates a session file in the sessions directory dir, locks it
+// and writes info to it. It returns the lock and the file's name, a new
+// UUID of version 7, which sorts by the time the session was registered,
+// with the extension of a YAML file:
+// the process that holds the lock can outlive the one that registered the
+// session, so a process id would not stay unique. The caller must hold the
+// crannog lock. Count without the crannog lock can hold the new file for a
+// moment; Register then tries again.
+func Register(dir *os.Root, info Info) (*Lock, string, error) {
+	data, err := yaml.Marshal(info)
+	if err != nil {
+		return nil, "", fmt.Errorf("register session: %w", err)
+	}
+	name := newName()
 	l, err := TryLock(dir, name)
 	for i := 0; errors.Is(err, ErrLocked) && i < registerRetries; i++ {
 		time.Sleep(registerRetry)
@@ -160,8 +180,18 @@ func Register(dir *os.Root) (*Lock, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("register session: %w", err)
 	}
+	if _, err := l.f.Write(data); err != nil {
+		l.Unlock()
+		return nil, "", errors.Join(fmt.Errorf("register session: %w", err), dir.Remove(name))
+	}
 	return l, name, nil
 }
+
+// extension is the extension of a session file.
+const extension = ".yml"
+
+// newName returns the name of a new session file. Tests replace it.
+var newName = func() string { return uuid.NewV7().String() + extension }
 
 // registerRetries and registerRetry are how often and how long Register
 // waits for a Count that looks at its session file.
@@ -174,7 +204,7 @@ const (
 // dir: session files that another process holds locked. Count looks at a
 // file with a shared lock, so two counts at the same time do not take each
 // other's look for a running session. Only regular files
-// named like a process id are session files. With prune, files of ended
+// named like Register names them are session files. With prune, files of ended
 // sessions are deleted; the caller must then hold the crannog lock, so it
 // cannot delete a session that is being registered. A session file removed
 // meanwhile, by its session when it ends, is skipped and not recreated.
@@ -185,7 +215,7 @@ func Count(dir *os.Root, prune bool) (int, error) {
 	}
 	n := 0
 	for _, e := range entries {
-		if !e.Type().IsRegular() || !isPID(e.Name()) {
+		if !e.Type().IsRegular() || !isSessionName(e.Name()) {
 			continue
 		}
 		l, err := tryLock(dir, e.Name(), false, syscall.LOCK_SH)
@@ -207,8 +237,13 @@ func Count(dir *os.Root, prune bool) (int, error) {
 	return n, nil
 }
 
-// isPID reports whether name is a process id as Register writes it.
-func isPID(name string) bool {
-	pid, err := strconv.Atoi(name)
-	return err == nil && pid > 0 && strconv.Itoa(pid) == name
+// isSessionName reports whether name is a UUID with the extension, as
+// Register writes it.
+func isSessionName(name string) bool {
+	id, ok := strings.CutSuffix(name, extension)
+	if !ok {
+		return false
+	}
+	u, err := uuid.Parse(id)
+	return err == nil && u.String() == id
 }

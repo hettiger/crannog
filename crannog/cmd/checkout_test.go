@@ -11,7 +11,7 @@ import (
 // parse parses args like Cobra does for checkout.
 func parse(t *testing.T, args ...string) (*cobra.Command, []string) {
 	c := &cobra.Command{Use: "checkout"}
-	c.Flags().BoolP("yes", "y", false, "")
+	c.Flags().AddFlagSet(checkoutCmd.Flags())
 	require.NoError(t, c.ParseFlags(args))
 	return c, c.Flags().Args()
 }
@@ -27,6 +27,8 @@ func TestCheckoutArgs(t *testing.T) {
 		{[]string{"feature/x", "--", "claude", "-p", "say hi"}, 1, true},
 		{[]string{"--", "claude", "-p", "say hi"}, 0, true},
 		{[]string{"-y", "--", "zsh"}, 0, true},
+		{[]string{"-d"}, 0, true},
+		{[]string{"-d", "feature/x", "--", "npm", "run", "dev"}, 1, true},
 		{[]string{"a", "b"}, 2, false},
 	}
 	for _, tt := range tests {

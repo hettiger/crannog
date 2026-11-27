@@ -4,6 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -139,6 +142,64 @@ func TestAttachReturnsTheExitCode(t *testing.T) {
 	_, err = CLI{}.Attach("c", ExecOptions{}, nil, "true")
 	assert.Error(t, err)
 	assert.Error(t, CheckCLI())
+}
+
+// A detached command runs in the background with the files it was given:
+// Detach returns before the command ends. The command is in a process
+// session of its own and has nothing of this process's standard input and
+// outputs.
+func TestDetachDoesNotWait(t *testing.T) {
+	root, dir := testfs.TempRoot(t)
+	t.Setenv("DETACH_DIR", dir)
+	// The fake says who it is and writes to its outputs, waits until the
+	// test lets it go, then writes its arguments and what it reads from
+	// the file it inherited and from its standard input.
+	fakeCLI(t, `cd "$DETACH_DIR" || exit 1
+echo $$ >pid.tmp && mv pid.tmp pid
+echo written to stdout
+echo written to stderr >&2
+i=0
+while [ ! -e go ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
+[ -e go ] || exit 1
+{ echo "$*"; cat <&3; cat; } >out.tmp
+mv out.tmp out`)
+	testfs.WriteFile(t, root, "session", "the session file\n", 0o644)
+	file, err := root.Open("session")
+	require.NoError(t, err)
+
+	// Standard input and outputs a detached command must not get.
+	testfs.WriteFile(t, root, "stdin", "typed in the terminal\n", 0o644)
+	stdin, err := root.Open("stdin")
+	require.NoError(t, err)
+	defer stdin.Close()
+	output, err := root.Create("output")
+	require.NoError(t, err)
+	defer output.Close()
+	oldIn, oldOut, oldErr := os.Stdin, os.Stdout, os.Stderr
+	os.Stdin, os.Stdout, os.Stderr = stdin, output, output
+	err = CLI{}.Detach("c", ExecOptions{User: "agent"}, []*os.File{file}, "sh", "-c", "true")
+	os.Stdin, os.Stdout, os.Stderr = oldIn, oldOut, oldErr
+	require.NoError(t, err)
+	require.NoError(t, file.Close())
+
+	require.Eventually(t, func() bool { return testfs.Exists(t, root, "pid") }, 10*time.Second, 20*time.Millisecond)
+	assert.False(t, testfs.Exists(t, root, "out"), "the command still runs")
+	pid, err := strconv.Atoi(strings.TrimSpace(testfs.ReadFile(t, root, "pid")))
+	require.NoError(t, err)
+	// The leader of a new process session leads its process group too;
+	// without one the command would be in the group of this test.
+	group, err := syscall.Getpgid(pid)
+	require.NoError(t, err)
+	assert.Equal(t, pid, group, "the command is not in the process session of this process")
+
+	testfs.WriteFile(t, root, "go", "", 0o644)
+	require.Eventually(t, func() bool { return testfs.Exists(t, root, "out") }, 10*time.Second, 20*time.Millisecond)
+	assert.Equal(t, "exec --user agent c sh -c true\nthe session file\n", testfs.ReadFile(t, root, "out"),
+		"the arguments, the inherited file and an empty standard input")
+	assert.Empty(t, testfs.ReadFile(t, root, "output"), "its output is discarded")
+
+	t.Setenv("PATH", t.TempDir())
+	assert.Error(t, CLI{}.Detach("c", ExecOptions{}, nil, "true"))
 }
 
 func TestCleanStderr(t *testing.T) {

@@ -18,7 +18,9 @@ small: what crannog can decide from the state, it does without a command.
   | Command | Does |
   | ------- | ---- |
   | `crannog checkout [branch] [-- command...]` | Opens a session in the crannog of `branch` |
+  | `crannog checkout -d [branch] [-- command...]` | Starts a detached session and returns |
   | `crannog apply [branch]` | Applies changes to `.crannog/` without opening a session |
+  | `crannog stop [branch]` | Ends the sessions of the crannog and stops it |
   | `crannog destroy [branch]` | Destroys the crannog |
   | `crannog list` | Lists the repository's crannogs: start branch, status, sessions |
   | `crannog preset publish [name]` | Writes a preset to `.crannog/` |
@@ -28,14 +30,20 @@ small: what crannog can decide from the state, it does without a command.
   | `crannog preset remove [name]` | Removes a user preset |
 
 - **`[branch]`** defaults to the checked-out branch and must be a local
-  branch (`refs/heads/<branch>`). `destroy` also accepts the start branch of
-  a crannog whose branch was deleted.
+  branch (`refs/heads/<branch>`). `stop` and `destroy` also accept the start
+  branch of a crannog whose branch was deleted.
 - **`checkout`** builds the crannog if it does not exist, starts it if it is
   stopped, and opens a session running `session.command` or the command
   after `--`, e.g. `crannog checkout feature/x -- zsh`. crannog quotes each
   argument after `--` for the shell, so the login shell runs exactly these
   arguments: `-- claude -p "say hi"` passes `say hi` as one argument. The
   session's exit code becomes crannog's exit code.
+- **`checkout -d`** (`--detach`), like `docker compose up -d`, does the
+  same, but starts a detached session
+  ([ADR 0019](0019-sessions-and-auto-stop.md)) and returns. Without a
+  command after `--` the session only waits.
+- **`stop`** asks nothing. Stopping a crannog after its last session stays
+  implicit.
 - **Setup changes:** `checkout` and `apply` compare the setup with the
   crannog's and ask for a setup approval
   ([ADR 0024](0024-setup-approval.md)) or a confirmation before a rebuild
@@ -50,8 +58,8 @@ small: what crannog can decide from the state, it does without a command.
   a second session is printed without asking. `--yes` answers
   confirmations, never approvals. Commands that take a preset name show a
   picker if it is omitted.
-- **Not commands:** building, rebuilding and stopping a crannog (implicit),
-  running a non-interactive command (`checkout -- ...`), editing the
+- **Not commands:** building and rebuilding a crannog (implicit), running a
+  non-interactive command (`checkout -- ...`), editing the
   allowlist and opening the proxy (`iron-proxy.yaml`, e.g. `warn: true`, then
   `apply`).
 

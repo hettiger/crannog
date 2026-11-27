@@ -32,7 +32,7 @@ can be interrupted at any point.
         agents-dir-mount        # where the agent homes are mounted
                                 # writable in the crannog, or empty
         lock                    # see ADR 0019
-        sessions/<pid>          # one per running session
+        sessions/<uuid>.yml     # one per running session
         proxy/                  # mounted read-only into the proxy: CA, key,
                                 # secrets/, iron-proxy.yaml
         ca/                     # ca.crt, for the setup to mount (CRANNOG_CA_DIR)

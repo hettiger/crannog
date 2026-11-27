@@ -3,6 +3,7 @@ package crannog
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,6 +39,10 @@ type fakeRuntime struct {
 	execHook func(name string, args []string) error
 	// buildErr, if set, fails Build.
 	buildErr error
+	// detached are the session files of the detached sessions that run.
+	detached []*os.File
+	// detachErr, if set, fails Detach.
+	detachErr error
 }
 
 func newFakeRuntime() *fakeRuntime {
@@ -158,6 +164,9 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 		return nil, fmt.Errorf("container %s is not running", name)
 	}
 	f.record("exec %s %s", name, args[0])
+	if len(args) == 5 && args[2] == signalScript && args[4] == "term" {
+		f.endDetached()
+	}
 	if f.execHook != nil {
 		if err := f.execHook(name, args); err != nil {
 			return nil, err
@@ -175,7 +184,53 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 }
 
 func (f *fakeRuntime) Attach(name string, o runtime.ExecOptions, files []*os.File, args ...string) (int, error) {
-	return 0, nil
+	return 0, checkSession(o, args)
+}
+
+// checkSession fails unless a session runs as the agent user in a working
+// directory, through the session script.
+func checkSession(o runtime.ExecOptions, args []string) error {
+	if o.User != AgentUser || !strings.HasPrefix(o.Workdir, "/work/") {
+		return fmt.Errorf("a session must run as %s in the repository, not as %q in %q", AgentUser, o.User, o.Workdir)
+	}
+	if len(args) != 5 || args[2] != sessionScript {
+		return fmt.Errorf("a session must run the session script, not %q", args)
+	}
+	return nil
+}
+
+// Detach keeps the files open like the container CLI in the background,
+// until the programs in the crannog are asked to end.
+func (f *fakeRuntime) Detach(name string, o runtime.ExecOptions, files []*os.File, args ...string) error {
+	if c := f.containers[name]; c == nil || c.State != runtime.StateRunning {
+		return fmt.Errorf("container %s is not running", name)
+	}
+	if err := checkSession(o, args); err != nil {
+		return err
+	}
+	if o.Interactive || o.TTY {
+		return errors.New("a detached session has no terminal and no input")
+	}
+	f.record("detach %s %s", name, args[len(args)-1])
+	if f.detachErr != nil {
+		return f.detachErr
+	}
+	for _, file := range files {
+		fd, err := syscall.Dup(int(file.Fd()))
+		if err != nil {
+			return err
+		}
+		f.detached = append(f.detached, os.NewFile(uintptr(fd), file.Name()))
+	}
+	return nil
+}
+
+// endDetached ends the detached sessions.
+func (f *fakeRuntime) endDetached() {
+	for _, file := range f.detached {
+		file.Close()
+	}
+	f.detached = nil
 }
 
 // fixture is a repository with a manager on a fake runtime.
@@ -217,6 +272,7 @@ func newFixture(t *testing.T) *fixture {
 		out:     &bytes.Buffer{},
 		hostEnv: map[string]string{},
 	}
+	t.Cleanup(f.rt.endDetached)
 	userHome := t.TempDir()
 	t.Setenv("HOME", userHome)
 	h, err := home.OpenCrannogHome()

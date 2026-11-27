@@ -3,7 +3,8 @@
 # End-to-end smoke test of crannog on macOS 26 / Apple Silicon with Apple
 # Containers. Builds real crannogs from a temporary repository with the
 # default preset and checks checkout, sessions, the git causeway, the proxy
-# causeway, apply (reload and rebuild), list, destroy and self-repair.
+# causeway, detached sessions, stop, apply (reload and rebuild), list, destroy
+# and self-repair.
 #
 # Uses the real ~/.crannog: the managed instructions blocks land in your
 # agent homes, as with any crannog. Crannogs are destroyed afterwards;
@@ -88,7 +89,8 @@ wait_until() {
   "$@" >/dev/null 2>&1
 }
 
-# Background session in the crannog of a branch that runs until stopped.
+# Session in the crannog of a branch that runs until stopped, started by a
+# crannog command in the background of this script.
 start_bg() {
   (cd "$REPO" && crannog checkout "$1" -- sh -c \
     'touch /tmp/bg-started; while [ ! -e /tmp/bg-stop ]; do sleep 1; done; rm -f /tmp/bg-stop' \
@@ -229,9 +231,30 @@ g remote remove crannog-mine
 check "checkout refuses a foreign remote of the crannog's name" fail foreign_remote_checkout "$REMOTE"
 g remote remove "$REMOTE"
 
-# --- 5. Setup changes ---------------------------------------------------------
+# --- 5. Detached sessions and stop --------------------------------------------
 
-say "5. preset publish, approvals, apply"
+say "5. Detached sessions and stop"
+check "checkout -d returns while its session runs" ok has 'runs in the background' cn checkout -d
+check "crannog list: running, 1 session" ok [ "$(status_of main)" = "running 1" ]
+check "remote exists while the detached session runs" ok has_remote "$REMOTE"
+check "the detached session only waits (tail)" ok in_main \
+  'for f in /proc/[0-9]*/comm; do [ "$(cat "$f" 2>/dev/null)" = tail ] && exit 0; done; exit 1'
+check "the crannog keeps running after a session next to it" ok [ "$(status_of main)" = "running 1" ]
+check "checkout -d with a command" ok cn checkout -d -- sh -c \
+  '[ "$(id -un)" = agent ] && [ "$(pwd)" = "$1" ] && touch /tmp/detached-ran; exec sleep 600' sh "$REPO_IN"
+check "the command runs in the background, as agent in the repository" ok wait_until in_main 'test -e /tmp/detached-ran'
+check "crannog list: 2 sessions" ok [ "$(status_of main)" = "running 2" ]
+check "stop ends the sessions without asking" ok cn stop
+check "crannog stopped" ok is_stopped main
+check "remote removed" ok [ -z "$(remotes)" ]
+check "stop of a stopped crannog says so" ok has 'is not running' cn stop main
+check "stop without a crannog fails" fail cn stop feature/smoke
+check "checkout -d with a command that ends by itself" ok cn checkout -d -- true
+check "next crannog call stops the crannog without sessions" ok wait_until is_stopped main
+
+# --- 6. Setup changes ---------------------------------------------------------
+
+say "6. preset publish, approvals, apply"
 check "preset publish default writes .crannog/" ok cn preset publish default
 check "preset publish asks before replacing (no terminal: error)" fail cn preset publish default
 check "content equal to the preset needs no approval" ok has 'up to date' cn apply
@@ -267,18 +290,18 @@ g switch -q feature/smoke
 check "setup of a branch that is not checked out is read from its commit" ok has 'Using .crannog/ from main (commit' cn apply main
 g switch -q main
 
-# --- 6. Second crannog, list --------------------------------------------------
+# --- 7. Second crannog, list --------------------------------------------------
 
-say "6. A second crannog"
+say "7. A second crannog"
 SECONDS=0
 check "checkout feature/smoke (preset, image cached)" ok cn checkout feature/smoke -- sh -c '[ "$(git symbolic-ref --short HEAD)" = feature/smoke ]'
 info "second crannog took ${SECONDS}s"
 check "crannog list shows feature/smoke" ok has '^feature/smoke' cn list
 check "crannog list shows main" ok has '^main' cn list
 
-# --- 7. Destroy ---------------------------------------------------------------
+# --- 8. Destroy ---------------------------------------------------------------
 
-say "7. Destroy"
+say "8. Destroy"
 check "destroy without a terminal and without --yes fails" fail cn destroy main
 check "crannog still stopped" ok [ "$(status_of main)" = "stopped 0" ]
 check "destroy main" ok cn destroy --yes main
@@ -298,6 +321,9 @@ cat <<EOF
    Interactive session with a TTY (Claude Code by default):
      cd $REPO && crannog checkout
    Shell:  crannog checkout -- zsh
+   A detached session survives its terminal: run in a new terminal window
+     cd $REPO && crannog checkout -d
+   close the window, then here: crannog list (running, 1 session), crannog stop
    OpenCode reads AGENTS.md from OPENCODE_CONFIG_DIR? Ask it in a session:
      crannog checkout -- opencode run "Quote the crannog section of your instructions"
    Run with --keep to try these before the cleanup.

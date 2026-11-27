@@ -6,24 +6,9 @@ import "fmt"
 // confirmation (ADR 0015, ADR 0027). The branch does not need to exist
 // anymore.
 func (m *Manager) Destroy(branchArg string) error {
-	branch := branchArg
-	if branch == "" {
-		b, err := m.Repo.CurrentBranch()
-		if err != nil {
-			return err
-		}
-		branch = b
-	}
-	t, err := m.target(branch)
+	t, err := m.crannogOf(branchArg)
 	if err != nil {
 		return err
-	}
-	exists, err := t.dir.exists()
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("there is no crannog for %s", branch)
 	}
 	m.SelfRepair()
 
@@ -56,11 +41,37 @@ func (m *Manager) Destroy(branchArg string) error {
 	if err := m.endSessions(t); err != nil {
 		return err
 	}
-	m.UI.Printf("Destroying the crannog of %s\n", branch)
+	m.UI.Printf("Destroying the crannog of %s\n", t.branch)
 	if err := m.remove(t); err != nil {
 		return err
 	}
 	return t.dir.removeAll()
+}
+
+// crannogOf returns the crannog of a start branch, by default the
+// checked-out one. The crannog must exist, the branch does not need to
+// anymore.
+func (m *Manager) crannogOf(branchArg string) (*target, error) {
+	branch := branchArg
+	if branch == "" {
+		b, err := m.Repo.CurrentBranch()
+		if err != nil {
+			return nil, err
+		}
+		branch = b
+	}
+	t, err := m.target(branch)
+	if err != nil {
+		return nil, err
+	}
+	exists, err := t.dir.exists()
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("there is no crannog for %s", branch)
+	}
+	return t, nil
 }
 
 // confirmDestroy says what destroying the crannog deletes and asks for
