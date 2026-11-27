@@ -175,6 +175,12 @@ func (f *fakeRuntime) Exec(ctx context.Context, name string, o runtime.ExecOptio
 	if len(args) == 5 && args[2] == readInstructionsScript {
 		return []byte(f.files[args[4]]), nil
 	}
+	if len(args) == 5 && args[2] == sshKeysScript {
+		data, err := io.ReadAll(o.Stdin)
+		f.files[sshDirInCrannog+"/"+hostKeyFile] = string(data)
+		f.files[sshDirInCrannog+"/authorized_keys"] = args[4] + "\n"
+		return nil, err
+	}
 	if len(args) == 5 && args[2] == writeInstructionsScript {
 		data, err := io.ReadAll(o.Stdin)
 		f.files[args[4]] = string(data)
@@ -287,7 +293,8 @@ func newFixture(t *testing.T) *fixture {
 			v, ok := f.hostEnv[k]
 			return v, ok
 		},
-		UserHome: userHome,
+		UserHome:   userHome,
+		Executable: "/usr/local/bin/crannog",
 	}
 	return f
 }

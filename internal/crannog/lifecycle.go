@@ -474,8 +474,9 @@ func (m *Manager) reloadProxy(t *target) error {
 
 // prepareSession runs before every session: it maps crannog-proxy to the
 // proxy's current address in /etc/hosts (ADR 0010), mirrors the git
-// author of the host repository (ADR 0016) and writes the managed
-// instructions block (ADR 0029).
+// author of the host repository (ADR 0016), writes the managed
+// instructions block (ADR 0029) and prepares the SSH causeway, which is
+// optional: if that fails, the session starts with a warning.
 func (m *Manager) prepareSession(t *target) error {
 	st, err := m.status(t.names)
 	if err != nil {
@@ -508,7 +509,13 @@ func (m *Manager) prepareSession(t *target) error {
 	if _, err := m.exec(t.names.Container, runtime.ExecOptions{User: AgentUser}, args...); err != nil {
 		return fmt.Errorf("setting the git author: %w", err)
 	}
-	return m.writeInstructions(t)
+	if err := m.writeInstructions(t); err != nil {
+		return err
+	}
+	if err := m.prepareSSH(t); err != nil {
+		m.UI.Printf("Warning: SSH to the crannog of %s is not available: %v\n", t.branch, err)
+	}
+	return nil
 }
 
 // writeInstructions updates the managed instructions block in each agent's

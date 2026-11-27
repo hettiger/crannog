@@ -29,7 +29,7 @@ var allowedProcesses = map[string]string{
 	// The one place of each program crannog runs on the host.
 	"internal/git/git.go os/exec":                       "runs git",
 	"internal/runtime/runtime.go os/exec":               "runs container",
-	"internal/runtime/runtime.go syscall.Exec":          "replaces the remote helper with container exec",
+	"internal/runtime/runtime.go syscall.Exec":          "replaces the remote helper and crannog ssh-proxy with container exec",
 	"internal/seatbelt/seatbelt_darwin.go syscall.Exec": "replaces the process with sandbox-exec",
 	// Tests.
 	"internal/testgit/testgit.go os/exec":      "runs git below the temporary directory",

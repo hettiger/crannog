@@ -33,6 +33,9 @@ type Manager struct {
 	LookupEnv func(string) (string, bool)
 	// UserHome is the user's home directory, for ~/ in mounts.
 	UserHome string
+	// Executable is the path of the running crannog binary, which the
+	// ProxyCommand of the SSH causeway runs.
+	Executable string
 }
 
 // New returns a manager for the repository of the current directory.
@@ -56,6 +59,10 @@ func New(u *ui.UI) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
 	return &Manager{
 		CrannogHome: h,
 		Repo:        repo,
@@ -63,6 +70,7 @@ func New(u *ui.UI) (*Manager, error) {
 		UI:          u,
 		LookupEnv:   os.LookupEnv,
 		UserHome:    userHome,
+		Executable:  exe,
 	}, nil
 }
 

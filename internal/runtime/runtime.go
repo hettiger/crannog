@@ -505,8 +505,8 @@ func (CLI) Detach(name string, o ExecOptions, files []*os.File, args ...string) 
 
 // Replace replaces this process with a command in a running container,
 // with the standard input and outputs and the environment of this
-// process. It only returns on errors. The remote helper ends this way
-// (ADR 0015).
+// process. It only returns on errors. The remote helper (ADR 0015) and
+// the ProxyCommand of the SSH causeway (ADR 0032) end this way.
 func (CLI) Replace(name string, o ExecOptions, args ...string) error {
 	path, err := cliPath()
 	if err != nil {

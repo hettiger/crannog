@@ -21,6 +21,7 @@ Direct dependencies besides Cobra ([ADR 0001](0001-go-and-cobra.md)):
 | `charm.land/huh/v2` | Confirmations, approvals, pickers, the spinner | MIT |
 | `charm.land/lipgloss/v2` | Tables and styling | MIT |
 | `github.com/stretchr/testify` | Tests (`require`, `assert`) | MIT |
+| `golang.org/x/crypto/ssh` | Keys of the SSH causeway: generating them in OpenSSH's format, reading them back ([ADR 0032](0032-ssh-causeway.md)) | BSD-3-Clause |
 
 Everything else uses the standard library or the tools crannog already
 requires:

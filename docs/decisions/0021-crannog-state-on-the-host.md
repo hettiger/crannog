@@ -20,6 +20,8 @@ can be interrupted at any point.
     agents/                     # agent homes (ADR 0011)
     cache/                      # package caches (ADR 0012)
     presets/<name>/             # user presets (ADR 0026)
+    ssh/                        # SSH causeway (ADR 0032): the config users
+                                # include, the client key
     repositories/<id>/
       path                      # git common dir, for humans and cleanup
       approved/<sha256>/        # approved setups, by setup hash (ADR 0024)
@@ -36,6 +38,8 @@ can be interrupted at any point.
         proxy/                  # mounted read-only into the proxy: CA, key,
                                 # secrets/, iron-proxy.yaml
         ca/                     # ca.crt, for the setup to mount (CRANNOG_CA_DIR)
+        ssh/                    # Host block, known_hosts and host key of
+                                # the SSH causeway (ADR 0032)
   ```
 
 - **Repository id:** the sha256 in hex of the git common directory as
