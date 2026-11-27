@@ -39,7 +39,7 @@ a long-running command, or a service the user connects to.
   ([ADR 0021](0021-crannog-state-on-the-host.md)) has a `lock` file and a
   `sessions/` directory.
   - Starting: crannog takes an exclusive `flock` on `lock`, starts the
-    crannog if needed, creates `sessions/<uuid>` with a new UUID and
+    crannog if needed, creates `sessions/<uuid>.yml` with a new UUID and
     takes an exclusive `flock` on it. The file says what the session runs,
     whether it is detached and when it started; counting does not read
     it. Then crannog releases `lock` and runs the

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -16,12 +17,12 @@ import (
 )
 
 // ended is the name of the session file of a session that has ended.
-const ended = "0193a5b2-58a0-7c5e-9d0b-3a1f0c2b7e11"
+const ended = "0193a5b2-58a0-7c5e-9d0b-3a1f0c2b7e11.yml"
 
 // upperCase is a UUID as Register never writes it. It differs from ended
 // in more than its case: a Mac's file system would take them for the same
 // file.
-const upperCase = "0193A5B2-7C44-7D1E-8F3A-5B6C7D8E9F01"
+const upperCase = "0193A5B2-7C44-7D1E-8F3A-5B6C7D8E9F01.yml"
 
 func TestTryLock(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
@@ -160,8 +161,9 @@ func TestCountsDoNotSeeEachOther(t *testing.T) {
 func TestRegisterWaitsForACount(t *testing.T) {
 	dir, _ := testfs.TempRoot(t)
 	name := ended
+	original := newName
+	t.Cleanup(func() { newName = original })
 	newName = func() string { return name }
-	t.Cleanup(func() { newName = func() string { return uuid.NewV7().String() } })
 	testfs.WriteFile(t, dir, name, "", 0o644)
 	looking, err := tryLock(dir, name, false, syscall.LOCK_SH)
 	require.NoError(t, err)
@@ -187,7 +189,9 @@ func TestRegisterAndCount(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "command: npm run 'dev server'\ndetached: true\nstarted_at: 2026-11-23T14:02:11+01:00\n",
 		testfs.ReadFile(t, dir, name), "the file says what the session runs")
-	_, err = uuid.Parse(name)
+	id, ok := strings.CutSuffix(name, ".yml")
+	assert.True(t, ok, "named like a YAML file")
+	_, err = uuid.Parse(id)
 	assert.NoError(t, err, "named with a UUID")
 	second, other, err := Register(dir, Info{})
 	require.NoError(t, err)
@@ -202,6 +206,7 @@ func TestRegisterAndCount(t *testing.T) {
 	testfs.WriteFile(t, dir, "notes.txt", "", 0o644)
 	testfs.WriteFile(t, dir, "0123", "", 0o644)
 	testfs.WriteFile(t, dir, upperCase, "", 0o644)
+	testfs.WriteFile(t, dir, "0193a5b2-7c44-7d1e-8f3a-5b6c7d8e9f02", "", 0o644)
 
 	n, err = Count(dir, false)
 	require.NoError(t, err)
@@ -216,6 +221,7 @@ func TestRegisterAndCount(t *testing.T) {
 	assert.True(t, testfs.Exists(t, dir, "notes.txt"), "no session file, kept")
 	assert.True(t, testfs.Exists(t, dir, "0123"), "no session file, kept")
 	assert.True(t, testfs.Exists(t, dir, upperCase), "no session file, kept")
+	assert.True(t, testfs.Exists(t, dir, "0193a5b2-7c44-7d1e-8f3a-5b6c7d8e9f02"), "no session file without the extension, kept")
 
 	require.NoError(t, l.Unlock())
 	n, err = Count(dir, true)

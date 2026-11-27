@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 	"uuid"
@@ -159,7 +160,8 @@ type Info struct {
 
 // Register creates a session file in the sessions directory dir, locks it
 // and writes info to it. It returns the lock and the file's name, a new
-// UUID of version 7, which sorts by the time the session was registered:
+// UUID of version 7, which sorts by the time the session was registered,
+// with the extension of a YAML file:
 // the process that holds the lock can outlive the one that registered the
 // session, so a process id would not stay unique. The caller must hold the
 // crannog lock. Count without the crannog lock can hold the new file for a
@@ -185,8 +187,11 @@ func Register(dir *os.Root, info Info) (*Lock, string, error) {
 	return l, name, nil
 }
 
+// extension is the extension of a session file.
+const extension = ".yml"
+
 // newName returns the name of a new session file. Tests replace it.
-var newName = func() string { return uuid.NewV7().String() }
+var newName = func() string { return uuid.NewV7().String() + extension }
 
 // registerRetries and registerRetry are how often and how long Register
 // waits for a Count that looks at its session file.
@@ -232,8 +237,13 @@ func Count(dir *os.Root, prune bool) (int, error) {
 	return n, nil
 }
 
-// isSessionName reports whether name is a UUID as Register writes it.
+// isSessionName reports whether name is a UUID with the extension, as
+// Register writes it.
 func isSessionName(name string) bool {
-	u, err := uuid.Parse(name)
-	return err == nil && u.String() == name
+	id, ok := strings.CutSuffix(name, extension)
+	if !ok {
+		return false
+	}
+	u, err := uuid.Parse(id)
+	return err == nil && u.String() == id
 }

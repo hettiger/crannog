@@ -21,7 +21,7 @@ sorted by start branch. Status is the runtime's state (`running`,
 `stopped`, …), `incomplete` for the remains of an interrupted build, or
 `containers missing`, which the next [checkout](checkout.md) or
 [apply](apply.md) recreates. Sessions are counted on the host from
-`sessions/<uuid>` files that a running session holds locked. Only
+`sessions/<uuid>.yml` files that a running session holds locked. Only
 directories named like a branch slug count as crannogs. Without crannogs it
 says so on stderr.
 

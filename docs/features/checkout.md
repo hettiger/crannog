@@ -79,7 +79,7 @@ confirmations, never setup approvals. `-d` (`--detach`) starts a
 6. Before the session: writes `crannog-proxy` to `/etc/hosts`, mirrors
    `user.name` and `user.email` of the host repository and updates the
    managed instructions block in each agent home, from inside the crannog.
-7. Registers the session (`sessions/<uuid>`, locked), releases the lock and
+7. Registers the session (`sessions/<uuid>.yml`, locked), releases the lock and
    runs the command as `agent` in the agent's login shell in the
    repository, with a terminal if stdin and stdout are terminals. crannog
    ignores Ctrl-C (the terminal passes it to the session) and passes
