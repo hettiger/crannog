@@ -17,6 +17,8 @@ crannog stop [branch]
 
 `branch` defaults to the checked-out branch; it may name a branch that no
 longer exists. Without a crannog for the branch, stop is an error.
+`branch` completes to the start branches of the repository's crannogs,
+running or not.
 
 ## Behavior
 

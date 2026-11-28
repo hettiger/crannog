@@ -73,6 +73,26 @@ func (m *Manager) List() ([]Info, error) {
 	return list, nil
 }
 
+// StartBranches returns the start branches of the repository's crannogs,
+// sorted, for shell completion. Unlike List, it neither repairs nor asks
+// the runtime: it only reads the host directories.
+func (m *Manager) StartBranches() ([]string, error) {
+	slugs, err := m.hostDirSlugs()
+	if err != nil {
+		return nil, err
+	}
+	var branches []string
+	for _, s := range slugs {
+		branch, err := newHostDir(m.CrannogHome, m.Repo.ID, s).Branch()
+		if err != nil || branch == "" {
+			continue
+		}
+		branches = append(branches, branch)
+	}
+	sort.Strings(branches)
+	return branches, nil
+}
+
 // hostDirSlugs returns the branch slugs of the repository's crannog
 // directories. Entries that are no directory or not named like a branch
 // slug are not crannog directories.

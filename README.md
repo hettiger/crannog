@@ -76,6 +76,10 @@ git push crannog-<slug> main          # your new commits into the crannog
 | `crannog preset publish [name]` | Writes a preset to `.crannog/` |
 | `crannog preset list` | Lists all presets |
 
+`crannog completion <shell>` prints a completion script for bash, zsh,
+fish or PowerShell, which completes branches and preset names; see
+`crannog completion --help`.
+
 ## Tools on your Mac
 
 Editors with remote development (Zed, PhpStorm), terminal multiplexers and

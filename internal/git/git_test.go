@@ -37,6 +37,12 @@ func TestReading(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, ok, "not a revision expression")
 
+	testgit.Git(t, dir, "branch", "feature/x")
+	testgit.Git(t, dir, "tag", "feature/x")
+	branches, err := Branches(dir)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"feature/x", "main"}, branches, "a tag of the same name changes nothing")
+
 	commit, err := BranchCommit(dir, "main")
 	require.NoError(t, err)
 	assert.Equal(t, testgit.Git(t, dir, "rev-parse", "--short", "main"), commit)

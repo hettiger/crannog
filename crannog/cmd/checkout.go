@@ -36,7 +36,8 @@ output is discarded. crannog stop ends it.`,
   crannog checkout -- claude -p "Fix the failing test"
   crannog checkout -d
   crannog checkout -d feature/x -- npm run dev`,
-	Args: branchAndCommandArgs,
+	Args:              branchAndCommandArgs,
+	ValidArgsFunction: completeFirstArg(localBranches),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		branch, command := splitBranchAndCommand(cmd, args)
 		m, err := crannog.New(newUI(checkoutYes))

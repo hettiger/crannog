@@ -123,6 +123,11 @@ func (r *Repository) HasBranch(branch string) (bool, error) {
 	return git.HasBranch(r.Dir, branch)
 }
 
+// Branches returns the local branches, sorted.
+func (r *Repository) Branches() ([]string, error) {
+	return git.Branches(r.Dir)
+}
+
 // StartBranch resolves the [branch] argument of a command: the given
 // branch, or the checked-out one. It must be a local branch.
 func (r *Repository) StartBranch(arg string) (string, error) {

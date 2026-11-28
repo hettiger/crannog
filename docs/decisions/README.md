@@ -68,7 +68,7 @@ current state ([ADR 0004](0004-knowledge-base.md)). New ADRs use
 
 | ADR | Decides |
 | --- | ------- |
-| [0027](0027-cli-commands.md) CLI commands | Command set, `[branch]`, arguments after `--`, `ssh` and `use <tool>`, interaction and `--yes` |
+| [0027](0027-cli-commands.md) CLI commands | Command set, `[branch]`, arguments after `--`, `ssh` and `use <tool>`, interaction and `--yes`, argument completion |
 
 ## Agents
 

@@ -17,6 +17,7 @@ import (
 	"github.com/hettiger/crannog/internal/preset"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
+	"github.com/hettiger/crannog/internal/slug"
 	"github.com/hettiger/crannog/internal/testfs"
 	"github.com/hettiger/crannog/internal/testgit"
 	"github.com/hettiger/crannog/internal/ui"
@@ -473,6 +474,23 @@ func TestList(t *testing.T) {
 		{Branch: "half", Status: StatusIncomplete, SSHHost: half.names.Container},
 		{Branch: "main", Status: runtime.StateStopped, SSHHost: main.names.Container},
 	}, list)
+}
+
+func TestStartBranches(t *testing.T) {
+	f := newFixture(t)
+	s := defaultSetup(t)
+	f.existing("main", s)
+	f.existing("feature/x", s)
+	half := f.target("half")
+	require.NoError(t, half.dir.WriteBranch("half"))
+	for _, dir := range []string{slug.BranchSlug("unrecorded"), "not-a-slug"} {
+		require.NoError(t, f.m.CrannogHome.Root.MkdirAll(home.CrannogPath(f.m.Repo.ID, dir), 0o700))
+	}
+	f.m.Runtime = nil // completion never asks the runtime, so never repairs
+
+	branches, err := f.m.StartBranches()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"feature/x", "half", "main"}, branches)
 }
 
 func TestTargetSafetyNet(t *testing.T) {
