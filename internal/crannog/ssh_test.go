@@ -55,7 +55,7 @@ func TestPrepareSSH(t *testing.T) {
 	f.assertPrivateDir(filepath.Join(tg.dir.path, sshDir))
 	assert.Equal(t, "# Written by crannog. Include it at the top of ~/.ssh/config to reach\n"+
 		"# crannogs with SSH:  Include ~/.crannog/ssh/config\n"+
-		`Include "`+f.m.CrannogHome.Dir+`/repositories/*/crannogs/*/ssh/config"`+"\n",
+		"Include ~/.crannog/repositories/*/crannogs/*/ssh/config\n",
 		f.sshFile(filepath.Join(home.SSH, sshConfigFile)))
 
 	client := parseKey(t, f.sshFile(filepath.Join(home.SSH, clientKeyFile)))
@@ -66,14 +66,13 @@ func TestPrepareSSH(t *testing.T) {
 	assert.Equal(t, tg.names.Container+" "+publicKeyLine(hostKey.PublicKey())+"\n",
 		f.sshFile(filepath.Join(tg.dir.path, sshDir, knownHostsFile)))
 
-	sshDirOnHost := filepath.Join(tg.dir.Dir, sshDir)
 	assert.Equal(t, `# Written by crannog for the crannog of main; rewritten by every
 # crannog checkout of this branch, removed by crannog destroy.
 Host `+tg.names.Container+`
   HostKeyAlias `+tg.names.Container+`
   User agent
   ProxyCommand /usr/local/bin/crannog ssh-proxy --container-cli /usr/local/bin/container `+f.m.Repo.ID+` `+tg.names.Slug+`
-  IdentityFile "`+f.m.CrannogHome.Dir+`/ssh/id_ed25519"
+  IdentityFile ~/.crannog/ssh/id_ed25519
   IdentitiesOnly yes
   IdentityAgent none
   ForwardAgent no
@@ -81,7 +80,7 @@ Host `+tg.names.Container+`
   PermitLocalCommand no
   StrictHostKeyChecking yes
   UpdateHostKeys no
-  UserKnownHostsFile "`+sshDirOnHost+`/known_hosts"
+  UserKnownHostsFile ~/.crannog/repositories/`+f.m.Repo.ID+`/crannogs/`+tg.names.Slug+`/ssh/known_hosts
 `, f.sshFile(filepath.Join(tg.dir.path, sshDir, sshConfigFile)))
 
 	assert.Equal(t, hostKeyPEM, f.rt.files[sshDirInCrannog+"/"+hostKeyFile], "the host key is passed as content")
@@ -143,14 +142,10 @@ func TestHostBlockQuoting(t *testing.T) {
 		ContainerCLI: "/usr/local/bin/container",
 		ID:           strings.Repeat("a", 64),
 		Slug:         "main-0d6e4079",
-		IdentityFile: "/Users/Ada Lovelace/.crannog/ssh/id_ed25519",
-		KnownHosts:   "/Users/Ada Lovelace/100%/known_hosts",
 	}
 	block, err := hostBlock(e)
 	require.NoError(t, err)
 	assert.Contains(t, block, "  ProxyCommand '/Users/Ada Lovelace/go/bin/crannog' ssh-proxy --container-cli /usr/local/bin/container "+e.ID+" main-0d6e4079\n")
-	assert.Contains(t, block, `  IdentityFile "/Users/Ada Lovelace/.crannog/ssh/id_ed25519"`+"\n")
-	assert.Contains(t, block, `  UserKnownHostsFile "/Users/Ada Lovelace/100%%/known_hosts"`+"\n", "%-tokens are escaped")
 
 	e.Executable = "/odd/100%/crannog"
 	block, err = hostBlock(e)
@@ -163,11 +158,8 @@ func TestHostBlockQuoting(t *testing.T) {
 	assert.Contains(t, block, "# Written by crannog for the crannog of evil?Host *;", "a branch cannot add lines")
 
 	for name, change := range map[string]func(*hostEntry){
-		"quote in a path":         func(e *hostEntry) { e.KnownHosts = `/a"b/known_hosts` },
-		"newline in a path":       func(e *hostEntry) { e.IdentityFile = "/a\nb" },
-		"newline in the binary":   func(e *hostEntry) { e.Executable = "/a\nb" },
-		"newline in the CLI":      func(e *hostEntry) { e.ContainerCLI = "/a\nb" },
-		"newline in the key file": func(e *hostEntry) { e.IdentityFile = "/a\rb" },
+		"newline in the binary": func(e *hostEntry) { e.Executable = "/a\nb" },
+		"newline in the CLI":    func(e *hostEntry) { e.ContainerCLI = "/a\nb" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			bad := e
@@ -176,11 +168,11 @@ func TestHostBlockQuoting(t *testing.T) {
 			assert.ErrorContains(t, err, "cannot be used in an SSH config")
 		})
 	}
-}
 
-func TestIncludeConfigRefusesGlobCharacters(t *testing.T) {
-	_, err := includeConfig("/Users/a[1]/.crannog")
-	assert.ErrorContains(t, err, "glob character")
+	bad := e
+	bad.Slug = "a b"
+	_, err = hostBlock(bad)
+	assert.ErrorContains(t, err, "invalid crannog", "names in the unquoted paths are validated")
 }
 
 func TestSSHProxy(t *testing.T) {

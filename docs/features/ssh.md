@@ -91,8 +91,8 @@ The server runs until the crannog stops. Add the host in Rex with
   Every session start (`checkout`) writes them: keys once, the Host block
   and `known_hosts` every time, so the `ProxyCommand` names the paths of
   the crannog binary that ran and of the container CLI in its `PATH`
-  (apps started from the Dock have a short `PATH`). `destroy` removes the crannog's directory
-  and with it its files.
+  (apps started from the Dock have a short `PATH`). `destroy` removes the
+  crannog's directory and with it its files.
 - **In the crannog**, every session start writes `/state/ssh/`
   (`ssh_host_ed25519_key`, `authorized_keys`) as the agent user, from
   content the host passes. If that fails, the session starts with a
@@ -115,9 +115,12 @@ The server runs until the crannog stops. Add the host in Rex with
   `IdentityFile`, `IdentitiesOnly yes`, `IdentityAgent none`,
   `ForwardAgent no`, `ForwardX11 no`, `PermitLocalCommand no`,
   `StrictHostKeyChecking yes`, `UpdateHostKeys no` and
-  `UserKnownHostsFile`. Paths are quoted, `%` is escaped; a path with a
-  double quote or a control character cannot be written and SSH is then
-  not available.
+  `UserKnownHostsFile`. Paths below `~/.crannog` are written with `~` and
+  unquoted (zsh's completion of ssh hosts then follows the `Include`);
+  ssh expands `~` to the home directory of the user database, which must
+  match `$HOME`. In the `ProxyCommand` the paths of crannog and the
+  container CLI are quoted for the shell and `%` is escaped; a path with a
+  control character cannot be written and SSH is then not available.
 
 ## Caveats
 

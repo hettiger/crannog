@@ -82,8 +82,6 @@ func (m *Manager) prepareSSH(t *target) error {
 		ContainerCLI: m.ContainerCLI,
 		ID:           m.Repo.ID,
 		Slug:         t.names.Slug,
-		IdentityFile: m.CrannogHome.Abs(filepath.Join(home.SSH, clientKeyFile)),
-		KnownHosts:   filepath.Join(t.dir.Dir, sshDir, knownHostsFile),
 	})
 	if err != nil {
 		return err
@@ -102,32 +100,25 @@ func (m *Manager) prepareSSH(t *target) error {
 // writeSSHInclude writes ~/.crannog/ssh/config, which includes the Host
 // blocks of all crannogs. The user includes it in ~/.ssh/config.
 func (m *Manager) writeSSHInclude() error {
-	content, err := includeConfig(m.CrannogHome.Dir)
-	if err != nil {
-		return err
-	}
 	r, err := privateDir(m.CrannogHome.Root, home.SSH)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
-	return writeIfChanged(r, sshConfigFile, []byte(content))
+	return writeIfChanged(r, sshConfigFile, []byte(includeConfig))
 }
 
-// includeConfig returns ~/.crannog/ssh/config for the crannog home dir.
-func includeConfig(dir string) (string, error) {
-	if strings.ContainsAny(dir, "*?[") {
-		return "", fmt.Errorf("the crannog home %s contains a glob character, which SSH's Include cannot match literally", dir)
-	}
-	pattern := filepath.Join(dir, home.CrannogPath("*", "*"), sshDir, sshConfigFile)
-	arg, err := configArg(pattern)
-	if err != nil {
-		return "", err
-	}
-	return "# Written by crannog. Include it at the top of ~/.ssh/config to reach\n" +
-		"# crannogs with SSH:  Include ~/.crannog/ssh/config\n" +
-		"Include " + arg + "\n", nil
-}
+// crannogHomeInSSHConfig is the crannog home in the SSH files: ssh
+// expands ~ to the user's home, and the crannog home is always
+// ~/.crannog (hostfs). Paths below it consist of names crannog chose and
+// validated, so they need no quoting. Unquoted, zsh's completion of ssh
+// hosts can follow the Include; it does not remove quotes.
+const crannogHomeInSSHConfig = "~/.crannog"
+
+// includeConfig is ~/.crannog/ssh/config.
+var includeConfig = "# Written by crannog. Include it at the top of ~/.ssh/config to reach\n" +
+	"# crannogs with SSH:  Include ~/.crannog/ssh/config\n" +
+	"Include " + filepath.Join(crannogHomeInSSHConfig, home.CrannogPath("*", "*"), sshDir, sshConfigFile) + "\n"
 
 // privateDir opens the directory name in parent, creating it readable by
 // the user only if it is missing.
@@ -262,8 +253,6 @@ type hostEntry struct {
 	ContainerCLI string
 	ID           string
 	Slug         string
-	IdentityFile string
-	KnownHosts   string
 }
 
 // hostBlock returns the Host block of a crannog. In an SSH config the
@@ -271,14 +260,11 @@ type hostEntry struct {
 // the user's own keys, agent and settings out of the crannog; options a
 // user's Host * sets that it does not set still apply (see the docs).
 func hostBlock(e hostEntry) (string, error) {
-	identity, err := configArg(e.IdentityFile)
-	if err != nil {
-		return "", err
+	if !repository.ValidID(e.ID) || !slug.Valid(e.Slug) {
+		return "", fmt.Errorf("invalid crannog %s %s", e.ID, e.Slug)
 	}
-	known, err := configArg(e.KnownHosts)
-	if err != nil {
-		return "", err
-	}
+	identity := filepath.Join(crannogHomeInSSHConfig, home.SSH, clientKeyFile)
+	known := filepath.Join(crannogHomeInSSHConfig, home.CrannogPath(e.ID, e.Slug), sshDir, knownHostsFile)
 	for _, p := range []string{e.Executable, e.ContainerCLI} {
 		if strings.ContainsFunc(p, isControl) {
 			return "", fmt.Errorf("the path %q cannot be used in an SSH config", p)
@@ -308,15 +294,6 @@ Host %s
   UpdateHostKeys no
   UserKnownHostsFile %s
 `, branch, e.Host, e.Host, AgentUser, proxy, identity, known), nil
-}
-
-// configArg quotes a path as one argument in an SSH config, with its
-// %-tokens escaped. SSH configs have no escape for double quotes.
-func configArg(p string) (string, error) {
-	if strings.ContainsRune(p, '"') || strings.ContainsFunc(p, isControl) {
-		return "", fmt.Errorf("the path %q cannot be used in an SSH config", p)
-	}
-	return `"` + strings.ReplaceAll(p, "%", "%%") + `"`, nil
 }
 
 func isControl(r rune) bool { return r < 0x20 || r == 0x7f }
