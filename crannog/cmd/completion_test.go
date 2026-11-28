@@ -96,4 +96,5 @@ func TestCommandCompletion(t *testing.T) {
 	assert.Equal(t, []string{"feature/x", "main"}, run("checkout", ""))
 	assert.Equal(t, []string{"feature/x"}, run("checkout", "f"))
 	assert.Contains(t, run("preset", "publish", ""), "default")
+	assert.Contains(t, run("use", ""), "zed\tOpen the running crannog of a branch in Zed")
 }

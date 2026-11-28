@@ -212,7 +212,7 @@ it.
 - **Not to be confused with:** a session; an SSH connection does not keep
   a crannog running
 - **In code:** `crannog ssh-proxy`, `prepareSSH`, `SSHProxy`, `crannog ssh`
-  (`Manager.SSH`), package `openssh`
+  (`Manager.SSH`), package `openssh`, `crannog use zed` (`Manager.UseZed`)
 
 ## Start branch
 

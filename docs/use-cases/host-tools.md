@@ -1,7 +1,7 @@
 # Work in a crannog with tools on the host
 
 - **Actor:** User
-- **Features:** [SSH causeway](../features/ssh.md), [checkout](../features/checkout.md), [list](../features/list.md), [stop](../features/stop.md)
+- **Features:** [SSH causeway](../features/ssh.md), [use zed](../features/use-zed.md), [checkout](../features/checkout.md), [list](../features/list.md), [stop](../features/stop.md)
 
 ## Goal
 

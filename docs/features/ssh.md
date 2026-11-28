@@ -51,28 +51,8 @@ crannog ssh feature/x -- npm test
 
 ### Zed
 
-In Zed's settings, with the host from `crannog list` and the repository's
-path in the crannog (`/work` followed by its path on the host):
-
-```json
-{
-  "ssh_connections": [
-    {
-      "host": "crannog-1a2b3c4d-main-3f2a1b0c",
-      "nickname": "my-app main",
-      "upload_binary_over_ssh": true,
-      "projects": [{ "paths": ["/work/Users/me/code/my-app"] }]
-    }
-  ]
-}
-```
-
-`upload_binary_over_ssh` makes Zed download its server on the Mac and
-upload it, so `zed.dev` need not be on the proxy's allowlist. Zed opens a
-remote project in Restricted Mode; once trusted, it may download language
-servers in the crannog. If the allowlist blocks them, set `warn: true` in
-`.crannog/iron-proxy.yaml` for a while, apply it with `crannog apply` and
-add what the proxy's log shows.
+`crannog use zed` opens the repository in the crannog in Zed; see
+[use zed](use-zed.md), also for Zed's settings.
 
 ### Rex
 

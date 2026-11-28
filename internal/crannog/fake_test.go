@@ -247,6 +247,7 @@ type fixture struct {
 	m       *Manager
 	rt      *fakeRuntime
 	ssh     *fakeSSH
+	zed     *fakeZed
 	prompt  *fakePrompter
 	out     *bytes.Buffer
 	hostEnv map[string]string
@@ -285,6 +286,17 @@ func (f *fakeSSH) Replace(host string, o openssh.Options) error {
 	return errors.New("replaced")
 }
 
+// fakeZed simulates Zed's command line tool.
+type fakeZed struct {
+	// opened is the host and directory of each OpenSSH.
+	opened [][2]string
+}
+
+func (f *fakeZed) OpenSSH(host, dir string) error {
+	f.opened = append(f.opened, [2]string{host, dir})
+	return nil
+}
+
 func newFixture(t *testing.T) *fixture {
 	dir := testgit.Init(t)
 	repo, err := repository.Open(dir)
@@ -294,6 +306,7 @@ func newFixture(t *testing.T) *fixture {
 		dir:     dir,
 		rt:      newFakeRuntime(),
 		ssh:     &fakeSSH{config: map[string][]string{}},
+		zed:     &fakeZed{},
 		prompt:  &fakePrompter{},
 		out:     &bytes.Buffer{},
 		hostEnv: map[string]string{},
@@ -317,6 +330,7 @@ func newFixture(t *testing.T) *fixture {
 		Executable:   "/usr/local/bin/crannog",
 		ContainerCLI: "/usr/local/bin/container",
 		SSHClient:    f.ssh,
+		Zed:          f.zed,
 	}
 	return f
 }

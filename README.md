@@ -73,6 +73,7 @@ git push crannog-<slug> main          # your new commits into the crannog
 | `crannog destroy [branch]` | Destroys the crannog after a confirmation |
 | `crannog list` | Lists the repository's crannogs |
 | `crannog ssh [branch] [-- command...]` | Opens a shell over SSH in a running crannog |
+| `crannog use zed [branch]` | Opens a running crannog in Zed |
 | `crannog preset publish [name]` | Writes a preset to `.crannog/` |
 | `crannog preset list` | Lists all presets |
 
@@ -91,11 +92,13 @@ Include ~/.crannog/ssh/config
 ```
 
 crannog never edits `~/.ssh` itself. Then open a shell with `crannog ssh`,
-or connect tools to the name `crannog list` shows under `SSH HOST`:
+open the repository in Zed with `crannog use zed`, or connect tools to the
+name `crannog list` shows under `SSH HOST`:
 
 ```sh
 crannog checkout -d
 crannog ssh
+crannog use zed
 ssh crannog-1a2b3c4d-main-3f2a1b0c
 ```
 

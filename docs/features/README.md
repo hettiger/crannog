@@ -16,6 +16,7 @@ One file per feature (`short-name.md`), listed here.
 | [setup](setup.md)                             | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | Format of `.crannog/` and what crannog expects  |
 | [SSH causeway](ssh.md)                        | Implemented | [host-tools](../use-cases/host-tools.md)            | Reach a running crannog with SSH-based tools; `crannog ssh` |
 | [stop](stop.md)                               | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | End the sessions of a crannog and stop it       |
+| [use zed](use-zed.md)                         | Implemented | [host-tools](../use-cases/host-tools.md)            | Open the running crannog of a branch in Zed     |
 | [version](version.md)                         | Implemented | –                                                  | Print the crannog version                       |
 
 <!--

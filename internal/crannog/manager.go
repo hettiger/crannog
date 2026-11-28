@@ -20,6 +20,7 @@ import (
 	"github.com/hettiger/crannog/internal/setup"
 	"github.com/hettiger/crannog/internal/slug"
 	"github.com/hettiger/crannog/internal/ui"
+	"github.com/hettiger/crannog/internal/zed"
 )
 
 // AgentUser is the user agents and sessions run as (ADR 0011).
@@ -44,6 +45,8 @@ type Manager struct {
 	ContainerCLI string
 	// SSHClient runs ssh on the host for crannog ssh.
 	SSHClient SSHClient
+	// Zed runs Zed's command line tool for crannog use zed.
+	Zed Zed
 }
 
 // SSHClient runs the system ssh with the user's SSH configuration
@@ -54,6 +57,12 @@ type SSHClient interface {
 	Config(ctx context.Context, host string) (map[string][]string, error)
 	// Replace replaces this process with ssh to host.
 	Replace(host string, o openssh.Options) error
+}
+
+// Zed runs Zed's command line tool (package zed).
+type Zed interface {
+	// OpenSSH opens the directory dir on the SSH host host in Zed.
+	OpenSSH(host, dir string) error
 }
 
 // New returns a manager for the repository of the current directory.
@@ -92,6 +101,7 @@ func New(u *ui.UI) (*Manager, error) {
 		Executable:   exe,
 		ContainerCLI: containerCLI,
 		SSHClient:    openssh.Client{},
+		Zed:          zed.CLI{},
 	}, nil
 }
 

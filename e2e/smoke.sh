@@ -265,18 +265,28 @@ printf 'Include %s/.crannog/ssh/config\nHost *\n  ForwardAgent yes\n' "$HOME" >"
 in_ssh() { ssh -F "$SSH_CONFIG" -o BatchMode=yes "$SSH_HOST" "$@" </dev/null; }
 check "ssh to a stopped crannog fails and names checkout -d" ok has 'crannog checkout -d main' in_ssh true
 check "crannog ssh to a stopped crannog fails and names checkout -d" ok has 'crannog checkout -d main' cn ssh
+check "crannog use zed to a stopped crannog fails and names checkout -d" ok has 'crannog checkout -d main' cn use zed
 check "checkout -d starts the crannog" ok cn checkout -d
 # crannog ssh runs ssh with your ~/.ssh/config: with the Include it
 # connects, without it it names the line to add.
 ssh_exit_code() { cn ssh -- sh -c 'exit 3'; [ $? -eq 3 ]; }
+# A zed that prints its arguments and fails, so crannog shows them and no
+# window opens.
+mkdir -p "$WORK/bin"
+printf '#!/bin/sh\necho "args: $*"\nexit 1\n' >"$WORK/bin/zed"
+chmod +x "$WORK/bin/zed"
+with_fake_zed() { (PATH="$WORK/bin:$PATH"; export PATH; "$@"); }
 if ssh -G "$SSH_HOST" 2>/dev/null | grep -q '^proxycommand .* ssh-proxy '; then
   info "~/.ssh/config includes crannog's config"
   check "crannog ssh runs the command in the repository" ok has "^$REPO_IN\$" cn ssh -- pwd
   check "crannog ssh passes the arguments unchanged" ok has '^\[a b\]\[\$HOME\]$' cn ssh -- printf '[%s]' 'a b' '$HOME'
   check "crannog ssh exits with the command's exit code" ok ssh_exit_code
+  check "crannog use zed runs zed with the repository's URL" ok \
+    has "args: ssh://$SSH_HOST$REPO_IN\$" with_fake_zed cn use zed
 else
   info "~/.ssh/config does not include crannog's config"
   check "crannog ssh names the Include line" ok has 'Include ~/.crannog/ssh/config' cn ssh -- true
+  check "crannog use zed names the Include line" ok has 'Include ~/.crannog/ssh/config' cn use zed
 fi
 check "ssh runs as agent" ok in_ssh '[ "$(id -un)" = agent ]'
 check "the session has the proxy variables and the image's PATH" ok in_ssh \
@@ -373,7 +383,7 @@ cat <<EOF
    run cd $REPO && crannog checkout -d, then
      crannog ssh                (a login shell in the repository, with a TTY)
      crannog ssh -- claude      (a command with a TTY)
-     zed ssh://$SSH_HOST$REPO_IN
+     crannog use zed            (opens the repository in Zed)
    OpenCode reads AGENTS.md from OPENCODE_CONFIG_DIR? Ask it in a session:
      crannog checkout -- opencode run "Quote the crannog section of your instructions"
    Run with --keep to try these before the cleanup.

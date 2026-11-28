@@ -33,6 +33,7 @@ var allowedProcesses = map[string]string{
 	"internal/seatbelt/seatbelt_darwin.go syscall.Exec": "replaces the process with sandbox-exec",
 	"internal/openssh/openssh.go os/exec":               "runs ssh -G",
 	"internal/openssh/openssh.go syscall.Exec":          "replaces crannog ssh with ssh",
+	"internal/zed/zed.go os/exec":                       "runs zed ssh://",
 	// Tests.
 	"internal/testgit/testgit.go os/exec":      "runs git below the temporary directory",
 	"internal/crannog/scripts_test.go os/exec": "runs with sh the scripts crannog runs in a crannog",
