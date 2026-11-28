@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/hettiger/crannog/internal/home"
+	"github.com/hettiger/crannog/internal/openssh"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/testfs"
 )
@@ -242,4 +243,41 @@ func TestCheckoutPreparesSSHAndDestroyRemovesIt(t *testing.T) {
 	assert.False(t, testfs.Exists(t, f.m.CrannogHome.Root, tg.dir.path))
 	assert.True(t, testfs.Exists(t, f.m.CrannogHome.Root, filepath.Join(home.SSH, clientKeyFile)))
 	assert.True(t, testfs.Exists(t, f.m.CrannogHome.Root, filepath.Join(home.SSH, sshConfigFile)))
+}
+
+// crannog ssh connects only to a running crannog, and only if the user's
+// ssh uses crannog's Host block.
+func TestSSH(t *testing.T) {
+	f := newFixture(t)
+	assert.EqualError(t, f.m.SSH("", nil), "there is no crannog for main")
+
+	tg := f.existing("main", defaultSetup(t))
+	assert.EqualError(t, f.m.SSH("", nil), "the crannog of main is not running; start it with: crannog checkout -d main")
+	assert.Empty(t, f.rt.callsWith("start"), "never starts a crannog")
+
+	f.rt.containers[tg.names.Container].State = runtime.StateRunning
+	assert.EqualError(t, f.m.SSH("", nil), "SSH to the crannog of main is not prepared; the next crannog checkout of it prepares it")
+
+	require.NoError(t, f.m.prepareSSH(tg))
+	include := "ssh does not use crannog's Host block for " + tg.names.Container +
+		". Add this line at the top of ~/.ssh/config, before any Host or Match block:\n  Include ~/.crannog/ssh/config"
+	assert.EqualError(t, f.m.SSH("", nil), include, "without the Include ssh has no ProxyCommand")
+	f.ssh.config["proxycommand"] = []string{"nc %h %p"}
+	assert.EqualError(t, f.m.SSH("", nil), include, "a ProxyCommand of the user's comes first")
+	f.ssh.config["proxycommand"] = []string{"/usr/local/bin/crannog ssh-proxy --container-cli /usr/local/bin/container " + f.m.Repo.ID + " other-0d6e4079"}
+	assert.EqualError(t, f.m.SSH("", nil), include, "the Host block of another crannog")
+	assert.Nil(t, f.ssh.replaced)
+
+	f.ssh.config["proxycommand"] = []string{"/elsewhere/crannog ssh-proxy --container-cli /usr/local/bin/container " + f.m.Repo.ID + " " + tg.names.Slug}
+	assert.EqualError(t, f.m.SSH("", nil), "replaced", "a Host block copied from an older checkout")
+	repo := f.m.Repo.PathInCrannog()
+	assert.Equal(t, []any{tg.names.Container, openssh.Options{Command: "cd " + repo + ` && exec "$SHELL" -l`}}, f.ssh.replaced)
+
+	f.prompt.terminal = true
+	assert.EqualError(t, f.m.SSH("main", []string{"claude", "-p", "say hi"}), "replaced")
+	assert.Equal(t, []any{tg.names.Container, openssh.Options{
+		Terminal: true,
+		Command:  "cd " + repo + ` && exec "$SHELL" -l -c 'claude -p '\''say hi'\'''`,
+	}}, f.ssh.replaced, "the login shell runs exactly these arguments")
+	assert.Empty(t, f.out.String())
 }

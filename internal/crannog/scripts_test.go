@@ -140,3 +140,20 @@ func TestSSHDScriptWithoutSSHD(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, out, "this crannog has no sshd; its image needs OpenSSH's server")
 }
+
+// Over SSH, the agent's shell runs crannog ssh's command in the repository
+// with exactly its arguments, in the login shell.
+func TestSSHCommand(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, testfs.Root(t, tmp).Mkdir("my repo", 0o700))
+	dir := filepath.Join(tmp, "my repo")
+	testfs.WriteFile(t, testfs.Root(t, dir), "in-repo", "", 0o600)
+	env := []string{"PATH=" + os.Getenv("PATH"), "SHELL=/bin/sh", "HOME=" + t.TempDir()}
+	out, err := runSSHScript(t, sshCommand(dir, []string{"sh", "-c", `ls; printf '[%s]' "$@"`, "sh", "say 'hi'", "$HOME", ""}), "", env)
+	require.NoError(t, err, out)
+	assert.Equal(t, "in-repo\n[say 'hi'][$HOME][]", out)
+
+	out, err = runSSHScript(t, sshCommand(dir, nil), "ls\n", env)
+	require.NoError(t, err, out)
+	assert.Equal(t, "in-repo\n", out, "a login shell in dir, reading stdin")
+}

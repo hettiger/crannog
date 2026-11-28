@@ -28,8 +28,8 @@ crannog with an editor or other SSH-based tools of their Mac include
 crannog's SSH config in theirs; SSH then also runs over `container exec`,
 without a port ([ADR 0032](decisions/0032-ssh-causeway.md)). On the host, crannog itself
 runs in the macOS sandbox and can write files only where it has to
-([ADR 0030](decisions/0030-seatbelt.md)), and it runs git and `container`
-only through a fixed set of operations
+([ADR 0030](decisions/0030-seatbelt.md)), and it runs git, `container`
+and `ssh` only through a fixed set of operations
 ([ADR 0031](decisions/0031-process-starts.md)).
 
 Each repository configures its crannogs in `.crannog/` (image, environment,

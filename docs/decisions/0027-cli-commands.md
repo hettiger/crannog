@@ -6,13 +6,14 @@
 ## Context
 
 crannog needs commands for starting sessions, applying setup changes,
-destroying crannogs and handling presets. The command set should stay
-small: what crannog can decide from the state, it does without a command.
+destroying crannogs, handling presets and reaching a crannog from tools on
+the host. The command set should stay small: what crannog can decide from
+the state, it does without a command.
 
 ## Decision
 
 - **Style:** Cobra subcommands, nested only where several commands belong
-  together (`crannog preset list`).
+  together (`crannog preset list`, `crannog use zed`).
 - **Commands:**
 
   | Command | Does |
@@ -23,6 +24,9 @@ small: what crannog can decide from the state, it does without a command.
   | `crannog stop [branch]` | Ends the sessions of the crannog and stops it |
   | `crannog destroy [branch]` | Destroys the crannog |
   | `crannog list` | Lists the repository's crannogs: start branch, status, sessions |
+  | `crannog ssh [branch] [-- command...]` | Opens a shell over SSH in the running crannog of `branch`, or runs a command there |
+  | `crannog use zed [branch]` | Opens the running crannog of `branch` in Zed |
+  | `crannog use rex [branch]` | Adds the running crannog of `branch` to Rex |
   | `crannog preset publish [name]` | Writes a preset to `.crannog/` |
   | `crannog preset add [name]` | Saves the repository's `.crannog/` as a user preset |
   | `crannog preset list` | Lists all presets, bundled and user |
@@ -42,6 +46,17 @@ small: what crannog can decide from the state, it does without a command.
   same, but starts a detached session
   ([ADR 0019](0019-sessions-and-auto-stop.md)) and returns. Without a
   command after `--` the session only waits.
+- **`ssh`** runs the system `ssh` with the user's SSH configuration, like
+  every tool on the host ([ADR 0032](0032-ssh-causeway.md)). For the user
+  it works like a session: the agent's login shell in the repository, or
+  the command after `--`, quoted like `checkout`'s; ssh's exit code becomes
+  crannog's. It is no session: it never starts the crannog and does not
+  keep it running.
+- **`use <tool>`** opens a running crannog in a tool on the host, one
+  subcommand per tool. All of them connect over SSH; the help of `use`
+  says that they need the `Include` in `~/.ssh/config`. There are no
+  commands to close a tool or to remove a crannog from it: that is done in
+  the tool.
 - **`stop`** asks nothing. Stopping a crannog after its last session stays
   implicit.
 - **Setup changes:** `checkout` and `apply` compare the setup with the
@@ -74,6 +89,11 @@ small: what crannog can decide from the state, it does without a command.
 - **Joining the arguments after `--` with spaces, like ssh:** `-p "say hi"`
   would arrive as two arguments.
 - **Remote-tracking refs as `[branch]`:** unclear what the start branch is.
+- **Tools under `ssh` (`crannog ssh zed`):** would show that they need SSH,
+  but `crannog ssh <branch>` could not reach a branch named like a tool.
+- **A command group per tool (`crannog rex connect`):** one more top-level
+  command for every tool.
+- **`open <tool>`:** `open` reads as opening something in the browser.
 - **Commands for domains or opening the proxy:** `iron-proxy.yaml` can do
   more than a domain list, and changing it from a command would mean editing
   iron-proxy's format.

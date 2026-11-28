@@ -29,7 +29,7 @@ current state ([ADR 0004](0004-knowledge-base.md)). New ADRs use
 | [0013](0013-host-file-access.md) Host file access | All host file access through `os.Root` on three anchors; symlinks in crannog's state are errors |
 | [0014](0014-host-stays-out-of-guest-writable-directories.md) Guest-writable directories | Host code never touches directories a guest can write to; the crannog writes there itself |
 | [0030](0030-seatbelt.md) Seatbelt | Both binaries confine themselves with the macOS sandbox: writes only in the anchors, the git directory and the runtime's builder directory; self-test; no way to turn it off |
-| [0031](0031-process-starts.md) Process starts | One file per program crannog runs on the host, one function per operation; git writes only to a crannog's remote; a unit test fails on process starts elsewhere |
+| [0031](0031-process-starts.md) Process starts | One file per program crannog runs on the host (git, `container`, `ssh`, `sandbox-exec`), one function per operation; git writes only to a crannog's remote; a unit test fails on process starts elsewhere |
 
 ## Git causeway
 
@@ -42,7 +42,7 @@ current state ([ADR 0004](0004-knowledge-base.md)). New ADRs use
 
 | ADR | Decides |
 | --- | ------- |
-| [0032](0032-ssh-causeway.md) SSH causeway | `ProxyCommand` to `sshd -i` over `container exec`, no port; opt-in `Include` in the user's SSH config; not a session; keys generated on the host |
+| [0032](0032-ssh-causeway.md) SSH causeway | `ProxyCommand` to `sshd -i` over `container exec`, no port; opt-in `Include` in the user's SSH config, which `crannog ssh` and `crannog use` check for; not a session; keys generated on the host |
 
 ## Crannogs
 
@@ -68,7 +68,7 @@ current state ([ADR 0004](0004-knowledge-base.md)). New ADRs use
 
 | ADR | Decides |
 | --- | ------- |
-| [0027](0027-cli-commands.md) CLI commands | Command set, `[branch]`, arguments after `--`, interaction and `--yes` |
+| [0027](0027-cli-commands.md) CLI commands | Command set, `[branch]`, arguments after `--`, `ssh` and `use <tool>`, interaction and `--yes` |
 
 ## Agents
 

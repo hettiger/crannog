@@ -39,4 +39,30 @@ func TestCheckoutArgs(t *testing.T) {
 
 	c, args := parse(t, "feature/x", "--", "claude", "-p", "say hi")
 	assert.Equal(t, []string{"claude", "-p", "say hi"}, args[branchArgs(c, args):], "flags after -- belong to the command")
+	branch, command := splitBranchAndCommand(c, args)
+	assert.Equal(t, "feature/x", branch)
+	assert.Equal(t, []string{"claude", "-p", "say hi"}, command)
+
+	c, args = parse(t)
+	branch, command = splitBranchAndCommand(c, args)
+	assert.Empty(t, branch)
+	assert.Nil(t, command, "no command without --")
+
+	c, args = parse(t, "--")
+	_, command = splitBranchAndCommand(c, args)
+	assert.Equal(t, []string{}, command, "-- without a command")
+}
+
+// crannog ssh takes its arguments like checkout.
+func TestSSHArgs(t *testing.T) {
+	c := &cobra.Command{Use: "ssh"}
+	require.NoError(t, c.ParseFlags([]string{"feature/x", "--", "ls", "-la"}))
+	assert.NoError(t, sshCmd.Args(c, c.Flags().Args()))
+	branch, command := splitBranchAndCommand(c, c.Flags().Args())
+	assert.Equal(t, "feature/x", branch)
+	assert.Equal(t, []string{"ls", "-la"}, command)
+
+	c = &cobra.Command{Use: "ssh"}
+	require.NoError(t, c.ParseFlags([]string{"a", "b"}))
+	assert.Error(t, sshCmd.Args(c, c.Flags().Args()))
 }

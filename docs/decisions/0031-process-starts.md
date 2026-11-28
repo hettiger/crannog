@@ -23,14 +23,15 @@ should be able to read one file per program instead, as with package
 
 - Every program crannog runs on the host is started in one file: git in
   `internal/git/git.go`, `container` in `internal/runtime/runtime.go`,
-  `sandbox-exec` in `internal/seatbelt/seatbelt_darwin.go`.
+  `ssh` in `internal/openssh/openssh.go`, `sandbox-exec` in
+  `internal/seatbelt/seatbelt_darwin.go`.
 - These packages offer one function per operation. None takes free
   arguments for the program on the host, and none returns a command for
   the caller to run.
 - The git functions that write refuse what is not crannog's: they accept
   only remotes named `crannog-<slug>` with the URL `crannog::<slug>`. A
   value that becomes an argument of its own is refused if it starts with
-  `-`.
+  `-`, for git as for ssh's host name.
 - A unit test fails if a file starts a process or opens a network
   connection and is not on a list of allowed files, each with a reason:
   it checks the imports of `os/exec`, `net`, `net/http` and
@@ -44,7 +45,8 @@ should be able to read one file per program instead, as with package
   file by file.
 - In tests, package `runtime` refuses a `container` that is not below the
   temporary directory, so tests run a fake and never reach the user's
-  containers, images and volumes.
+  containers, images and volumes. Package `openssh` does the same for
+  `ssh`, which would connect to the user's hosts.
 
 ## Alternatives
 

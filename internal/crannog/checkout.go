@@ -103,7 +103,8 @@ func (m *Manager) checkout(branchArg string, args []string, detached bool) (int,
 			// background, and the crannog keeps running.
 			sess.Unlock()
 			m.UI.Printf("The crannog of %s runs in the background. Stop it with: crannog stop %s\n", t.branch, shell.Quote(t.branch))
-			m.UI.Printf("Connect over SSH: ssh %s (needs Include ~/.crannog/ssh/config in ~/.ssh/config)\n", t.names.Container)
+			m.UI.Printf("Connect over SSH: crannog ssh %s, or ssh %s from other tools (needs %s in ~/.ssh/config)\n",
+				shell.Quote(t.branch), t.names.Container, includeLine)
 			return 0, nil
 		}
 	} else {
