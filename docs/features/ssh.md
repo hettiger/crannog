@@ -59,9 +59,19 @@ add what the proxy's log shows.
 
 ### Rex
 
-Install Rex's server into the crannog from the Mac, e.g.
-`rex server install ssh://crannog-1a2b3c4d-main-3f2a1b0c`. It lands in the
-container's file system: a rebuild removes it.
+Install Rex's server into the crannog from the Mac with
+`rex server install ssh://<host>`. It copies the binary into the
+container's file system (a rebuild removes it), then fails to set up a
+service: a crannog has no systemd. Start the server over SSH instead,
+passing it the crannog's environment (Rex gives its server only the
+variables named with `--env`):
+
+```sh
+ssh crannog-1a2b3c4d-main-3f2a1b0c 'rex server start $(env | sed -n "s/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/--env \1/p")'
+```
+
+The server runs until the crannog stops. Add the host in Rex with
+`rex hosts add <host> ssh://<host>`.
 
 ## Behavior
 
