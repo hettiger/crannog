@@ -79,6 +79,7 @@ func (m *Manager) prepareSSH(t *target) error {
 		Host:         t.names.Container,
 		Branch:       t.branch,
 		Executable:   m.Executable,
+		ContainerCLI: m.ContainerCLI,
 		ID:           m.Repo.ID,
 		Slug:         t.names.Slug,
 		IdentityFile: m.CrannogHome.Abs(filepath.Join(home.SSH, clientKeyFile)),
@@ -256,7 +257,9 @@ type hostEntry struct {
 	Host   string
 	Branch string
 	// Executable is the crannog binary the ProxyCommand runs.
-	Executable   string
+	Executable string
+	// ContainerCLI is the container CLI the ProxyCommand runs.
+	ContainerCLI string
 	ID           string
 	Slug         string
 	IdentityFile string
@@ -276,11 +279,13 @@ func hostBlock(e hostEntry) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if strings.ContainsFunc(e.Executable, isControl) {
-		return "", fmt.Errorf("the path of crannog %q cannot be used in an SSH config", e.Executable)
+	for _, p := range []string{e.Executable, e.ContainerCLI} {
+		if strings.ContainsFunc(p, isControl) {
+			return "", fmt.Errorf("the path %q cannot be used in an SSH config", p)
+		}
 	}
 	// ssh expands %-tokens in the ProxyCommand, then a shell runs it.
-	proxy := strings.ReplaceAll(shell.Join([]string{e.Executable, "ssh-proxy", e.ID, e.Slug}), "%", "%%")
+	proxy := strings.ReplaceAll(shell.Join([]string{e.Executable, "ssh-proxy", "--container-cli", e.ContainerCLI, e.ID, e.Slug}), "%", "%%")
 	branch := strings.Map(func(r rune) rune {
 		if isControl(r) {
 			return '?'

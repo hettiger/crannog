@@ -72,7 +72,7 @@ func TestPrepareSSH(t *testing.T) {
 Host `+tg.names.Container+`
   HostKeyAlias `+tg.names.Container+`
   User agent
-  ProxyCommand /usr/local/bin/crannog ssh-proxy `+f.m.Repo.ID+` `+tg.names.Slug+`
+  ProxyCommand /usr/local/bin/crannog ssh-proxy --container-cli /usr/local/bin/container `+f.m.Repo.ID+` `+tg.names.Slug+`
   IdentityFile "`+f.m.CrannogHome.Dir+`/ssh/id_ed25519"
   IdentitiesOnly yes
   IdentityAgent none
@@ -90,11 +90,13 @@ Host `+tg.names.Container+`
 	// The keys stay: known_hosts entries and copied Host blocks remain
 	// valid.
 	f.m.Executable = "/elsewhere/crannog"
+	f.m.ContainerCLI = "/opt/homebrew/bin/container"
 	require.NoError(t, f.m.prepareSSH(tg))
 	assert.Equal(t, hostKeyPEM, f.sshFile(filepath.Join(tg.dir.path, sshDir, hostKeyFile)))
 	assert.Equal(t, publicKeyLine(client.PublicKey())+"\n", f.rt.files[sshDirInCrannog+"/authorized_keys"])
 	assert.Contains(t, f.sshFile(filepath.Join(tg.dir.path, sshDir, sshConfigFile)),
-		"ProxyCommand /elsewhere/crannog ssh-proxy", "the path of the running binary")
+		"ProxyCommand /elsewhere/crannog ssh-proxy --container-cli /opt/homebrew/bin/container ",
+		"the paths of the running binary and of the container CLI")
 }
 
 // All crannogs share the client key; each has its own host key.
@@ -138,6 +140,7 @@ func TestHostBlockQuoting(t *testing.T) {
 		Host:         "crannog-12345678-main-0d6e4079",
 		Branch:       "main",
 		Executable:   "/Users/Ada Lovelace/go/bin/crannog",
+		ContainerCLI: "/usr/local/bin/container",
 		ID:           strings.Repeat("a", 64),
 		Slug:         "main-0d6e4079",
 		IdentityFile: "/Users/Ada Lovelace/.crannog/ssh/id_ed25519",
@@ -145,7 +148,7 @@ func TestHostBlockQuoting(t *testing.T) {
 	}
 	block, err := hostBlock(e)
 	require.NoError(t, err)
-	assert.Contains(t, block, "  ProxyCommand '/Users/Ada Lovelace/go/bin/crannog' ssh-proxy "+e.ID+" main-0d6e4079\n")
+	assert.Contains(t, block, "  ProxyCommand '/Users/Ada Lovelace/go/bin/crannog' ssh-proxy --container-cli /usr/local/bin/container "+e.ID+" main-0d6e4079\n")
 	assert.Contains(t, block, `  IdentityFile "/Users/Ada Lovelace/.crannog/ssh/id_ed25519"`+"\n")
 	assert.Contains(t, block, `  UserKnownHostsFile "/Users/Ada Lovelace/100%%/known_hosts"`+"\n", "%-tokens are escaped")
 
@@ -163,6 +166,7 @@ func TestHostBlockQuoting(t *testing.T) {
 		"quote in a path":         func(e *hostEntry) { e.KnownHosts = `/a"b/known_hosts` },
 		"newline in a path":       func(e *hostEntry) { e.IdentityFile = "/a\nb" },
 		"newline in the binary":   func(e *hostEntry) { e.Executable = "/a\nb" },
+		"newline in the CLI":      func(e *hostEntry) { e.ContainerCLI = "/a\nb" },
 		"newline in the key file": func(e *hostEntry) { e.IdentityFile = "/a\rb" },
 	} {
 		t.Run(name, func(t *testing.T) {

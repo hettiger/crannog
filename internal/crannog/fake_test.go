@@ -293,8 +293,9 @@ func newFixture(t *testing.T) *fixture {
 			v, ok := f.hostEnv[k]
 			return v, ok
 		},
-		UserHome:   userHome,
-		Executable: "/usr/local/bin/crannog",
+		UserHome:     userHome,
+		Executable:   "/usr/local/bin/crannog",
+		ContainerCLI: "/usr/local/bin/container",
 	}
 	return f
 }

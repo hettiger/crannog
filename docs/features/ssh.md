@@ -89,16 +89,17 @@ The server runs until the crannog stops. Add the host in Rex with
   ```
 
   Every session start (`checkout`) writes them: keys once, the Host block
-  and `known_hosts` every time, so the `ProxyCommand` names the path of
-  the crannog binary that ran. `destroy` removes the crannog's directory
+  and `known_hosts` every time, so the `ProxyCommand` names the paths of
+  the crannog binary that ran and of the container CLI in its `PATH`
+  (apps started from the Dock have a short `PATH`). `destroy` removes the crannog's directory
   and with it its files.
 - **In the crannog**, every session start writes `/state/ssh/`
   (`ssh_host_ed25519_key`, `authorized_keys`) as the agent user, from
   content the host passes. If that fails, the session starts with a
   warning that SSH is not available.
 - **A connection:** ssh runs the Host block's `ProxyCommand`,
-  `crannog ssh-proxy <repository id> <branch slug>`. It checks the
-  arguments and that the crannog runs; otherwise it fails with
+  `crannog ssh-proxy --container-cli <path> <repository id> <branch slug>`.
+  It checks the arguments and that the crannog runs; otherwise it fails with
   `the crannog of <branch> in <repository> is not running; start it with:
   crannog checkout -d <branch>`. It then replaces itself with
   `container exec` of a script that writes `/state/ssh/sshd_config` and
@@ -128,5 +129,8 @@ The server runs until the crannog stops. Add the host in Rex with
 - **Mounts:** with the `Include`, your `ssh` runs what the Host blocks in
   `~/.crannog/repositories/` say. Never mount that directory, or parts of
   it, writable into a crannog.
+- **PhpStorm** warns about a conflict between `IdentityAgent none` and
+  `SSH_AUTH_SOCK` and then uses no agent for the connection. That is
+  intended: the Host block keeps your ssh-agent away from crannogs.
 - Tools that can only connect to a host and port, without
   `ProxyCommand`, cannot use the SSH causeway.

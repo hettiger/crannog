@@ -110,10 +110,10 @@ user's keys or ssh-agent to a crannog ([ADR 0015](0015-git-causeway.md)).
   crannog's key (its public part, and a signature for that session if the
   crannog accepts it), `RemoteForward` opens Mac ports to the crannog,
   `SendEnv` sends variables. The docs explain how to exclude crannogs.
-- The `ProxyCommand` holds the absolute path of the crannog binary that
-  wrote it, since tools started from the Dock have a short `PATH`. A
-  `checkout` rewrites it; copied blocks must be copied again after the
-  binary moved.
+- The `ProxyCommand` holds the absolute paths of the crannog binary that
+  wrote it and of the container CLI it found, since tools started from
+  the Dock have a short `PATH` (PhpStorm found neither). A `checkout`
+  rewrites them; copied blocks must be copied again after either moved.
 - A setup that mounts parts of `~/.crannog/repositories/` writable into a
   crannog gives it a way to run commands on the Mac through the user's
   `ssh`.

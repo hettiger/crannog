@@ -178,15 +178,30 @@ const cli = "container"
 
 // CheckCLI fails if the container CLI is not installed.
 func CheckCLI() error {
-	_, err := cliPath()
+	_, err := CLI{}.path()
 	return err
 }
 
-// cliPath returns the path of the container CLI to run.
-func cliPath() (string, error) {
+// LookPathCLI returns the path of the container CLI in PATH. It is
+// absolute: exec.LookPath does not return results from relative
+// directories in PATH.
+func LookPathCLI() (string, error) {
 	p, err := exec.LookPath(cli)
 	if err != nil {
 		return "", errors.New("the container CLI of Apple Containers is not in PATH (https://github.com/apple/container)")
+	}
+	return p, nil
+}
+
+// path returns the path of the container CLI to run: c.Path, or the one
+// in PATH.
+func (c CLI) path() (string, error) {
+	p := c.Path
+	if p == "" {
+		var err error
+		if p, err = LookPathCLI(); err != nil {
+			return "", err
+		}
 	}
 	if testing.Testing() {
 		if err := checkTestCLI(p); err != nil {
@@ -215,6 +230,9 @@ func checkTestCLI(p string) error {
 // pull) goes to Progress.
 type CLI struct {
 	Progress io.Writer
+	// Path is the container CLI to run; empty runs the one in PATH. Apps
+	// started from the Dock have a short PATH without it.
+	Path string
 }
 
 // Error is a failed container command.
@@ -258,8 +276,8 @@ func (c CLI) runContext(ctx context.Context, args ...string) ([]byte, error) {
 	return c.runInput(ctx, nil, args...)
 }
 
-func (CLI) runInput(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
-	path, err := cliPath()
+func (c CLI) runInput(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
+	path, err := c.path()
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +297,7 @@ func (CLI) runInput(ctx context.Context, stdin io.Reader, args ...string) ([]byt
 
 // runVisible runs a command with its output on the progress writer.
 func (c CLI) runVisible(args ...string) error {
-	path, err := cliPath()
+	path, err := c.path()
 	if err != nil {
 		return err
 	}
@@ -434,8 +452,8 @@ func execArgs(name string, o ExecOptions, args []string) []string {
 	return append(a, args...)
 }
 
-func (CLI) Attach(name string, o ExecOptions, files []*os.File, args ...string) (int, error) {
-	path, err := cliPath()
+func (c CLI) Attach(name string, o ExecOptions, files []*os.File, args ...string) (int, error) {
+	path, err := c.path()
 	if err != nil {
 		return 0, err
 	}
@@ -485,8 +503,8 @@ func attachedExitCode(err error) (int, error) {
 	return exitErr.ExitCode(), nil
 }
 
-func (CLI) Detach(name string, o ExecOptions, files []*os.File, args ...string) error {
-	path, err := cliPath()
+func (c CLI) Detach(name string, o ExecOptions, files []*os.File, args ...string) error {
+	path, err := c.path()
 	if err != nil {
 		return err
 	}
@@ -507,10 +525,11 @@ func (CLI) Detach(name string, o ExecOptions, files []*os.File, args ...string) 
 // with the standard input and outputs and the environment of this
 // process. It only returns on errors. The remote helper (ADR 0015) and
 // the ProxyCommand of the SSH causeway (ADR 0032) end this way.
-func (CLI) Replace(name string, o ExecOptions, args ...string) error {
-	path, err := cliPath()
+func (c CLI) Replace(name string, o ExecOptions, args ...string) error {
+	path, err := c.path()
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(path, append([]string{cli}, execArgs(name, o, args)...), os.Environ())
+	err = syscall.Exec(path, append([]string{cli}, execArgs(name, o, args)...), os.Environ())
+	return fmt.Errorf("cannot run %s: %w", path, err)
 }

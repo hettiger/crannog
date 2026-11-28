@@ -144,6 +144,19 @@ func TestAttachReturnsTheExitCode(t *testing.T) {
 	assert.Error(t, CheckCLI())
 }
 
+// A CLI with a path runs that container CLI without looking at PATH, as
+// apps started from the Dock have a short PATH.
+func TestCLIWithPath(t *testing.T) {
+	dir := t.TempDir()
+	testfs.WriteFile(t, testfs.Root(t, dir), "container", "#!/bin/sh\nexit 42\n", 0o755)
+	t.Setenv("PATH", t.TempDir())
+	code, err := CLI{Path: filepath.Join(dir, "container")}.Attach("c", ExecOptions{}, nil, "true")
+	require.NoError(t, err)
+	assert.Equal(t, 42, code)
+	_, err = LookPathCLI()
+	assert.ErrorContains(t, err, "not in PATH")
+}
+
 // A detached command runs in the background with the files it was given:
 // Detach returns before the command ends. The command is in a process
 // session of its own and has nothing of this process's standard input and
