@@ -53,6 +53,13 @@ func runSSHScript(t *testing.T, script, stdin string, env []string, args ...stri
 	return string(out), err
 }
 
+// hereDocTmpDir returns a TMPDIR for scripts with a here-document: sh on
+// macOS writes it to a temporary file, by default in /tmp, which Seatbelt
+// does not allow in tests.
+func hereDocTmpDir(t *testing.T) string {
+	return "TMPDIR=" + t.TempDir()
+}
+
 func TestSSHKeysScript(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "ssh")
 	out, err := runSSHScript(t, sshScript(sshKeysScript, dir), "KEY\n", []string{"PATH=" + os.Getenv("PATH")}, "ssh-ed25519 AAAA")
@@ -79,6 +86,7 @@ func TestSSHKeysScript(t *testing.T) {
 func TestSSHDConfigScript(t *testing.T) {
 	out, err := runSSHScript(t, sshdConfigScript, "", []string{
 		"PATH=" + os.Getenv("PATH"),
+		hereDocTmpDir(t),
 		"HTTPS_PROXY=http://crannog-proxy:8080",
 		"WITH_SPACE=a b",
 		"HOME=/home/agent",
@@ -115,7 +123,7 @@ func fakeSSHD(t *testing.T) string {
 func TestSSHDScript(t *testing.T) {
 	dir := t.TempDir()
 	script := sshScript(sshdScript, dir)
-	env := []string{"PATH=" + fakeSSHD(t), "HTTPS_PROXY=http://crannog-proxy:8080"}
+	env := []string{"PATH=" + fakeSSHD(t), "HTTPS_PROXY=http://crannog-proxy:8080", hereDocTmpDir(t)}
 
 	out, err := runSSHScript(t, script, "", env)
 	assert.Error(t, err)
