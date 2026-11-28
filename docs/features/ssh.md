@@ -9,7 +9,8 @@
 Lets SSH-based tools on the host reach a running crannog by name: `ssh`,
 `scp`, `sftp`, editors with remote development (e.g. Zed) and terminal
 multiplexers. It runs over `container exec`, without a network port.
-`crannog ssh` opens a shell in a crannog over it.
+`crannog ssh` opens a shell in a crannog over it and prints its host and
+path for other tools.
 
 ## Usage
 
@@ -24,12 +25,12 @@ Alternatively copy single Host blocks from
 `~/.crannog/repositories/<id>/crannogs/<slug>/ssh/config` into
 `~/.ssh/config`, before any `Host *`.
 
-Then start the crannog and connect to the name `crannog list` shows under
-`SSH HOST`:
+Then start the crannog and connect to the name `crannog ssh --host`
+prints (`crannog list` shows it under `SSH HOST`):
 
 ```sh
 crannog checkout -d
-crannog list
+crannog ssh --host
 ssh crannog-1a2b3c4d-main-3f2a1b0c
 ```
 
@@ -49,35 +50,35 @@ crannog ssh
 crannog ssh feature/x -- npm test
 ```
 
-### Zed
+For other tools and scripts, `--host` prints the crannog's SSH host and
+`--path` prints `<host>:<path of the repository in the crannog>`, as scp,
+rsync and sftp take it:
 
-In Zed's settings, with the host from `crannog list` and the repository's
-path in the crannog (`/work` followed by its path on the host):
-
-```json
-{
-  "ssh_connections": [
-    {
-      "host": "crannog-1a2b3c4d-main-3f2a1b0c",
-      "nickname": "my-app main",
-      "upload_binary_over_ssh": true,
-      "projects": [{ "paths": ["/work/Users/me/code/my-app"] }]
-    }
-  ]
-}
+```sh
+crannog ssh --host                          # crannog-1a2b3c4d-main-3f2a1b0c
+scp notes.txt "$(crannog ssh --path)/"
+rsync -a "$(crannog ssh feature/x --path)/build/" ./build/
 ```
 
-`upload_binary_over_ssh` makes Zed download its server on the Mac and
-upload it, so `zed.dev` need not be on the proxy's allowlist. Zed opens a
-remote project in Restricted Mode; once trusted, it may download language
-servers in the crannog. If the allowlist blocks them, set `warn: true` in
-`.crannog/iron-proxy.yaml` for a while, apply it with `crannog apply` and
-add what the proxy's log shows.
+### Zed
+
+`crannog open --zed` opens the repository in the crannog in Zed; see
+[open](open.md), also for Zed's settings.
+
+### JetBrains IDEs (PhpStorm)
+
+Connect with JetBrains Gateway (or the Toolbox App): a new SSH connection
+to the host from `crannog ssh --host`, user `agent`, then the IDE and the
+project directory, the part after the colon of `crannog ssh --path`.
+Gateway reads the Host block through `ssh -G` and checks the host key in
+the crannog's `known_hosts`. It installs the IDE in the crannog (in the
+container's file system: a rebuild removes it) and downloads its client on
+the Mac.
 
 ### Rex
 
 Install Rex's server into the crannog from the Mac with
-`rex server install ssh://<host>`. It copies the binary into the
+`rex server install ssh://<host>`, the host from `crannog ssh --host`. It copies the binary into the
 container's file system (a rebuild removes it), then fails to set up a
 service: a crannog has no systemd. Start the server over SSH instead,
 passing it the crannog's environment (Rex gives its server only the
@@ -101,7 +102,9 @@ The server runs until the crannog stops. Add the host in Rex with
     id_ed25519, id_ed25519.pub          client key of all crannogs
   ~/.crannog/repositories/<id>/crannogs/<slug>/ssh/   0700
     config                              the crannog's Host block
-    known_hosts                         its host key, by the host name
+    known_hosts                         its host key, by the host name and
+                                        as [<host>]:0 (JetBrains' client
+                                        looks it up with port 0)
     ssh_host_ed25519_key                its private host key
   ```
 
@@ -145,6 +148,9 @@ The server runs until the crannog stops. Add the host in Rex with
      `--`, each argument quoted for the shell, like a session's. A
      control socket from your SSH configuration could not be created in
      Seatbelt, hence `ControlPath=none`. ssh's exit code is crannog's.
+- **`crannog ssh --host` and `--path`** print to stdout and only fail if
+  the branch has no crannog: it need not run, and the SSH configuration is
+  not checked. They take no command after `--` and not both at once.
 - **Not a session:** connections do not count in `crannog list` and do
   not keep the crannog running. They end when the crannog stops: after
   its last session, with `crannog stop`, a rebuild or `destroy`.

@@ -73,6 +73,9 @@ git push crannog-<slug> main          # your new commits into the crannog
 | `crannog destroy [branch]` | Destroys the crannog after a confirmation |
 | `crannog list` | Lists the repository's crannogs |
 | `crannog ssh [branch] [-- command...]` | Opens a shell over SSH in a running crannog |
+| `crannog ssh [branch] --host` / `--path` | Prints the crannog's SSH host, or `<host>:<path>` for scp |
+| `crannog open [branch]` | Opens a running crannog in the browser (`--insecure`, `--port`) |
+| `crannog open [branch] --zed` | Opens a running crannog in Zed |
 | `crannog preset publish [name]` | Writes a preset to `.crannog/` |
 | `crannog preset list` | Lists all presets |
 
@@ -91,15 +94,21 @@ Include ~/.crannog/ssh/config
 ```
 
 crannog never edits `~/.ssh` itself. Then open a shell with `crannog ssh`,
-or connect tools to the name `crannog list` shows under `SSH HOST`:
+open the repository in Zed with `crannog open --zed`, or connect tools to
+the host `crannog ssh --host` prints:
 
 ```sh
 crannog checkout -d
 crannog ssh
-ssh crannog-1a2b3c4d-main-3f2a1b0c
+crannog open --zed
+scp notes.txt "$(crannog ssh --path)/"
 ```
 
-See [SSH causeway](docs/features/ssh.md) for Zed, Rex and caveats.
+`crannog open` opens a server in the crannog in your browser, at the
+crannog's address.
+
+See [SSH causeway](docs/features/ssh.md) for Zed, JetBrains IDEs, Rex and
+caveats, and [open](docs/features/open.md).
 
 ## Configuration
 

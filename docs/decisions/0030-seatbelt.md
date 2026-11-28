@@ -108,6 +108,10 @@ to rely on one small, fixed list of places crannog can write to.
   until they are started in Seatbelt.
 - A new package with tests needs a `selftest_test.go`; the tests fail
   until it has one.
+- A program that starts a given app through LaunchServices fails in
+  Seatbelt, as in any sandbox: Zed's command line tool `zed` and
+  `open -a <app> <url>`. Opening a URL with `open` works, so
+  `crannog open` opens only URLs, e.g. `zed://` for Zed.
 - `sandbox-exec` is deprecated by Apple but still what other tools use. An
   update of macOS or of Apple Containers can make crannog fail until the
   profile is adjusted; rerun the spike then.

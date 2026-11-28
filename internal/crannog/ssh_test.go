@@ -64,8 +64,9 @@ func TestPrepareSSH(t *testing.T) {
 
 	hostKeyPEM := f.sshFile(filepath.Join(tg.dir.path, sshDir, hostKeyFile))
 	hostKey := parseKey(t, hostKeyPEM)
-	assert.Equal(t, tg.names.Container+" "+publicKeyLine(hostKey.PublicKey())+"\n",
-		f.sshFile(filepath.Join(tg.dir.path, sshDir, knownHostsFile)))
+	assert.Equal(t, tg.names.Container+" "+publicKeyLine(hostKey.PublicKey())+"\n"+
+		"["+tg.names.Container+"]:0 "+publicKeyLine(hostKey.PublicKey())+"\n",
+		f.sshFile(filepath.Join(tg.dir.path, sshDir, knownHostsFile)), "port 0 for JetBrains")
 
 	assert.Equal(t, `# Written by crannog for the crannog of main; rewritten by every
 # crannog checkout of this branch, removed by crannog destroy.

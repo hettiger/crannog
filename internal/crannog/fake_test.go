@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hettiger/crannog/internal/home"
+	"github.com/hettiger/crannog/internal/open"
 	"github.com/hettiger/crannog/internal/openssh"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/runtime"
@@ -242,11 +244,16 @@ func (f *fakeRuntime) endDetached() {
 
 // fixture is a repository with a manager on a fake runtime.
 type fixture struct {
-	t       *testing.T
-	dir     string
-	m       *Manager
-	rt      *fakeRuntime
-	ssh     *fakeSSH
+	t      *testing.T
+	dir    string
+	m      *Manager
+	rt     *fakeRuntime
+	ssh    *fakeSSH
+	opener *fakeOpener
+	// probed is the addresses Probe was asked for; answers says whether
+	// something answers there.
+	probed  []netip.AddrPort
+	answers bool
 	prompt  *fakePrompter
 	out     *bytes.Buffer
 	hostEnv map[string]string
@@ -285,6 +292,21 @@ func (f *fakeSSH) Replace(host string, o openssh.Options) error {
 	return errors.New("replaced")
 }
 
+// fakeOpener records what open would open.
+type fakeOpener struct {
+	opened []string
+}
+
+func (f *fakeOpener) ZedSSH(host, dir string) error {
+	f.opened = append(f.opened, "zed "+host+" "+dir)
+	return nil
+}
+
+func (f *fakeOpener) Web(insecure bool, ip netip.Addr, port uint16) error {
+	f.opened = append(f.opened, open.WebURL(insecure, ip, port))
+	return nil
+}
+
 func newFixture(t *testing.T) *fixture {
 	dir := testgit.Init(t)
 	repo, err := repository.Open(dir)
@@ -294,6 +316,7 @@ func newFixture(t *testing.T) *fixture {
 		dir:     dir,
 		rt:      newFakeRuntime(),
 		ssh:     &fakeSSH{config: map[string][]string{}},
+		opener:  &fakeOpener{},
 		prompt:  &fakePrompter{},
 		out:     &bytes.Buffer{},
 		hostEnv: map[string]string{},
@@ -317,6 +340,14 @@ func newFixture(t *testing.T) *fixture {
 		Executable:   "/usr/local/bin/crannog",
 		ContainerCLI: "/usr/local/bin/container",
 		SSHClient:    f.ssh,
+		Opener:       f.opener,
+		Probe: func(ctx context.Context, a netip.AddrPort) error {
+			f.probed = append(f.probed, a)
+			if !f.answers {
+				return errors.New("connection refused")
+			}
+			return ctx.Err()
+		},
 	}
 	return f
 }
