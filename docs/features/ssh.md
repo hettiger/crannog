@@ -129,8 +129,9 @@ The server runs until the crannog stops. Add the host in Rex with
 - **Mounts:** with the `Include`, your `ssh` runs what the Host blocks in
   `~/.crannog/repositories/` say. Never mount that directory, or parts of
   it, writable into a crannog.
-- **PhpStorm** warns about a conflict between `IdentityAgent none` and
-  `SSH_AUTH_SOCK` and then uses no agent for the connection. That is
-  intended: the Host block keeps your ssh-agent away from crannogs.
+- **PhpStorm** connects by the host name. When it asks "Add SSH key to
+  agent?" for `~/.crannog/ssh/id_ed25519`, answer no: the key has no
+  passphrase and is read from its file; in your agent it would be offered
+  to other servers too.
 - Tools that can only connect to a host and port, without
   `ProxyCommand`, cannot use the SSH causeway.
