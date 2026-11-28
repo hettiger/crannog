@@ -313,22 +313,22 @@ mv -f "$d/authorized_keys.crannog-tmp" "$d/authorized_keys"`
 // sshdConfigScript prints the sshd config of a connection. sshd does not
 // pass its environment on to sessions: SetEnv gives them the crannog's
 // variables, the proxy's among them, except those sshd sets itself and
-// values an SSH config cannot hold.
+// values an SSH config cannot hold. It has no here-document: sh on macOS
+// writes one to a file in /tmp, which Seatbelt does not allow in tests.
 const sshdConfigScript = `d=` + sshDirInCrannog + `
-cat <<EOF
-HostKey $d/` + hostKeyFile + `
-AuthorizedKeysFile $d/authorized_keys
-AuthenticationMethods publickey
-PasswordAuthentication no
-KbdInteractiveAuthentication no
-UsePAM no
-StrictModes no
-PidFile none
-AllowAgentForwarding no
-X11Forwarding no
-PrintMotd no
-Subsystem sftp internal-sftp
-EOF
+printf '%s\n' \
+  "HostKey $d/` + hostKeyFile + `" \
+  "AuthorizedKeysFile $d/authorized_keys" \
+  "AuthenticationMethods publickey" \
+  "PasswordAuthentication no" \
+  "KbdInteractiveAuthentication no" \
+  "UsePAM no" \
+  "StrictModes no" \
+  "PidFile none" \
+  "AllowAgentForwarding no" \
+  "X11Forwarding no" \
+  "PrintMotd no" \
+  "Subsystem sftp internal-sftp"
 awk 'BEGIN {
   line = ""
   for (k in ENVIRON) {
