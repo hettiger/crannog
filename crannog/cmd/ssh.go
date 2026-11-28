@@ -1,9 +1,17 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/hettiger/crannog/internal/crannog"
+)
+
+var (
+	sshHost bool
+	sshPath bool
 )
 
 var sshCmd = &cobra.Command{
@@ -21,17 +29,38 @@ the top of ~/.ssh/config:
 
 An SSH connection is not a session: it does not keep the crannog running
 and ends when the crannog stops. ssh's exit code becomes crannog's exit
-code.`,
+code.
+
+--host prints the crannog's SSH host instead, for other tools; --path
+prints <host>:<path of the repository in the crannog>, as scp, rsync and
+sftp take it. The crannog need not run for them.`,
 	Example: `  crannog ssh
   crannog ssh feature/x
   crannog ssh -- git status
-  crannog ssh feature/x -- npm test`,
+  crannog ssh feature/x -- npm test
+  crannog ssh --host
+  scp notes.txt "$(crannog ssh --path)/"`,
 	Args:              branchAndCommandArgs,
 	ValidArgsFunction: completeFirstArg(startBranches),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		branch, command := splitBranchAndCommand(cmd, args)
+		if (sshHost || sshPath) && len(command) > 0 {
+			return errors.New("--host and --path take no command after --")
+		}
 		m, err := crannog.New(newUI(false))
 		if err != nil {
+			return err
+		}
+		if sshHost || sshPath {
+			get := m.SSHHost
+			if sshPath {
+				get = m.SSHPath
+			}
+			s, err := get(branch)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), s)
 			return err
 		}
 		return m.SSH(branch, command)
@@ -39,5 +68,8 @@ code.`,
 }
 
 func init() {
+	sshCmd.Flags().BoolVar(&sshHost, "host", false, "print the crannog's SSH host")
+	sshCmd.Flags().BoolVar(&sshPath, "path", false, "print <host>:<path of the repository in the crannog>")
+	sshCmd.MarkFlagsMutuallyExclusive("host", "path")
 	rootCmd.AddCommand(sshCmd)
 }

@@ -33,11 +33,14 @@ var allowedProcesses = map[string]string{
 	"internal/seatbelt/seatbelt_darwin.go syscall.Exec": "replaces the process with sandbox-exec",
 	"internal/openssh/openssh.go os/exec":               "runs ssh -G",
 	"internal/openssh/openssh.go syscall.Exec":          "replaces crannog ssh with ssh",
+	"internal/open/open.go os/exec":                     "runs open with crannog's URLs",
+	"internal/probe/probe.go net":                       "checks that a server in a crannog accepts connections",
 	// Tests.
 	"internal/testgit/testgit.go os/exec":      "runs git below the temporary directory",
 	"internal/crannog/scripts_test.go os/exec": "runs with sh the scripts crannog runs in a crannog",
 	"internal/shell/shell_test.go os/exec":     "checks the quoting with sh",
 	"internal/session/session_test.go os/exec": "runs cat as a child that keeps the session file open",
+	"internal/probe/probe_test.go net":         "listens on localhost for the check",
 }
 
 // Every process start is in one of the allowed files. Tests follow the

@@ -23,8 +23,10 @@ should be able to read one file per program instead, as with package
 
 - Every program crannog runs on the host is started in one file: git in
   `internal/git/git.go`, `container` in `internal/runtime/runtime.go`,
-  `ssh` in `internal/openssh/openssh.go`, `sandbox-exec` in
-  `internal/seatbelt/seatbelt_darwin.go`.
+  `ssh` in `internal/openssh/openssh.go`, `open` in `internal/open/open.go`,
+  `sandbox-exec` in `internal/seatbelt/seatbelt_darwin.go`. The one network
+  connection crannog opens itself, the check of `crannog open` that a
+  server in a crannog answers, is in `internal/probe/probe.go`.
 - These packages offer one function per operation. None takes free
   arguments for the program on the host, and none returns a command for
   the caller to run.
@@ -46,7 +48,8 @@ should be able to read one file per program instead, as with package
 - In tests, package `runtime` refuses a `container` that is not below the
   temporary directory, so tests run a fake and never reach the user's
   containers, images and volumes. Package `openssh` does the same for
-  `ssh`, which would connect to the user's hosts.
+  `ssh`, which would connect to the user's hosts, and package `open` for
+  `open`, which would open windows.
 
 ## Alternatives
 

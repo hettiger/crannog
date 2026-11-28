@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/netip"
 	"os"
 
 	"github.com/google/renameio/v2"
@@ -14,7 +15,9 @@ import (
 	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/home"
 	"github.com/hettiger/crannog/internal/naming"
+	"github.com/hettiger/crannog/internal/open"
 	"github.com/hettiger/crannog/internal/openssh"
+	"github.com/hettiger/crannog/internal/probe"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
@@ -44,6 +47,10 @@ type Manager struct {
 	ContainerCLI string
 	// SSHClient runs ssh on the host for crannog ssh.
 	SSHClient SSHClient
+	// Opener opens crannogs in apps on the host for crannog open.
+	Opener Opener
+	// Probe checks that a server accepts connections, for crannog open.
+	Probe func(ctx context.Context, addr netip.AddrPort) error
 }
 
 // SSHClient runs the system ssh with the user's SSH configuration
@@ -54,6 +61,14 @@ type SSHClient interface {
 	Config(ctx context.Context, host string) (map[string][]string, error)
 	// Replace replaces this process with ssh to host.
 	Replace(host string, o openssh.Options) error
+}
+
+// Opener opens URLs in apps on the host (package open).
+type Opener interface {
+	// ZedSSH opens the directory dir on the SSH host host in Zed.
+	ZedSSH(host, dir string) error
+	// Web opens open.WebURL(insecure, ip, port) in the browser.
+	Web(insecure bool, ip netip.Addr, port uint16) error
 }
 
 // New returns a manager for the repository of the current directory.
@@ -92,6 +107,8 @@ func New(u *ui.UI) (*Manager, error) {
 		Executable:   exe,
 		ContainerCLI: containerCLI,
 		SSHClient:    openssh.Client{},
+		Opener:       open.Opener{},
+		Probe:        probe.TCP,
 	}, nil
 }
 

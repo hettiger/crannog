@@ -73,7 +73,7 @@ func (m *Manager) prepareSSH(t *target) error {
 	if err != nil {
 		return err
 	}
-	if err := writeIfChanged(r, knownHostsFile, []byte(knownHostsLine(t.names.Container, hostKey.PublicKey()))); err != nil {
+	if err := writeIfChanged(r, knownHostsFile, []byte(knownHostsLines(t.names.Container, hostKey.PublicKey()))); err != nil {
 		return err
 	}
 	block, err := hostBlock(hostEntry{
@@ -240,10 +240,13 @@ func publicKeyLine(key ssh.PublicKey) string {
 	return strings.TrimSuffix(string(ssh.MarshalAuthorizedKey(key)), "\n")
 }
 
-// knownHostsLine returns the known_hosts line of a crannog's host key, by
-// the host key alias of its Host block.
-func knownHostsLine(alias string, key ssh.PublicKey) string {
-	return alias + " " + publicKeyLine(key) + "\n"
+// knownHostsLines returns the known_hosts lines of a crannog's host key, by
+// the host key alias of its Host block. The second line is for JetBrains'
+// SSH client, which looks the key up with port 0 when it connects through
+// a ProxyCommand.
+func knownHostsLines(alias string, key ssh.PublicKey) string {
+	k := publicKeyLine(key)
+	return alias + " " + k + "\n[" + alias + "]:0 " + k + "\n"
 }
 
 // hostEntry is what a crannog's Host block is made of.

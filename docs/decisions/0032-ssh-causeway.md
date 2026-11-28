@@ -37,7 +37,7 @@ user's keys or ssh-agent to a crannog ([ADR 0015](0015-git-causeway.md)).
   that runs the system `ssh` reaches crannogs by name, and tools with a
   client of their own if it supports `ProxyCommand`.
 - **crannog's own commands use the user's `ssh` too:** `crannog ssh` and
-  the tools of `crannog use` ([ADR 0027](0027-cli-commands.md)) run the
+  Zed of `crannog open --zed` ([ADR 0027](0027-cli-commands.md)) run the
   system `ssh` with the user's configuration, so they need the `Include`
   like every other tool. Before connecting, they ask `ssh -G` for the
   crannog's host: if its `ProxyCommand` is not crannog's `ssh-proxy` of
@@ -52,7 +52,9 @@ user's keys or ssh-agent to a crannog ([ADR 0015](0015-git-causeway.md)).
   `~/.crannog/ssh/`, and one host key per crannog in its host directory,
   generated once each. crannog writes the crannog's `known_hosts` from the
   host key it generated: nothing from the crannog reaches the user's SSH
-  files. On every session start crannog hands the private host key and
+  files. It holds the key twice, by the host name and as `[<host>]:0`:
+  JetBrains' SSH client looks the key up with port 0 when it connects
+  through a `ProxyCommand`. On every session start crannog hands the private host key and
   the client's public key to the crannog, which writes them to
   `/state/ssh` itself ([ADR 0014](0014-host-stays-out-of-guest-writable-directories.md)).
 - **Host blocks set everything that matters:** in an SSH config the first
@@ -103,8 +105,8 @@ user's keys or ssh-agent to a crannog ([ADR 0015](0015-git-causeway.md)).
   remove entries, and concurrent checkouts would share files.
 - **`crannog ssh` with `-F` and crannog's config instead of the
   `Include`:** would work without the `Include`, but without the user's
-  own settings, and hide that the tools of `crannog use` and editors
-  need it.
+  own settings, and hide that Zed of `crannog open --zed` and other
+  editors need it.
 - **Writing to `~/.ssh/config` or `known_hosts`:** a broken entry affects
   every SSH connection of the user ([ADR 0015](0015-git-causeway.md)).
 - **`ssh-keygen` on the host** for keys: one more program crannog starts
