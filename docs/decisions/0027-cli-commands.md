@@ -67,6 +67,14 @@ the state, it does without a command.
   ([ADR 0015](0015-git-causeway.md)), also saying how many running sessions
   end.
 - **`preset publish`** asks before replacing an existing `.crannog/`.
+- **Completion:** Cobra's `completion` command. A command's first argument
+  completes to what can work there: `checkout` to the local branches,
+  `apply`, `stop`, `destroy`, `ssh` and `use <tool>` to the start branches
+  of the repository's crannogs, running or not, `preset publish` to the
+  preset names. Completion is fast and has no side effects beyond opening
+  `~/.crannog` (which creates the empty directory): it never repairs,
+  never prompts and never queries the runtime; an error offers nothing. After the first
+  argument and after `--` it offers nothing, not even files.
 - **Interaction:** crannog allocates a terminal and asks questions only if
   stdin and stdout are terminals. Otherwise, a needed approval is an error,
   a confirmation is an error unless `--yes` is given, and the warning about
@@ -93,6 +101,9 @@ the state, it does without a command.
   but `crannog ssh <branch>` could not reach a branch named like a tool.
 - **A command group per tool (`crannog rex connect`):** one more top-level
   command for every tool.
+- **Completing only running crannogs for `stop`, `ssh` and `use`:** every
+  Tab would ask the runtime; a stopped crannog is rare there, and the
+  command reports it when it runs.
 - **`open <tool>`:** `open` reads as opening something in the browser.
 - **Commands for domains or opening the proxy:** `iron-proxy.yaml` can do
   more than a domain list, and changing it from a command would mean editing

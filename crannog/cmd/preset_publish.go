@@ -21,7 +21,8 @@ var presetPublishCmd = &cobra.Command{
 	Long: `Writes a preset to .crannog/ in the current worktree, so the repository
 can change and version its own setup. Without a name, crannog lets you pick
 one. It asks before replacing an existing .crannog/.`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeFirstArg(presetNames),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		u := newUI(presetPublishYes)
 		cwd, err := os.Getwd()

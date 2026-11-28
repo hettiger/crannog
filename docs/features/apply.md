@@ -15,6 +15,8 @@ crannog of a start branch without opening a session.
 crannog apply [branch] [--yes]
 ```
 
+`branch` completes to the start branches of the repository's crannogs.
+
 ## Behavior
 
 - Without a crannog for the branch: an error that points to

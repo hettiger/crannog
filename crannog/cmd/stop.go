@@ -18,7 +18,8 @@ crannog does not ask for confirmation. It asks the programs of the sessions
 to end and waits for them.`,
 	Example: `  crannog stop
   crannog stop feature/x`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeFirstArg(startBranches),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		m, err := crannog.New(newUI(false))
 		if err != nil {

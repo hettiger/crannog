@@ -26,7 +26,8 @@ code.`,
   crannog ssh feature/x
   crannog ssh -- git status
   crannog ssh feature/x -- npm test`,
-	Args: branchAndCommandArgs,
+	Args:              branchAndCommandArgs,
+	ValidArgsFunction: completeFirstArg(startBranches),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		branch, command := splitBranchAndCommand(cmd, args)
 		m, err := crannog.New(newUI(false))

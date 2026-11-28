@@ -14,6 +14,8 @@ Writes a preset to `.crannog/` in the current worktree.
 crannog preset publish [name] [--yes]
 ```
 
+`name` completes to the preset names, bundled and user.
+
 ## Behavior
 
 - Without a name, shows a picker of all presets; without a terminal that is

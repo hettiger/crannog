@@ -19,7 +19,8 @@ New content needs your approval. If only iron-proxy.yaml changed, crannog
 reloads the proxy and running sessions continue with the new rules.
 Otherwise it rebuilds the crannog, which ends running sessions; it asks
 before that. A rebuilt crannog starts with the next session.`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeFirstArg(startBranches),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		m, err := crannog.New(newUI(applyYes))
 		if err != nil {

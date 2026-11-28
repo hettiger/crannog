@@ -162,6 +162,21 @@ func HasBranch(dir, branch string) (bool, error) {
 	return err == nil, err
 }
 
+// Branches returns the names of the local branches, sorted. A tag or
+// remote-tracking branch of the same name does not change a name, as it
+// would with %(refname:short).
+func Branches(dir string) ([]string, error) {
+	out, err := run(dir, "for-each-ref", "--format=%(refname)", "refs/heads/")
+	if err != nil || out == "" {
+		return nil, err
+	}
+	var branches []string
+	for _, ref := range strings.Split(out, "\n") {
+		branches = append(branches, strings.TrimPrefix(ref, "refs/heads/"))
+	}
+	return branches, nil
+}
+
 // BranchCommit returns the abbreviated hash of the commit of a local
 // branch.
 func BranchCommit(dir, branch string) (string, error) {

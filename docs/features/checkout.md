@@ -21,7 +21,8 @@ crannog checkout -d [branch] [-- command...] [--yes]
 The command after `--` replaces `session.command`; each argument is passed
 unchanged (`crannog checkout -- claude -p "say hi"`). `--yes` answers
 confirmations, never setup approvals. `-d` (`--detach`) starts a
-[detached session](#detached-sessions).
+[detached session](#detached-sessions). `branch` completes to the local
+branches.
 
 ## Behavior
 

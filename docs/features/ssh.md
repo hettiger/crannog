@@ -41,7 +41,8 @@ crannog ssh [branch] [-- command...]
 
 Opens the agent's login shell in the repository in the crannog of
 `branch` (default: the checked-out branch), or runs the command after `--`
-there, with a terminal if crannog runs in one:
+there, with a terminal if crannog runs in one. `branch` completes to the
+start branches of the repository's crannogs, running or not:
 
 ```sh
 crannog ssh

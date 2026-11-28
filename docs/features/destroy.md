@@ -15,7 +15,8 @@ crannog destroy [branch] [--yes]
 ```
 
 `branch` defaults to the checked-out branch; it may name a branch that no
-longer exists.
+longer exists. It completes to the start branches of the repository's
+crannogs.
 
 ## Behavior
 
