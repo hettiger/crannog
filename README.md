@@ -12,6 +12,7 @@ in and out are causeways you control:
 - **a network proxy:** the crannog reaches only the domains you allow,
   plus services on your Mac that listen on all interfaces (`0.0.0.0`).
 - **mounts**, optionally, for what you decide to share.
+- **SSH**, optionally, for editors and other tools on your Mac.
 
 Claude Code, Codex, OpenCode and Pi come preinstalled, share their logins
 across crannogs and can call each other. They run without permission
@@ -73,6 +74,26 @@ git push crannog-<slug> main          # your new commits into the crannog
 | `crannog list` | Lists the repository's crannogs |
 | `crannog preset publish [name]` | Writes a preset to `.crannog/` |
 | `crannog preset list` | Lists all presets |
+
+## Tools on your Mac
+
+Editors with remote development (Zed, PhpStorm), terminal multiplexers and
+`ssh` reach a running crannog over SSH, without a network port. Enable it
+once by adding this line at the top of `~/.ssh/config`:
+
+```
+Include ~/.crannog/ssh/config
+```
+
+crannog never edits `~/.ssh` itself. Then connect to the name `crannog list`
+shows under `SSH HOST`:
+
+```sh
+crannog checkout -d
+ssh crannog-1a2b3c4d-main-3f2a1b0c
+```
+
+See [SSH causeway](docs/features/ssh.md) for Zed, Rex and caveats.
 
 ## Configuration
 

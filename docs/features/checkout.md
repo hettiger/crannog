@@ -129,7 +129,8 @@ as it happens.
 
 `crannog checkout -d` does steps 1 to 6, with the same questions. Then it
 registers the session, starts the command in the background, says that the
-crannog runs in the background and how to stop it, and exits with 0. It
+crannog runs in the background, how to stop it and the host name to
+connect to over the [SSH causeway](ssh.md), and exits with 0. It
 does not wait for the command and stops nothing.
 
 - The command is the one after `--`. Without one, the session runs
