@@ -2,6 +2,7 @@ package repository
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,4 +97,11 @@ func TestMainWorktree(t *testing.T) {
 	p, err := mainWorktree("worktree /a b\nHEAD 123\nbranch refs/heads/main\n\nworktree /c\n")
 	require.NoError(t, err)
 	assert.Equal(t, "/a b", p)
+}
+
+func TestValidID(t *testing.T) {
+	assert.True(t, ValidID(ID("/repo/.git")))
+	for _, s := range []string{"", "abc", strings.Repeat("A", 64), strings.Repeat("a", 63), strings.Repeat("a", 65), strings.Repeat("g", 64), "../" + strings.Repeat("a", 61)} {
+		assert.False(t, ValidID(s), s)
+	}
 }

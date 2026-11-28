@@ -29,7 +29,8 @@ Used automatically. `crannog preset publish default` writes it to
   `*.openai.com`, `*.chatgpt.com`, `opencode.ai`, `models.opencode.ai`,
   `pi.dev`, `registry.npmjs.org`, `deb.debian.org` (also serves Debian's
   security updates).
-- **`container/`:** Debian trixie with the four agents and Node.js 24.
+- **`container/`:** Debian trixie with the four agents, Node.js 24 and
+  OpenSSH's server for the [SSH causeway](ssh.md) (no service runs).
   `/etc/sudoers.d/proxy` keeps the proxy variables for `sudo`; apt sources
   stay `http://`. The entrypoint trusts the CA, owns the volumes, creates
   `/state/codex` and `/state/opencode` (they must match `CODEX_SQLITE_HOME`

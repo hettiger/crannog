@@ -3,10 +3,12 @@
 FROM debian:trixie-slim
 
 # --- Base --------------------------------------------------------------------
+# openssh-server serves the SSH causeway: crannog runs sshd -i per
+# connection through container exec, no SSH service runs.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl git sudo zsh procps iproute2 netcat-openbsd \
-      xz-utils unzip less bubblewrap ripgrep fd-find \
+      xz-utils unzip less bubblewrap ripgrep fd-find openssh-server \
  && rm -rf /var/lib/apt/lists/* \
  && ln -s /usr/bin/fdfind /usr/local/bin/fd
 

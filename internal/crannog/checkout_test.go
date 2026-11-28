@@ -344,7 +344,7 @@ func TestCheckoutRemovesAnInterruptedBuild(t *testing.T) {
 	require.NoError(t, f.m.CrannogHome.Root.Remove(filepath.Join(tg.dir.path, hashFile)))
 	list, err := f.m.List()
 	require.NoError(t, err)
-	assert.Equal(t, []Info{{Branch: "main", Status: StatusIncomplete}}, list)
+	assert.Equal(t, []Info{{Branch: "main", Status: StatusIncomplete, SSHHost: tg.names.Container}}, list)
 
 	f.rt.calls = nil
 	_, err = f.m.Checkout("", []string{"true"})

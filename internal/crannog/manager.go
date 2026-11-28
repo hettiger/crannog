@@ -33,11 +33,19 @@ type Manager struct {
 	LookupEnv func(string) (string, bool)
 	// UserHome is the user's home directory, for ~/ in mounts.
 	UserHome string
+	// Executable is the path of the running crannog binary, which the
+	// ProxyCommand of the SSH causeway runs.
+	Executable string
+	// ContainerCLI is the path of the container CLI, which the
+	// ProxyCommand passes on: apps started from the Dock have a short PATH
+	// without it.
+	ContainerCLI string
 }
 
 // New returns a manager for the repository of the current directory.
 func New(u *ui.UI) (*Manager, error) {
-	if err := runtime.CheckCLI(); err != nil {
+	containerCLI, err := runtime.LookPathCLI()
+	if err != nil {
 		return nil, err
 	}
 	cwd, err := os.Getwd()
@@ -56,13 +64,19 @@ func New(u *ui.UI) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
 	return &Manager{
-		CrannogHome: h,
-		Repo:        repo,
-		Runtime:     runtime.CLI{Progress: u.Out},
-		UI:          u,
-		LookupEnv:   os.LookupEnv,
-		UserHome:    userHome,
+		CrannogHome:  h,
+		Repo:         repo,
+		Runtime:      runtime.CLI{Progress: u.Out, Path: containerCLI},
+		UI:           u,
+		LookupEnv:    os.LookupEnv,
+		UserHome:     userHome,
+		Executable:   exe,
+		ContainerCLI: containerCLI,
 	}, nil
 }
 

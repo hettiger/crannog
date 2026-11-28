@@ -454,7 +454,7 @@ func TestSelfRepairSkipsLockedCrannogs(t *testing.T) {
 func TestList(t *testing.T) {
 	f := newFixture(t)
 	s := defaultSetup(t)
-	f.existing("main", s)
+	main := f.existing("main", s)
 	b := f.existing("feature/x", s)
 	f.rt.containers[b.names.Container].State = runtime.StateRunning
 	sess, _, err := b.dir.registerSession("true", false)
@@ -468,10 +468,10 @@ func TestList(t *testing.T) {
 	list, err := f.m.List()
 	require.NoError(t, err)
 	assert.Equal(t, []Info{
-		{Branch: "feature/x", Status: runtime.StateRunning, Sessions: 1},
-		{Branch: "gone", Status: StatusMissing},
-		{Branch: "half", Status: StatusIncomplete},
-		{Branch: "main", Status: runtime.StateStopped},
+		{Branch: "feature/x", Status: runtime.StateRunning, Sessions: 1, SSHHost: b.names.Container},
+		{Branch: "gone", Status: StatusMissing, SSHHost: gone.names.Container},
+		{Branch: "half", Status: StatusIncomplete, SSHHost: half.names.Container},
+		{Branch: "main", Status: runtime.StateStopped, SSHHost: main.names.Container},
 	}, list)
 }
 

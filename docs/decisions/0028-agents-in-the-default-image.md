@@ -19,7 +19,9 @@ start need the network through the proxy and must trust the crannog's CA.
   ([ADR 0029](0029-managed-instructions-block.md)).
 - **Default image:** the `default` preset's Dockerfile installs all four
   agents, one block per agent that can be removed on its own. It is based on
-  Debian with zsh, Node.js (required by Pi), ripgrep, fd and bubblewrap.
+  Debian with zsh, Node.js (required by Pi), ripgrep, fd, bubblewrap and
+  OpenSSH's server for the SSH causeway
+  ([ADR 0032](0032-ssh-causeway.md)), which runs only per connection.
   Agents are installed with their official installers as the agent user, so
   they can update themselves; auto-updates stay enabled.
 - **Environment in `config.yml`:** the agent home variables, the proxy

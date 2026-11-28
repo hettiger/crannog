@@ -6,6 +6,7 @@ someone wants to achieve with crannog, independent of how it is implemented.
 | Use case | Actor | Features |
 | -------- | ----- | -------- |
 | [Let a coding agent work autonomously](autonomous-agent.md) | User | [checkout](../features/checkout.md), [apply](../features/apply.md), [stop](../features/stop.md), [destroy](../features/destroy.md), [list](../features/list.md), [preset publish](../features/preset-publish.md), [git-remote-crannog](../features/git-remote-crannog.md), [default preset](../features/default-preset.md), [setup](../features/setup.md) |
+| [Work in a crannog with tools on the host](host-tools.md) | User | [SSH causeway](../features/ssh.md), [checkout](../features/checkout.md), [list](../features/list.md), [stop](../features/stop.md) |
 
 <!--
 Use case file format:

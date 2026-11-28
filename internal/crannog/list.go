@@ -16,6 +16,8 @@ type Info struct {
 	Branch   string
 	Status   string
 	Sessions int
+	// SSHHost is the name of the crannog's Host block for the SSH causeway.
+	SSHHost string
 }
 
 // Statuses shown by crannog list besides the runtime's states.
@@ -52,7 +54,7 @@ func (m *Manager) List() ([]Info, error) {
 			return nil, err
 		}
 		n := naming.New(m.Repo.ID8(), s)
-		info := Info{Branch: branch}
+		info := Info{Branch: branch, SSHHost: n.Container}
 		c, ok := byName[n.Container]
 		switch {
 		case hash == "":

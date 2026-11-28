@@ -3,11 +3,12 @@
 # End-to-end smoke test of crannog on macOS 26 / Apple Silicon with Apple
 # Containers. Builds real crannogs from a temporary repository with the
 # default preset and checks checkout, sessions, the git causeway, the proxy
-# causeway, detached sessions, stop, apply (reload and rebuild), list, destroy
-# and self-repair.
+# causeway, detached sessions, stop, the SSH causeway, apply (reload and
+# rebuild), list, destroy and self-repair.
 #
 # Uses the real ~/.crannog: the managed instructions blocks land in your
-# agent homes, as with any crannog. Crannogs are destroyed afterwards;
+# agent homes, as with any crannog. SSH runs with a config of its own that
+# includes ~/.crannog/ssh/config; ~/.ssh is not touched. Crannogs are destroyed afterwards;
 # approved setups and images are kept, as with crannog destroy.
 #
 # Run it in a terminal: some steps ask for a setup approval (answer Yes).
@@ -252,9 +253,40 @@ check "stop without a crannog fails" fail cn stop feature/smoke
 check "checkout -d with a command that ends by itself" ok cn checkout -d -- true
 check "next crannog call stops the crannog without sessions" ok wait_until is_stopped main
 
-# --- 6. Setup changes ---------------------------------------------------------
+# --- 6. SSH causeway ----------------------------------------------------------
 
-say "6. preset publish, approvals, apply"
+say "6. SSH causeway"
+SSH_HOST="$(cn list 2>/dev/null | awk '$1 == "main" { print $4 }')"
+info "SSH host: $SSH_HOST"
+# The user's side: an include of crannog's config, and a Host * that would
+# forward the agent if the crannog's Host block did not forbid it.
+SSH_CONFIG="$WORK/ssh_config"
+printf 'Include %s/.crannog/ssh/config\nHost *\n  ForwardAgent yes\n' "$HOME" >"$SSH_CONFIG"
+in_ssh() { ssh -F "$SSH_CONFIG" -o BatchMode=yes "$SSH_HOST" "$@" </dev/null; }
+check "ssh to a stopped crannog fails and names checkout -d" ok has 'crannog checkout -d main' in_ssh true
+check "checkout -d starts the crannog" ok cn checkout -d
+check "ssh runs as agent" ok in_ssh '[ "$(id -un)" = agent ]'
+check "the session has the proxy variables and the image's PATH" ok in_ssh \
+  '[ "$HTTPS_PROXY" = http://crannog-proxy:8080 ] && command -v claude'
+check "the network works through the proxy" ok in_ssh 'curl -fsS -m 30 -o /dev/null https://registry.npmjs.org/'
+check "no agent forwarding despite ForwardAgent yes" ok in_ssh '[ -z "${SSH_AUTH_SOCK:-}" ]'
+check "the repository is there" ok in_ssh "git -C '$REPO_IN' rev-parse --verify -q HEAD"
+echo scp >"$WORK/scp.txt"
+check "scp into the crannog" ok scp -q -F "$SSH_CONFIG" -o BatchMode=yes "$WORK/scp.txt" "$SSH_HOST:/tmp/scp.txt"
+check "sftp out of the crannog" ok sftp -q -F "$SSH_CONFIG" -o BatchMode=yes -b - "$SSH_HOST" <<<"get /tmp/scp.txt $WORK/sftp.txt"
+check "the file made the round trip" ok cmp "$WORK/scp.txt" "$WORK/sftp.txt"
+check "an SSH connection is not a session" ok [ "$(status_of main)" = "running 1" ]
+in_ssh 'sleep 600' >/dev/null 2>&1 &
+SSH_BG=$!
+sleep 2
+check "crannog stop ends the SSH connection" ok cn stop
+check "the ssh process ended" ok wait_until sh -c "! kill -0 $SSH_BG"
+wait "$SSH_BG" 2>/dev/null
+check "crannog stopped" ok is_stopped main
+
+# --- 7. Setup changes ---------------------------------------------------------
+
+say "7. preset publish, approvals, apply"
 check "preset publish default writes .crannog/" ok cn preset publish default
 check "preset publish asks before replacing (no terminal: error)" fail cn preset publish default
 check "content equal to the preset needs no approval" ok has 'up to date' cn apply
@@ -290,18 +322,18 @@ g switch -q feature/smoke
 check "setup of a branch that is not checked out is read from its commit" ok has 'Using .crannog/ from main (commit' cn apply main
 g switch -q main
 
-# --- 7. Second crannog, list --------------------------------------------------
+# --- 8. Second crannog, list --------------------------------------------------
 
-say "7. A second crannog"
+say "8. A second crannog"
 SECONDS=0
 check "checkout feature/smoke (preset, image cached)" ok cn checkout feature/smoke -- sh -c '[ "$(git symbolic-ref --short HEAD)" = feature/smoke ]'
 info "second crannog took ${SECONDS}s"
 check "crannog list shows feature/smoke" ok has '^feature/smoke' cn list
 check "crannog list shows main" ok has '^main' cn list
 
-# --- 8. Destroy ---------------------------------------------------------------
+# --- 9. Destroy ---------------------------------------------------------------
 
-say "8. Destroy"
+say "9. Destroy"
 check "destroy without a terminal and without --yes fails" fail cn destroy main
 check "crannog still stopped" ok [ "$(status_of main)" = "stopped 0" ]
 check "destroy main" ok cn destroy --yes main
@@ -324,6 +356,9 @@ cat <<EOF
    A detached session survives its terminal: run in a new terminal window
      cd $REPO && crannog checkout -d
    close the window, then here: crannog list (running, 1 session), crannog stop
+   Zed over the SSH causeway: add "Include ~/.crannog/ssh/config" at the
+   top of ~/.ssh/config, run cd $REPO && crannog checkout -d, then
+     zed ssh://$SSH_HOST$REPO_IN
    OpenCode reads AGENTS.md from OPENCODE_CONFIG_DIR? Ask it in a session:
      crannog checkout -- opencode run "Quote the crannog section of your instructions"
    Run with --keep to try these before the cleanup.

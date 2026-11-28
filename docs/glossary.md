@@ -64,7 +64,7 @@ directory; users never type it.
 
 A connection between the host and a crannog, configured and controlled by the
 user. Causeways are the only way into and out of a crannog. Kinds: git
-causeway, proxy causeway, mount causeway.
+causeway, proxy causeway, mount causeway, SSH causeway.
 
 - **Not to be confused with:** bridge (not used as a term)
 
@@ -200,6 +200,18 @@ identifies approved setups. The image name uses the same hash computed over
 `container/` alone (`crannog-<hash12>`).
 
 - **In code:** `Setup.Hash`
+
+## SSH causeway
+
+An optional causeway through which SSH-based tools on the host (IDEs,
+terminal multiplexers, `ssh`) reach a crannog. It runs over
+`container exec` without a network port; the user enables it by including
+`~/.crannog/ssh/config` in their SSH configuration or copying entries from
+it.
+
+- **Not to be confused with:** a session; an SSH connection does not keep
+  a crannog running
+- **In code:** `crannog ssh-proxy`, `prepareSSH`, `SSHProxy`
 
 ## Start branch
 

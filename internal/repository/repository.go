@@ -90,6 +90,13 @@ func ID(commonDir string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// ValidID reports whether s has the form of a repository id: 64 lowercase
+// hex characters. Ids from outside, e.g. a command's arguments, must be
+// valid before they name a directory or a runtime object.
+func ValidID(s string) bool {
+	return len(s) == 2*sha256.Size && strings.Trim(s, "0123456789abcdef") == ""
+}
+
 // ID8 returns the first eight characters of the id, used in runtime names.
 func (r *Repository) ID8() string { return r.ID[:8] }
 

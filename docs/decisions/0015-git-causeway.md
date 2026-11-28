@@ -56,7 +56,9 @@ repository, including `origin`.
   which no session ever ran, and a crannog without its work volume are
   destroyed without the confirmation, unless sessions run.
 - **No changes to `~/.ssh`:** git and crannog's own shell access use
-  `container exec`. SSH is only needed for IDEs.
+  `container exec`. SSH is only needed for tools on the host such as
+  editors; the SSH causeway ([ADR 0032](0032-ssh-causeway.md)) is an
+  opt-in the user adds to their SSH configuration.
 
 A [spike](../spikes/git-causeway/README.md) confirmed the helper on Apple
 Containers.

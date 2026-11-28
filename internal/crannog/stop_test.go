@@ -42,13 +42,14 @@ func TestDetachedCheckoutAndStop(t *testing.T) {
 		"detach " + tg.names.Container + " " + waitCommand,
 	}, withoutExec(f.rt.calls), "started and not stopped")
 	assert.Contains(t, f.out.String(), "The crannog of main runs in the background. Stop it with: crannog stop main")
+	assert.Contains(t, f.out.String(), "Connect over SSH: ssh crannog-")
 	assert.Equal(t, tg.names.Remote, testgit.Git(t, f.dir, "remote"), "the remote stays while the crannog runs")
 	files := sessionFiles(t, tg)
 	require.Len(t, files, 1)
 	assert.Contains(t, files[0], "command: "+waitCommand+"\ndetached: true\nstarted_at: ")
 	list, err := f.m.List()
 	require.NoError(t, err)
-	assert.Equal(t, []Info{{Branch: "main", Status: runtime.StateRunning, Sessions: 1}}, list,
+	assert.Equal(t, []Info{{Branch: "main", Status: runtime.StateRunning, Sessions: 1, SSHHost: tg.names.Container}}, list,
 		"self-repair leaves the crannog alone")
 
 	// Another session next to the detached one: crannog warns as next to
@@ -123,7 +124,7 @@ func TestDetachedSessionThatEndsByItself(t *testing.T) {
 
 	list, err := f.m.List()
 	require.NoError(t, err)
-	assert.Equal(t, []Info{{Branch: "main", Status: runtime.StateStopped}}, list)
+	assert.Equal(t, []Info{{Branch: "main", Status: runtime.StateStopped, SSHHost: tg.names.Container}}, list)
 	assert.Contains(t, f.out.String(), "The crannog of main runs without a session.")
 	assert.Empty(t, testgit.Git(t, f.dir, "remote"))
 }

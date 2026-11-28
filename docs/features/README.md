@@ -14,6 +14,7 @@ One file per feature (`short-name.md`), listed here.
 | [preset publish](preset-publish.md)           | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | Write a preset to `.crannog/`                   |
 | [Seatbelt](seatbelt.md)                       | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | Both binaries can write only where crannog must |
 | [setup](setup.md)                             | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | Format of `.crannog/` and what crannog expects  |
+| [SSH causeway](ssh.md)                        | Implemented | [host-tools](../use-cases/host-tools.md)            | Reach a running crannog with SSH-based tools    |
 | [stop](stop.md)                               | Implemented | [autonomous-agent](../use-cases/autonomous-agent.md) | End the sessions of a crannog and stop it       |
 | [version](version.md)                         | Implemented | –                                                  | Print the crannog version                       |
 

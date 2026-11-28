@@ -110,7 +110,9 @@ a long-running command, or a service the user connects to.
   usually with `crannog stop`. `crannog list` shows it.
 - Loops that start a session per iteration start and stop the VM each time.
 - Processes started in a crannog outside `crannog checkout` (e.g. a manual
-  `container exec`) are not sessions and do not keep the crannog running.
+  `container exec`, or a connection over the SSH causeway,
+  [ADR 0032](0032-ssh-causeway.md)) are not sessions and do not keep the
+  crannog running.
 - If crannog is killed after its session ended, or the command of a
   detached session ends by itself, the crannog keeps running until the next
   crannog call in the repository.

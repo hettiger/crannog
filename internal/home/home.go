@@ -38,6 +38,9 @@ const (
 	Cache = "cache"
 	// Presets holds the user's presets.
 	Presets = "presets"
+	// SSH holds the files of the SSH causeway shared by all crannogs: the
+	// config the user includes and the client key.
+	SSH = "ssh"
 )
 
 // PathFile, in a repository's directory, holds the repository's git common

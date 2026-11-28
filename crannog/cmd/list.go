@@ -14,8 +14,9 @@ import (
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List the repository's crannogs",
-	Long:  `Lists the crannogs of the current repository: start branch, status and running sessions.`,
-	Args:  cobra.NoArgs,
+	Long: `Lists the crannogs of the current repository: start branch, status,
+running sessions and the host name to reach the crannog with SSH.`,
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		m, err := crannog.New(newUI(false))
 		if err != nil {
@@ -29,9 +30,9 @@ var listCmd = &cobra.Command{
 			fmt.Fprintln(cmd.ErrOrStderr(), "No crannogs in this repository. Start one with crannog checkout.")
 			return nil
 		}
-		t := newTable("BRANCH", "STATUS", "SESSIONS")
+		t := newTable("BRANCH", "STATUS", "SESSIONS", "SSH HOST")
 		for _, c := range list {
-			t.Row(c.Branch, c.Status, strconv.Itoa(c.Sessions))
+			t.Row(c.Branch, c.Status, strconv.Itoa(c.Sessions), c.SSHHost)
 		}
 		_, err = lipgloss.Fprintln(cmd.OutOrStdout(), t)
 		return err

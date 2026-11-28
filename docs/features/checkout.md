@@ -2,7 +2,7 @@
 
 - **Status:** Implemented
 - **Use cases:** [Let a coding agent work autonomously](../use-cases/autonomous-agent.md)
-- **Decisions:** [0010](../decisions/0010-proxy-address.md), [0013](../decisions/0013-host-file-access.md), [0014](../decisions/0014-host-stays-out-of-guest-writable-directories.md), [0015](../decisions/0015-git-causeway.md), [0016](../decisions/0016-git-author-from-the-host.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0020](../decisions/0020-readiness-marker.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0022](../decisions/0022-rebuilds.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0025](../decisions/0025-configuration-schema.md), [0026](../decisions/0026-presets.md), [0027](../decisions/0027-cli-commands.md), [0029](../decisions/0029-managed-instructions-block.md)
+- **Decisions:** [0010](../decisions/0010-proxy-address.md), [0013](../decisions/0013-host-file-access.md), [0014](../decisions/0014-host-stays-out-of-guest-writable-directories.md), [0015](../decisions/0015-git-causeway.md), [0016](../decisions/0016-git-author-from-the-host.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0020](../decisions/0020-readiness-marker.md), [0021](../decisions/0021-crannog-state-on-the-host.md), [0022](../decisions/0022-rebuilds.md), [0023](../decisions/0023-repository-configuration.md), [0024](../decisions/0024-setup-approval.md), [0025](../decisions/0025-configuration-schema.md), [0026](../decisions/0026-presets.md), [0027](../decisions/0027-cli-commands.md), [0029](../decisions/0029-managed-instructions-block.md), [0032](../decisions/0032-ssh-causeway.md)
 
 ## Summary
 
@@ -79,6 +79,8 @@ confirmations, never setup approvals. `-d` (`--detach`) starts a
 6. Before the session: writes `crannog-proxy` to `/etc/hosts`, mirrors
    `user.name` and `user.email` of the host repository and updates the
    managed instructions block in each agent home, from inside the crannog.
+   Prepares the [SSH causeway](ssh.md): its keys and Host block on the
+   host, its keys in the crannog. If that fails, it warns and goes on.
 7. Registers the session (`sessions/<uuid>.yml`, locked), releases the lock and
    runs the command as `agent` in the agent's login shell in the
    repository, with a terminal if stdin and stdout are terminals. crannog
@@ -118,7 +120,7 @@ detached session by the next crannog command in the repository.
 The 60-second deadline for the proxy health and the readiness marker
 ([ADR 0020](../decisions/0020-readiness-marker.md)) also ends a probe that
 hangs, and bounds every command crannog runs in the crannog before the
-session (`/etc/hosts`, git author, instruction files) and `container list`.
+session (`/etc/hosts`, git author, instruction files, SSH keys) and `container list`.
 Building the image, pulling the proxy image, the repository transfer and
 the session itself have no timeout. The output of build and pull is shown
 as it happens.
@@ -127,7 +129,8 @@ as it happens.
 
 `crannog checkout -d` does steps 1 to 6, with the same questions. Then it
 registers the session, starts the command in the background, says that the
-crannog runs in the background and how to stop it, and exits with 0. It
+crannog runs in the background, how to stop it and the host name to
+connect to over the [SSH causeway](ssh.md), and exits with 0. It
 does not wait for the command and stops nothing.
 
 - The command is the one after `--`. Without one, the session runs
