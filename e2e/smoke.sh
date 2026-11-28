@@ -264,7 +264,20 @@ SSH_CONFIG="$WORK/ssh_config"
 printf 'Include %s/.crannog/ssh/config\nHost *\n  ForwardAgent yes\n' "$HOME" >"$SSH_CONFIG"
 in_ssh() { ssh -F "$SSH_CONFIG" -o BatchMode=yes "$SSH_HOST" "$@" </dev/null; }
 check "ssh to a stopped crannog fails and names checkout -d" ok has 'crannog checkout -d main' in_ssh true
+check "crannog ssh to a stopped crannog fails and names checkout -d" ok has 'crannog checkout -d main' cn ssh
 check "checkout -d starts the crannog" ok cn checkout -d
+# crannog ssh runs ssh with your ~/.ssh/config: with the Include it
+# connects, without it it names the line to add.
+ssh_exit_code() { cn ssh -- sh -c 'exit 3'; [ $? -eq 3 ]; }
+if ssh -G "$SSH_HOST" 2>/dev/null | grep -q '^proxycommand .* ssh-proxy '; then
+  info "~/.ssh/config includes crannog's config"
+  check "crannog ssh runs the command in the repository" ok has "^$REPO_IN\$" cn ssh -- pwd
+  check "crannog ssh passes the arguments unchanged" ok has '^\[a b\]\[\$HOME\]$' cn ssh -- printf '[%s]' 'a b' '$HOME'
+  check "crannog ssh exits with the command's exit code" ok ssh_exit_code
+else
+  info "~/.ssh/config does not include crannog's config"
+  check "crannog ssh names the Include line" ok has 'Include ~/.crannog/ssh/config' cn ssh -- true
+fi
 check "ssh runs as agent" ok in_ssh '[ "$(id -un)" = agent ]'
 check "the session has the proxy variables and the image's PATH" ok in_ssh \
   '[ "$HTTPS_PROXY" = http://crannog-proxy:8080 ] && command -v claude'
@@ -356,8 +369,10 @@ cat <<EOF
    A detached session survives its terminal: run in a new terminal window
      cd $REPO && crannog checkout -d
    close the window, then here: crannog list (running, 1 session), crannog stop
-   Zed over the SSH causeway: add "Include ~/.crannog/ssh/config" at the
-   top of ~/.ssh/config, run cd $REPO && crannog checkout -d, then
+   SSH: add "Include ~/.crannog/ssh/config" at the top of ~/.ssh/config,
+   run cd $REPO && crannog checkout -d, then
+     crannog ssh                (a login shell in the repository, with a TTY)
+     crannog ssh -- claude      (a command with a TTY)
      zed ssh://$SSH_HOST$REPO_IN
    OpenCode reads AGENTS.md from OPENCODE_CONFIG_DIR? Ask it in a session:
      crannog checkout -- opencode run "Quote the crannog section of your instructions"

@@ -36,21 +36,9 @@ output is discarded. crannog stop ends it.`,
   crannog checkout -- claude -p "Fix the failing test"
   crannog checkout -d
   crannog checkout -d feature/x -- npm run dev`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if branchArgs(cmd, args) > 1 {
-			return errors.New("takes at most one branch; put the command after --")
-		}
-		return nil
-	},
+	Args: branchAndCommandArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		branch, command := "", []string(nil)
-		n := branchArgs(cmd, args)
-		if n == 1 {
-			branch = args[0]
-		}
-		if cmd.ArgsLenAtDash() >= 0 {
-			command = args[n:]
-		}
+		branch, command := splitBranchAndCommand(cmd, args)
 		m, err := crannog.New(newUI(checkoutYes))
 		if err != nil {
 			return err
@@ -69,6 +57,28 @@ func branchArgs(cmd *cobra.Command, args []string) int {
 		return dash
 	}
 	return len(args)
+}
+
+// branchAndCommandArgs accepts [branch] [-- command...].
+func branchAndCommandArgs(cmd *cobra.Command, args []string) error {
+	if branchArgs(cmd, args) > 1 {
+		return errors.New("takes at most one branch; put the command after --")
+	}
+	return nil
+}
+
+// splitBranchAndCommand returns the branch, or "", and the command after
+// --, or nil, of [branch] [-- command...].
+func splitBranchAndCommand(cmd *cobra.Command, args []string) (string, []string) {
+	branch, command := "", []string(nil)
+	n := branchArgs(cmd, args)
+	if n == 1 {
+		branch = args[0]
+	}
+	if cmd.ArgsLenAtDash() >= 0 {
+		command = args[n:]
+	}
+	return branch, command
 }
 
 func init() {

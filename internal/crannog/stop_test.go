@@ -42,7 +42,8 @@ func TestDetachedCheckoutAndStop(t *testing.T) {
 		"detach " + tg.names.Container + " " + waitCommand,
 	}, withoutExec(f.rt.calls), "started and not stopped")
 	assert.Contains(t, f.out.String(), "The crannog of main runs in the background. Stop it with: crannog stop main")
-	assert.Contains(t, f.out.String(), "Connect over SSH: ssh crannog-")
+	assert.Contains(t, f.out.String(), "Connect over SSH: crannog ssh main, or ssh "+tg.names.Container+
+		" from other tools (needs Include ~/.crannog/ssh/config in ~/.ssh/config)\n")
 	assert.Equal(t, tg.names.Remote, testgit.Git(t, f.dir, "remote"), "the remote stays while the crannog runs")
 	files := sessionFiles(t, tg)
 	require.Len(t, files, 1)

@@ -4,6 +4,7 @@ package crannog
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/hettiger/crannog/internal/git"
 	"github.com/hettiger/crannog/internal/home"
 	"github.com/hettiger/crannog/internal/naming"
+	"github.com/hettiger/crannog/internal/openssh"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/setup"
@@ -40,6 +42,18 @@ type Manager struct {
 	// ProxyCommand passes on: apps started from the Dock have a short PATH
 	// without it.
 	ContainerCLI string
+	// SSHClient runs ssh on the host for crannog ssh.
+	SSHClient SSHClient
+}
+
+// SSHClient runs the system ssh with the user's SSH configuration
+// (package openssh).
+type SSHClient interface {
+	// Config returns the options ssh would use for host, by option name
+	// in lower case.
+	Config(ctx context.Context, host string) (map[string][]string, error)
+	// Replace replaces this process with ssh to host.
+	Replace(host string, o openssh.Options) error
 }
 
 // New returns a manager for the repository of the current directory.
@@ -77,6 +91,7 @@ func New(u *ui.UI) (*Manager, error) {
 		UserHome:     userHome,
 		Executable:   exe,
 		ContainerCLI: containerCLI,
+		SSHClient:    openssh.Client{},
 	}, nil
 }
 

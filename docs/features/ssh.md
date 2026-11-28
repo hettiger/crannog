@@ -2,13 +2,14 @@
 
 - **Status:** Implemented
 - **Use cases:** [Work in a crannog with tools on the host](../use-cases/host-tools.md)
-- **Decisions:** [0032](../decisions/0032-ssh-causeway.md), [0014](../decisions/0014-host-stays-out-of-guest-writable-directories.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0021](../decisions/0021-crannog-state-on-the-host.md)
+- **Decisions:** [0032](../decisions/0032-ssh-causeway.md), [0027](../decisions/0027-cli-commands.md), [0014](../decisions/0014-host-stays-out-of-guest-writable-directories.md), [0019](../decisions/0019-sessions-and-auto-stop.md), [0021](../decisions/0021-crannog-state-on-the-host.md)
 
 ## Summary
 
 Lets SSH-based tools on the host reach a running crannog by name: `ssh`,
 `scp`, `sftp`, editors with remote development (e.g. Zed) and terminal
 multiplexers. It runs over `container exec`, without a network port.
+`crannog ssh` opens a shell in a crannog over it.
 
 ## Usage
 
@@ -30,6 +31,21 @@ Then start the crannog and connect to the name `crannog list` shows under
 crannog checkout -d
 crannog list
 ssh crannog-1a2b3c4d-main-3f2a1b0c
+```
+
+### crannog ssh
+
+```sh
+crannog ssh [branch] [-- command...]
+```
+
+Opens the agent's login shell in the repository in the crannog of
+`branch` (default: the checked-out branch), or runs the command after `--`
+there, with a terminal if crannog runs in one:
+
+```sh
+crannog ssh
+crannog ssh feature/x -- npm test
 ```
 
 ### Zed
@@ -108,6 +124,26 @@ The server runs until the crannog stops. Add the host in Rex with
   variables sshd sets itself and values with quotes, backslashes or
   control characters) and serves sftp internally. An image without sshd
   fails the connection with a message.
+- **`crannog ssh`:**
+  1. Fails if the branch has no crannog
+     (`there is no crannog for <branch>`) or if it is not running, with
+     the same message as `ssh-proxy`. It never starts a crannog.
+  2. Fails if the crannog has no Host block yet:
+     `SSH to the crannog of <branch> is not prepared; the next crannog
+     checkout of it prepares it`.
+  3. Runs `ssh -G <host>` and checks that the `ProxyCommand` ssh would
+     use is crannog's `ssh-proxy` of this crannog (from any crannog
+     binary, so copied Host blocks count). Otherwise it fails with
+     `ssh does not use crannog's Host block for <host>. Add this line at
+     the top of ~/.ssh/config, before any Host or Match block:` and the
+     `Include` line.
+  4. Replaces itself with
+     `ssh -o ControlPath=none -t|-T <host> <command>`: `-t` if stdin and
+     stdout are terminals, else `-T`. The agent's shell runs
+     `cd <repository> && exec "$SHELL" -l`, with `-c` and the command after
+     `--`, each argument quoted for the shell, like a session's. A
+     control socket from your SSH configuration could not be created in
+     Seatbelt, hence `ControlPath=none`. ssh's exit code is crannog's.
 - **Not a session:** connections do not count in `crannog list` and do
   not keep the crannog running. They end when the crannog stops: after
   its last session, with `crannog stop`, a rebuild or `destroy`.

@@ -36,6 +36,15 @@ user's keys or ssh-agent to a crannog ([ADR 0015](0015-git-causeway.md)).
   copies single Host blocks. crannog works without it. Then every tool
   that runs the system `ssh` reaches crannogs by name, and tools with a
   client of their own if it supports `ProxyCommand`.
+- **crannog's own commands use the user's `ssh` too:** `crannog ssh` and
+  the tools of `crannog use` ([ADR 0027](0027-cli-commands.md)) run the
+  system `ssh` with the user's configuration, so they need the `Include`
+  like every other tool. Before connecting, they ask `ssh -G` for the
+  crannog's host: if its `ProxyCommand` is not crannog's `ssh-proxy` of
+  that crannog, they fail and name the line to add. `crannog ssh` passes
+  `ControlPath=none`: a control socket of the user's configuration in
+  `~/.ssh` cannot be created in Seatbelt
+  ([ADR 0030](0030-seatbelt.md)).
 - **Host name:** the crannog's runtime name, `crannog-<id8>-<slug>`
   ([ADR 0017](0017-one-crannog-per-start-branch.md)). `crannog list`
   shows it.
@@ -92,6 +101,10 @@ user's keys or ssh-agent to a crannog ([ADR 0015](0015-git-causeway.md)).
   to trust the host.
 - **One `hosts/` directory for all Host blocks:** `destroy` would have to
   remove entries, and concurrent checkouts would share files.
+- **`crannog ssh` with `-F` and crannog's config instead of the
+  `Include`:** would work without the `Include`, but without the user's
+  own settings, and hide that the tools of `crannog use` and editors
+  need it.
 - **Writing to `~/.ssh/config` or `known_hosts`:** a broken entry affects
   every SSH connection of the user ([ADR 0015](0015-git-causeway.md)).
 - **`ssh-keygen` on the host** for keys: one more program crannog starts

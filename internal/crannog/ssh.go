@@ -19,6 +19,7 @@ import (
 	"github.com/hettiger/crannog/internal/home"
 	"github.com/hettiger/crannog/internal/hostfs"
 	"github.com/hettiger/crannog/internal/naming"
+	"github.com/hettiger/crannog/internal/openssh"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/shell"
@@ -115,9 +116,12 @@ func (m *Manager) writeSSHInclude() error {
 // hosts can follow the Include; it does not remove quotes.
 const crannogHomeInSSHConfig = "~/.crannog"
 
+// includeLine is the line users add at the top of ~/.ssh/config.
+var includeLine = "Include " + filepath.Join(crannogHomeInSSHConfig, home.SSH, sshConfigFile)
+
 // includeConfig is ~/.crannog/ssh/config.
 var includeConfig = "# Written by crannog. Include it at the top of ~/.ssh/config to reach\n" +
-	"# crannogs with SSH:  Include ~/.crannog/ssh/config\n" +
+	"# crannogs with SSH:  " + includeLine + "\n" +
 	"Include " + filepath.Join(crannogHomeInSSHConfig, home.CrannogPath("*", "*"), sshDir, sshConfigFile) + "\n"
 
 // privateDir opens the directory name in parent, creating it readable by
@@ -394,10 +398,85 @@ func SSHProxy(h home.CrannogHome, rt runtime.Runtime, replace ReplaceFunc, id, b
 		return err
 	}
 	if !hasRunning(list, n.Container) {
-		return fmt.Errorf("the crannog of %s%s is not running; start it with: crannog checkout -d %s",
-			branch, repositoryHint(h, id), shell.Quote(branch))
+		return errNotRunning(branch, repositoryHint(h, id))
 	}
 	return replace(n.Container, runtime.ExecOptions{User: AgentUser, Interactive: true}, "sh", "-c", sshdScript)
+}
+
+// errNotRunning says that the crannog of branch does not run and how to
+// start it; in names the repository if it is not the current one.
+func errNotRunning(branch, in string) error {
+	return fmt.Errorf("the crannog of %s%s is not running; start it with: crannog checkout -d %s",
+		branch, in, shell.Quote(branch))
+}
+
+// SSH replaces this process with ssh to the crannog of a start branch,
+// which opens the agent's login shell in the repository or runs command
+// there, like a session (ADR 0027). It is not a session and, like the SSH
+// causeway, never starts a crannog. It only returns on errors.
+func (m *Manager) SSH(branchArg string, command []string) error {
+	t, err := m.sshTarget(branchArg)
+	if err != nil {
+		return err
+	}
+	return m.SSHClient.Replace(t.names.Container, openssh.Options{
+		Terminal: m.UI.Interactive(),
+		Command:  sshCommand(m.Repo.PathInCrannog(), command),
+	})
+}
+
+// sshCommand returns what the agent's shell runs over SSH: it changes to
+// dir and runs command in the login shell, or a login shell. sshd sets
+// $SHELL to the agent's shell.
+func sshCommand(dir string, command []string) string {
+	cd := "cd " + shell.Quote(dir) + ` && exec "$SHELL" -l`
+	if len(command) == 0 {
+		return cd
+	}
+	return cd + " -c " + shell.Quote(shell.Join(command))
+}
+
+// sshTarget returns the crannog of a start branch if it runs and the
+// user's ssh reaches it through its Host block (ADR 0032).
+func (m *Manager) sshTarget(branchArg string) (*target, error) {
+	t, err := m.crannogOf(branchArg)
+	if err != nil {
+		return nil, err
+	}
+	st, err := m.status(t.names)
+	if err != nil {
+		return nil, err
+	}
+	if !st.running() {
+		return nil, errNotRunning(t.branch, "")
+	}
+	if err := m.checkSSHConfig(t); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+// checkSSHConfig fails unless the crannog has a Host block and the user's
+// ssh uses it, which needs the Include in ~/.ssh/config: ssh -G shows the
+// ProxyCommand ssh would run.
+func (m *Manager) checkSSHConfig(t *target) error {
+	_, err := m.CrannogHome.Root.Stat(filepath.Join(t.dir.path, sshDir, sshConfigFile))
+	if errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("SSH to the crannog of %s is not prepared; the next crannog checkout of it prepares it", t.branch)
+	}
+	if err != nil {
+		return err
+	}
+	host := t.names.Container
+	c, err := bounded(func(ctx context.Context) (map[string][]string, error) { return m.SSHClient.Config(ctx, host) })
+	if err != nil {
+		return err
+	}
+	if p := c["proxycommand"]; len(p) != 1 || !strings.Contains(p[0], " ssh-proxy ") || !strings.HasSuffix(p[0], " "+m.Repo.ID+" "+t.names.Slug) {
+		return fmt.Errorf("ssh does not use crannog's Host block for %s. Add this line at the top of ~/.ssh/config, before any Host or Match block:\n  %s",
+			host, includeLine)
+	}
+	return nil
 }
 
 // repositoryHint names the repository of an id for messages, from the git

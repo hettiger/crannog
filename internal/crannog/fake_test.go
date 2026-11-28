@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hettiger/crannog/internal/home"
+	"github.com/hettiger/crannog/internal/openssh"
 	"github.com/hettiger/crannog/internal/repository"
 	"github.com/hettiger/crannog/internal/runtime"
 	"github.com/hettiger/crannog/internal/testfs"
@@ -245,6 +246,7 @@ type fixture struct {
 	dir     string
 	m       *Manager
 	rt      *fakeRuntime
+	ssh     *fakeSSH
 	prompt  *fakePrompter
 	out     *bytes.Buffer
 	hostEnv map[string]string
@@ -266,6 +268,23 @@ func (p *fakePrompter) Wait(_ string, action func(context.Context) error) error 
 	return action(context.Background())
 }
 
+// fakeSSH simulates ssh on the host.
+type fakeSSH struct {
+	// config is what ssh -G prints for any host.
+	config map[string][]string
+	// replaced is the host and options of Replace.
+	replaced []any
+}
+
+func (f *fakeSSH) Config(ctx context.Context, host string) (map[string][]string, error) {
+	return f.config, ctx.Err()
+}
+
+func (f *fakeSSH) Replace(host string, o openssh.Options) error {
+	f.replaced = []any{host, o}
+	return errors.New("replaced")
+}
+
 func newFixture(t *testing.T) *fixture {
 	dir := testgit.Init(t)
 	repo, err := repository.Open(dir)
@@ -274,6 +293,7 @@ func newFixture(t *testing.T) *fixture {
 		t:       t,
 		dir:     dir,
 		rt:      newFakeRuntime(),
+		ssh:     &fakeSSH{config: map[string][]string{}},
 		prompt:  &fakePrompter{},
 		out:     &bytes.Buffer{},
 		hostEnv: map[string]string{},
@@ -296,6 +316,7 @@ func newFixture(t *testing.T) *fixture {
 		UserHome:     userHome,
 		Executable:   "/usr/local/bin/crannog",
 		ContainerCLI: "/usr/local/bin/container",
+		SSHClient:    f.ssh,
 	}
 	return f
 }
